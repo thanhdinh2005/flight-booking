@@ -1,0 +1,53 @@
+services:
+  # -----------------------------
+  # POSTGRES - DATABASE FOR KEYCLOAK
+  # -----------------------------
+  keycloak-db:
+    image: postgres:16
+    container_name: keycloak-db-production
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - booking-net
+
+  # -----------------------------
+  # KEYCLOAK SERVER
+  # -----------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.0
+    container_name: keycloak-oidc
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+    command: start-dev
+
+    ports:
+      - "8080:8080"
+    # depends_on:
+    #   - keycloak-db
+    networks:
+      - booking-net
+
+# -----------------------------
+# VOLUMES
+# -----------------------------
+volumes:
+  keycloak-db-data:
+
+# -----------------------------
+# NETWORK
+# -----------------------------
+networks:
+  booking-net:
+    driver: bridge
