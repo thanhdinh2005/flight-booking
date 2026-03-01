@@ -3,17 +3,27 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Auth\AuthenticationException;
 
+// Get bearer token
 class AuthenticateWithKeycloak
 {
-    public function handle($request, Closure $next)
+    public function __construct(
+        protected VerifyKeycloakToken $verifyService
+    ) {}
+
+    public function handle(Request $request, Closure $next)
     {
         $token = $request->bearerToken();
-        if (!$token) abort(401);
 
-        $payload = app(VerifyKeycloakToken::class)->verify($token);
+        if (!$token) {
+            throw new AuthenticationException('Token missing');
+        }
 
-        $request->attributes->set('principal', $payload);
+        $payload = $this->verifyService->verify($token);
+
+        $request->attributes->set('auth_user', $payload);
 
         return $next($request);
     }

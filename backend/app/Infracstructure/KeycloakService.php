@@ -35,53 +35,52 @@ class KeycloakService
         return $res->json('access_token');
     }
 
-public function createUser(
-    string $email,
-    string $password,
-    string $firstName,
-    string $lastName
-): string {
-    $response = Http::withToken($this->adminToken())
-        ->post("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
-            'username'  => $email,
-            'email'     => $email,
-            'firstName' => $firstName,
-            'lastName'  => $lastName,
-            'enabled'   => true,
-            'credentials' => [[
-                'type'      => 'password',
-                'value'     => $password,
-                'temporary' => false,
-            ]],
-        ]);
+    public function createUser(
+        string $email,
+        string $password,
+        string $firstName,
+        string $lastName
+    ): string {
+        $response = Http::withToken($this->adminToken())
+            ->post("{$this->baseUrl}/admin/realms/{$this->realm}/users", [
+                'username'  => $email,
+                'email'     => $email,
+                'firstName' => $firstName,
+                'lastName'  => $lastName,
+                'enabled'   => true,
+                'credentials' => [[
+                    'type'      => 'password',
+                    'value'     => $password,
+                    'temporary' => false,
+                ]],
+            ]);
 
-    if ($response->status() === 409) {
-        throw new KeycloakUserExistsException();
+        if ($response->status() === 409) {
+            throw new KeycloakUserExistsException();
+        }
+
+        if ($response->failed()) {
+            $message =
+                $response->json('errorMessage')
+                ?? $response->json('error')
+                ?? json_encode($response->json())
+                ?? 'Keycloak error';
+
+            throw new KeycloakBadRequestException($message);
+        }
+
+        $location = $response->header('Location');
+
+        if (!$location) {
+            throw new KeycloakBadRequestException('Missing Location header from Keycloak');
+        }
+
+        return basename($location);
     }
 
-    if ($response->failed()) {
-        $message =
-            $response->json('errorMessage')
-            ?? $response->json('error')
-            ?? json_encode($response->json())
-            ?? 'Keycloak error';
-
-        throw new KeycloakBadRequestException($message);
+    public function deleteUser(string $userId): void
+    {
+        Http::withToken($this->adminToken())
+            ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}");
     }
-
-    $location = $response->header('Location');
-
-    if (!$location) {
-        throw new KeycloakBadRequestException('Missing Location header from Keycloak');
-    }
-
-    return basename($location);
-}
-
-public function deleteUser(string $userId): void
-{
-    Http::withToken($this->adminToken())
-        ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}");
-}
-
 }
