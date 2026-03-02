@@ -12,9 +12,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
+
+            $table->bigIncrements('id');
+
+            // Keycloak subject ID
             $table->uuid('keycloak_id')->unique();
-            $table->string('email')->unique();
+
+            $table->string('email', 255)->unique();
+
+            $table->string('full_name', 50);
+            
+
+            $table->string('phone_number', 20);
+
+            $table->string('role', 50)->default('customer');
+            $table->string('status', 20)->default('active');
+
+            $table->timestamp('disabled_at')->nullable();
+
             $table->timestamps();
         });
     }

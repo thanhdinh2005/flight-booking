@@ -3,19 +3,25 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Auth\Access\AuthorizationException;
 
 class RequireRole
 {
-    public function handle($request, Closure $next, string $role)
+    public function handle(Request $request, Closure $next, string $role)
     {
-        $principal = $request->get('principal');
-        $roles = $principal['realm_access']['roles'] ?? [];
+        $user = $request->attributes->get('auth_user');
+
+        if (!$user) {
+            throw new AuthorizationException('Unauthorized');
+        }
+
+        $roles = $user['realm_access']['roles'] ?? [];
 
         if (!in_array($role, $roles)) {
-            abort(403);
+            throw new AuthorizationException('Forbidden');
         }
 
         return $next($request);
     }
 }
-

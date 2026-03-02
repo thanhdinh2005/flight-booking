@@ -4,21 +4,26 @@ namespace App\Application\UseCases;
 
 use App\Application\Command\Register\CreateKeycloakUserCommand;
 use App\Application\Command\Register\CreateLocalUserCommand;
-use App\Infracstructure\KeycloakService;
+use App\Application\Command\Register\DeleteKeycloakUserCommand;
+use App\Http\Response\UserResponse;
+use Illuminate\Support\Facades\DB;
 
 final class RegisterUserUseCase
 {
     public function __construct(
         private CreateKeycloakUserCommand $createKeycloakUser,
         private CreateLocalUserCommand $createLocalUser,
+        private DeleteKeycloakUserCommand $deleteKeycloakUser,
     ) {}
 
     public function execute(
         string $email,
         string $password,
         string $firstName,
-        string $lastName
-    ): void {
+        string $lastName,
+        string $phoneNumber
+    ): UserResponse {
+        DB::beginTransaction();
         try {
             $keycloakUserId = $this->createKeycloakUser->execute(
             email: $email,
@@ -27,12 +32,29 @@ final class RegisterUserUseCase
             lastName: $lastName
         );
 
-        $this->createLocalUser->execute(
+        $user = $this->createLocalUser->execute(
             email: $email,
+            firstName: $firstName,
+            lastName: $lastName,
+            phoneNumber: $phoneNumber,
             keycloakUserId: $keycloakUserId
         );
+
+        DB::commit();
+        return new UserResponse(
+            $user->id,
+            $user->keycloak_id,
+            $user->email,
+            $user->full_name,
+            $user->role,
+            $user->phone_number,
+            $user->created_at
+        );
         } catch (\Throwable $e) {
-            report($e);
+            DB::rollBack();
+            if (isset($keycloakUserId)) {
+                $this->deleteKeycloakUser->execute($keycloakUserId);
+            }
             throw $e;
         }
     }

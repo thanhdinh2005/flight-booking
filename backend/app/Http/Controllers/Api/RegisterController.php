@@ -11,15 +11,17 @@ class RegisterController extends Controller
 {
     public function register(RegisterRequest $request)
     {
-        app(RegisterUserUseCase::class) -> execute(
+
+        $userResponse = app(RegisterUserUseCase::class) -> execute(
             email: $request->string('email'),
             password: $request->string('password'),
             firstName: $request->string('first_name'),
             lastName: $request->string('last_name'),
+            phoneNumber: $request->string('phone_number')
         );
 
         return ApiResponse::success(
-            'User registered successfully.'
+            $userResponse
         )->toResponse(201);
     }
 }

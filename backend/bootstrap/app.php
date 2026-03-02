@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Exceptions\HttpException;
 use App\Http\Response\ApiResponse;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -34,4 +36,19 @@ return Application::configure(basePath: dirname(__DIR__))
                 collect($e->errors())->flatten()->toArray()
             )->toResponse(409);
         });
+
+        $exceptions->render(function (AuthenticationException $e) {
+            return response()->json([
+                'error' => 'UNAUTHORIZED',
+                'message' => $e->getMessage(),
+            ], 401);
+        });
+
+        $exceptions->render(function (AuthorizationException $e) {
+            return response()->json([
+                'error' => 'FORBIDDEN',
+                'message' => $e->getMessage(),
+            ], 403);
+        });
+
     })->create();

@@ -8,11 +8,23 @@ final class CreateLocalUserCommand
 {
     public function execute(
         string $email,
+        string $firstName,
+        string $lastName,
+        string $phoneNumber,
         string $keycloakUserId
-    ): void {
-        User::create([
+    ): User {
+        return User::create([
             'email' => $email,
             'keycloak_id' => $keycloakUserId,
+            'role' => 'customer',
+            'phone_number' => $phoneNumber,
+            'full_name' => $this->buildFullName($firstName, $lastName),
+            'status' => 'active',
         ]);
+    }
+
+    private function buildFullName(string $firstName, string $lastName): string
+    {
+        return trim("$firstName $lastName");
     }
 }
