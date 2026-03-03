@@ -12,6 +12,7 @@ final class UserResponse
         public string $role,
         public string $phone_number,
         public string $created_at,
+        public string $updated_at,
     ) {}
 }
 

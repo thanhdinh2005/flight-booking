@@ -23,7 +23,11 @@ class AuthenticateWithKeycloak
 
         $payload = $this->verifyService->verify($token);
 
-        $request->attributes->set('auth_user', $payload);
+        if (!isset($payload['sub'])) {
+            return response()->json(['message' => 'Invalid token: Missing Subject ID'], 401);
+        }
+
+        $request->attributes->set('keycloak_id', $payload['sub']);
 
         return $next($request);
     }

@@ -48,7 +48,8 @@ final class RegisterUserUseCase
             $user->full_name,
             $user->role,
             $user->phone_number,
-            $user->created_at
+            $user->created_at,
+            $user->updated_at
         );
         } catch (\Throwable $e) {
             DB::rollBack();

@@ -22,6 +22,6 @@ class RegisterController extends Controller
 
         return ApiResponse::success(
             $userResponse
-        )->toResponse(201);
+        );
     }
 }
