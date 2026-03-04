@@ -10,16 +10,24 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        User::create([
+            'keycloak_id' => 'admin-keycloak-uuid-001',
+            'email' => 'admin@example.com',
+            'full_name' => 'Admin User',
+            'role' => 'admin',
+            'phone_number' => '0901234567',
+            'status' => 'active',
+        ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
+        User::create([
+            'keycloak_id' => 'user-keycloak-uuid-002',
             'email' => 'test@example.com',
+            'full_name' => 'Test User',
+            'role' => 'user',
+            'phone_number' => '0909876543',
+            'status' => 'active',
         ]);
     }
 }
