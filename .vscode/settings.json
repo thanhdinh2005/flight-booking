@@ -1,0 +1,27 @@
+{
+    "sqltools.connections": [
+
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "flight_booking ",
+            "username": "postgres",
+            "database": "postgres",
+            "connectionTimeout": 30,
+            "password": "prompt"
+        },
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "Local PostgreSQL",
+            "database": "postgres",
+            "username": "postgres"
+        }
+    ]
+}
