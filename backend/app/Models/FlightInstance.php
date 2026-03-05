@@ -26,4 +26,14 @@ class FlightInstance extends Model
         'etd' => 'datetime',
         'eta' => 'datetime',
     ];
+    public function route()
+    {
+        return $this->belongsTo(Route::class, 'route_id');
+    }
+
+    // Để chạy được 'aircraft'
+    public function aircraft()
+    {
+        return $this->belongsTo(Aircraft::class, 'aircraft_id');
+    }
 }

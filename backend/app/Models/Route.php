@@ -30,4 +30,5 @@ class Route extends Model
     {
         return $this->hasMany(FlightSchedule::class);
     }
+    
 }

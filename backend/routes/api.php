@@ -4,7 +4,10 @@ use App\Http\Controllers\api\FlightScheduleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
+use App\Http\Controllers\Api\FlightController;
 
+
+Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 
 Route::middleware('auth.keycloak') -> group(function () {
