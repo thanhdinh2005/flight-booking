@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Response\SearchFlightResponse; // Lớp định dạng kết quả trả về
 use Illuminate\Http\Request;
+use App\Http\Response\ApiResponse;
 use App\Http\Requests\SearchFlightRequest; // Lớp kiểm tra dữ liệu đầu vào
 use App\Application\UseCases\SearchFlightUseCase; // Lớp xử lý logic
+use App\Http\Response\SearchFlightResponse; // Lớp định dạng dữ liệu trả về
 
 class FlightController extends Controller
 {
@@ -22,11 +23,11 @@ class FlightController extends Controller
         $results = $useCase->execute($filters);
 
         // 3. Đưa kết quả tìm được vào lớp Response để đóng gói JSON gửi về FE
-        return new SearchFlightResponse(
-            $results['outbound'], 
-            $results['return'],
-            $filters['departure_date'], 
-            $filters['return_date'] ?? null
+        return ApiResponse::success(
+            $results->toArray(),
+            'success',
+            201
         );
+        
     }
 }
