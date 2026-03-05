@@ -2,13 +2,16 @@
 
 namespace App\Http\Middleware;
 
+use Closure;
+use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
 use Firebase\JWT\ExpiredException;
 use Firebase\JWT\SignatureInvalidException;
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Support\Facades\Http;
+use App\Http\Response\ApiResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 // Decode JWT, Catch error from firebase/php-jwt, Convert to AuthenticationException
 class VerifyKeycloakToken
@@ -33,7 +36,7 @@ class VerifyKeycloakToken
                 JWK::parseKeySet($jwks)
             );
 
-            return (array) $decoded;
+            return json_decode(json_encode($decoded), true);
 
         } catch (ExpiredException $e) {
             throw new AuthenticationException('Token expired');
@@ -45,4 +48,28 @@ class VerifyKeycloakToken
             throw new AuthenticationException('Invalid token');
         }
     }
+
+    // public function handle(Request $request, Closure $next)
+    // {
+    //     $token = $request->bearerToken();
+
+    //     if (!$token) {
+    //         return ApiResponse::error('Token not provided', 401);
+    //     }
+
+    //     try {
+    //         $payload = $this->verify($token);
+
+    //         if (!isset($payload['sub'])) {
+    //             return ApiResponse::error('Invalid token structure', 401);
+    //         }
+
+    //         $request->attributes->add(['keycloak_id' => $payload['sub']]);
+
+    //         return $next($request);
+
+    //     } catch (\Exception $e) {
+    //         throw new AuthenticationException($e->getMessage());
+    //     }
+    // }
 }

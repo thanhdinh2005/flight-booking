@@ -31,7 +31,6 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin123
     command: start-dev
-
     ports:
       - "8080:8080"
     # depends_on:
@@ -46,11 +45,30 @@ services:
     networks:
       - booking-net
 
+  # -----------------------------
+  # POSTGRESQL
+  # -----------------------------
+  postgres:
+    image: postgres:15
+    container_name: flight_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: flight_booking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - booking-net
+
 # -----------------------------
 # VOLUMES
 # -----------------------------
 volumes:
   keycloak-db-data:
+  pg_data:
 
 # -----------------------------
 # NETWORK

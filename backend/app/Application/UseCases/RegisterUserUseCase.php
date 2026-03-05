@@ -2,6 +2,7 @@
 
 namespace App\Application\UseCases;
 
+use App\Application\Command\Register\AssignRoleUserCommand;
 use App\Application\Command\Register\CreateKeycloakUserCommand;
 use App\Application\Command\Register\CreateLocalUserCommand;
 use App\Application\Command\Register\DeleteKeycloakUserCommand;
@@ -14,6 +15,7 @@ final class RegisterUserUseCase
         private CreateKeycloakUserCommand $createKeycloakUser,
         private CreateLocalUserCommand $createLocalUser,
         private DeleteKeycloakUserCommand $deleteKeycloakUser,
+        private AssignRoleUserCommand $assign_role_user
     ) {}
 
     public function execute(
@@ -40,6 +42,7 @@ final class RegisterUserUseCase
             keycloakUserId: $keycloakUserId
         );
 
+        $this->assign_role_user->execute($keycloakUserId, "CUSTOMER");
         DB::commit();
         return new UserResponse(
             $user->id,
@@ -48,7 +51,8 @@ final class RegisterUserUseCase
             $user->full_name,
             $user->role,
             $user->phone_number,
-            $user->created_at
+            $user->created_at,
+            $user->updated_at
         );
         } catch (\Throwable $e) {
             DB::rollBack();

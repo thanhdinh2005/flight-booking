@@ -23,7 +23,12 @@ class AuthenticateWithKeycloak
 
         $payload = $this->verifyService->verify($token);
 
+        if (!isset($payload['sub'])) {
+            throw new AuthenticationException('Invalid token structure');
+        }
+
         $request->attributes->set('auth_user', $payload);
+        $request->attributes->set('keycloak_id', $payload['sub']);
 
         return $next($request);
     }

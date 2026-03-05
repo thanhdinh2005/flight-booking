@@ -18,7 +18,7 @@ class RequireRole
 
         $roles = $user['realm_access']['roles'] ?? [];
 
-        if (!in_array($role, $roles)) {
+        if (!in_array($role, $roles, true)) {
             throw new AuthorizationException('Forbidden');
         }
 

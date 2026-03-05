@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Response\ApiResponse;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
 
 class RegisterRequest extends FormRequest
 {
@@ -18,49 +17,24 @@ class RegisterRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-
             'password' => ['required', 'string', 'min:6', 'max:20'],
-
-            'first_name' => ['required', 'string', 'max:20'],
-
-            'last_name' => ['required', 'string', 'max:20'],
-
-            'phone_number' => ['required', 'string', 'max:20'],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'email.required' => 'Email is required',
-            'email.email' => 'Invalid email format',
-            'email.unique' => 'Email already exists',
-
-            'password.required' => 'Password is required',
-            'password.min' => 'Password must be at least 6 characters',
-            'password.max' => 'Password cannot exceed 20 characters',
-
-            'first_name.required' => 'First name is required',
-            'first_name.max' => 'First name cannot exceed 20 characters',
-
-            'last_name.required' => 'Last name is required',
-            'last_name.max' => 'Last name cannot exceed 20 characters',
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name' => ['required', 'string', 'max:50'],
+            'phone_number' => ['required', 'string', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:10'],
         ];
     }
 
     protected function failedValidation(Validator $validator)
     {
-        throw new HttpResponseException(
-            ApiResponse::errorList(
-                $validator->errors()->all()
-            )->toResponse(400)
-        ); 
+        throw new ValidationException($validator);
     }
 
     protected function prepareForValidation(): void
     {
         $this->merge([
             'email' => strtolower(trim($this->email)),
+            'first_name' => strip_tags(trim($this->first_name)),
+            'last_name' => strip_tags(trim($this->last_name)),
         ]);
     }
 }
