@@ -6,16 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class FlightInstance extends Model
 {
+    protected $table = "flight_instances";
+
     protected $fillable = [
         'flight_schedule_id',
         'route_id',
         'aircraft_id',
         'flight_number',
         'departure_date',
-        'std',
-        'sta',
-        'etd',
-        'eta',
+        'std', // Schedule Time of Departure
+        'sta', // Schedule Time of Arrival
+        'etd', // Estimated Time of Departure
+        'eta', // Estimated Time of Arrival
         'status',
     ];
 
@@ -31,7 +33,6 @@ class FlightInstance extends Model
         return $this->belongsTo(Route::class, 'route_id');
     }
 
-    // Để chạy được 'aircraft'
     public function aircraft()
     {
         return $this->belongsTo(Aircraft::class, 'aircraft_id');
