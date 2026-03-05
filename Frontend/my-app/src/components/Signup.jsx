@@ -15,6 +15,10 @@ export default function Auth() {
     setCollected((c) => ({ ...c, ...data }))
     setFlow('details')
   }
+  const handleLoginSuccess = () => {
+  alert('Đăng nhập thành công!')
+  // TODO: navigate sang trang chính
+}
 
   const handleRegister = (data) => {
     // Final submit
@@ -32,8 +36,12 @@ export default function Auth() {
       </div>
 
       <div className="auth-area">
-        {flow === 'login' && <Login onNavigate={(f) => (f === 'register' ? goToRegister() : f === 'forgot' ? goToForgot() : null)} />}
-
+       {flow === 'login' && (
+          <Login
+            onNavigate={(f) => (f === 'register' ? goToRegister() : f === 'forgot' ? goToForgot() : null)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
         {flow === 'register' && (
           <>
             <Register initial={collected} onContinue={handleRegisterContinue} onBack={goToLogin} />
