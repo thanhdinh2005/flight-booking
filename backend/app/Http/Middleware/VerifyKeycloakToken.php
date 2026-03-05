@@ -36,7 +36,7 @@ class VerifyKeycloakToken
                 JWK::parseKeySet($jwks)
             );
 
-            return (array) $decoded;
+            return json_decode(json_encode($decoded), true);
 
         } catch (ExpiredException $e) {
             throw new AuthenticationException('Token expired');
@@ -49,27 +49,27 @@ class VerifyKeycloakToken
         }
     }
 
-    public function handle(Request $request, Closure $next)
-    {
-        $token = $request->bearerToken();
+    // public function handle(Request $request, Closure $next)
+    // {
+    //     $token = $request->bearerToken();
 
-        if (!$token) {
-            return ApiResponse::error('Token not provided', 401);
-        }
+    //     if (!$token) {
+    //         return ApiResponse::error('Token not provided', 401);
+    //     }
 
-        try {
-            $payload = $this->verify($token);
+    //     try {
+    //         $payload = $this->verify($token);
 
-            if (!isset($payload['sub'])) {
-                return ApiResponse::error('Invalid token structure', 401);
-            }
+    //         if (!isset($payload['sub'])) {
+    //             return ApiResponse::error('Invalid token structure', 401);
+    //         }
 
-            $request->attributes->add(['keycloak_id' => $payload['sub']]);
+    //         $request->attributes->add(['keycloak_id' => $payload['sub']]);
 
-            return $next($request);
+    //         return $next($request);
 
-        } catch (\Exception $e) {
-            throw new AuthenticationException($e->getMessage());
-        }
-    }
+    //     } catch (\Exception $e) {
+    //         throw new AuthenticationException($e->getMessage());
+    //     }
+    // }
 }

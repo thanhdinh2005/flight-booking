@@ -3,8 +3,7 @@
 namespace App\Infracstructure;
 
 use Illuminate\Support\Facades\Http;
-use App\Exceptions\Keycloak\KeycloakBadRequestException;
-use App\Exceptions\Keycloak\KeycloakUserExistsException;
+use App\Exceptions\KeycloakException;
 
 class KeycloakService
 {
@@ -23,16 +22,18 @@ class KeycloakService
 
     protected function adminToken(): string
     {
-        $res = Http::asForm()->post(
-            "{$this->baseUrl}/realms/{$this->realm}/protocol/openid-connect/token",
-            [
-                'grant_type' => 'client_credentials',
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
-            ]
-        );
+        return cache()->remember('keycloak_admin_token', 50, function () {
+            $res = Http::asForm()->post(
+                "{$this->baseUrl}/realms/{$this->realm}/protocol/openid-connect/token",
+                [
+                    'grant_type' => 'client_credentials',
+                    'client_id' => $this->clientId,
+                    'client_secret' => $this->clientSecret,
+                ]
+            );
 
-        return $res->json('access_token');
+            return $res->json('access_token');
+        });
     }
 
     public function createUser(
@@ -56,7 +57,7 @@ class KeycloakService
             ]);
 
         if ($response->status() === 409) {
-            throw new KeycloakUserExistsException();
+            throw new KeycloakException();
         }
 
         if ($response->failed()) {
@@ -66,13 +67,13 @@ class KeycloakService
                 ?? json_encode($response->json())
                 ?? 'Keycloak error';
 
-            throw new KeycloakBadRequestException($message);
+            throw new KeycloakException($message);
         }
 
         $location = $response->header('Location');
 
         if (!$location) {
-            throw new KeycloakBadRequestException('Missing Location header from Keycloak');
+            throw new KeycloakException('Missing Location header from Keycloak');
         }
 
         return basename($location);
@@ -82,5 +83,36 @@ class KeycloakService
     {
         Http::withToken($this->adminToken())
             ->delete("{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}");
+    }
+
+    public function assignRealmRole(string $userId, string $roleName): void
+    {
+        $token = $this->adminToken();
+
+        $roleResponse = Http::withToken($token)
+            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/roles/{$roleName}");
+
+        if ($roleResponse->failed()) {
+            throw new KeycloakException(
+                "Role '{$roleName}' not found in realm"
+            );
+        }
+
+        $role = $roleResponse->json();
+
+        $assignResponse = Http::withToken($token)
+            ->post(
+                "{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}/role-mappings/realm",
+                [[
+                    'id'   => $role['id'],
+                    'name' => $role['name'],
+                ]]
+            );
+
+        if ($assignResponse->failed()) {
+            throw new KeycloakException(
+                'Failed to assign role to user'
+            );
+        }
     }
 }
