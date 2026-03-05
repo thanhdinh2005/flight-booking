@@ -11,12 +11,6 @@ class InitialDataSeeder extends Seeder
     {
         DB::transaction(function () {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Airports
-            |--------------------------------------------------------------------------
-            */
-
             $airports = [
                 [
                     'code' => 'HAN',
@@ -54,12 +48,6 @@ class InitialDataSeeder extends Seeder
             $airportIds = DB::table('airports')
                 ->pluck('id', 'code');
 
-            /*
-            |--------------------------------------------------------------------------
-            | Aircrafts
-            |--------------------------------------------------------------------------
-            */
-
             $aircrafts = [
                 [
                     'model' => 'Airbus A321',
@@ -91,14 +79,7 @@ class InitialDataSeeder extends Seeder
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Routes (Fixed routes)
-            |--------------------------------------------------------------------------
-            */
-
             $routes = [
-                // Hà Nội ↔ TP.HCM
                 [
                     'origin_airport_id' => $airportIds['HAN'],
                     'destination_airport_id' => $airportIds['SGN'],
@@ -109,8 +90,6 @@ class InitialDataSeeder extends Seeder
                     'destination_airport_id' => $airportIds['HAN'],
                     'flight_duration_minutes' => 120,
                 ],
-
-                // Hà Nội ↔ Đà Nẵng
                 [
                     'origin_airport_id' => $airportIds['HAN'],
                     'destination_airport_id' => $airportIds['DAD'],
@@ -121,8 +100,6 @@ class InitialDataSeeder extends Seeder
                     'destination_airport_id' => $airportIds['HAN'],
                     'flight_duration_minutes' => 80,
                 ],
-
-                // TP.HCM ↔ Gia Lai
                 [
                     'origin_airport_id' => $airportIds['SGN'],
                     'destination_airport_id' => $airportIds['PXU'],

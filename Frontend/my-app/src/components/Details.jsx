@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { registerUser } from '../services/keycloakService'
 
 export default function Details({ initial = {}, onRegister, onBack }) {
   const [form, setForm] = useState({
@@ -13,6 +14,8 @@ export default function Details({ initial = {}, onRegister, onBack }) {
     confirmPassword: '',
     agree: false,
   })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -29,10 +32,31 @@ export default function Details({ initial = {}, onRegister, onBack }) {
   const passwordsMatch = form.password && form.password === form.confirmPassword
   const canRegister = validPassword && passwordsMatch && form.agree
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     if (!canRegister) return alert('Vui lòng hoàn tất thông tin và chấp nhận điều khoản')
-    onRegister(form)
+    setError('')
+    setLoading(true)
+    try {
+      await registerUser({
+        email: initial.email,
+        username: initial.username,
+        phone_number: initial.phone,
+        full_name: form.fullName,
+        password: form.password,
+        gender: form.gender,
+        dob: form.dob,
+        nationality: form.nationality,
+        address: form.address,
+        id_number: form.idNumber,
+      })
+      alert('Đăng ký thành công! Vui lòng đăng nhập.')
+      onRegister(form)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -49,10 +73,8 @@ export default function Details({ initial = {}, onRegister, onBack }) {
             <div className="col">
               <label>Họ và tên</label>
               <input name="fullName" value={form.fullName} onChange={handleChange} placeholder="Nhập họ và tên" className="input" required />
-
               <label>CMND/CCCD</label>
               <input name="idNumber" value={form.idNumber} onChange={handleChange} placeholder="Nhập như trên hộ chiếu" className="input" />
-
               <label>Địa chỉ</label>
               <input name="address" value={form.address} onChange={handleChange} placeholder="Nhập nơi cư trú" className="input" />
             </div>
@@ -65,10 +87,8 @@ export default function Details({ initial = {}, onRegister, onBack }) {
                 <option value="female">Nữ</option>
                 <option value="other">Khác</option>
               </select>
-
               <label>Ngày sinh</label>
               <input name="dob" value={form.dob} onChange={handleChange} type="date" className="input" />
-
               <label>Quốc tịch</label>
               <select name="nationality" value={form.nationality} onChange={handleChange} className="select">
                 <option value="">Chọn quốc tịch</option>
@@ -81,7 +101,6 @@ export default function Details({ initial = {}, onRegister, onBack }) {
             <div className="col col-right">
               <label>Mật khẩu</label>
               <input name="password" value={form.password} onChange={handleChange} type="password" placeholder="Nhập mật khẩu" className="input" required />
-
               <label>Nhắc lại mật khẩu</label>
               <input name="confirmPassword" value={form.confirmPassword} onChange={handleChange} type="password" placeholder="Nhập lại mật khẩu" className="input" required />
 
@@ -91,11 +110,17 @@ export default function Details({ initial = {}, onRegister, onBack }) {
                 <li className={passwordChecks.hasSpecial ? 'ok' : ''}>Bao gồm ký tự đặc biệt</li>
               </ul>
 
-              <label className="agree"><input name="agree" type="checkbox" checked={form.agree} onChange={handleChange} /> Tôi đồng ý với các điều khoản</label>
+              {error && <p style={{ color: 'red', fontSize: '0.85rem' }}>{error}</p>}
+
+              <label className="agree">
+                <input name="agree" type="checkbox" checked={form.agree} onChange={handleChange} /> Tôi đồng ý với các điều khoản
+              </label>
 
               <div className="actions">
                 <button type="button" className="btn" onClick={onBack} style={{ background: '#9aa' }}>Quay lại</button>
-                <button type="submit" className="btn register" disabled={!canRegister}>Đăng ký tài khoản</button>
+                <button type="submit" className="btn register" disabled={!canRegister || loading}>
+                  {loading ? 'Đang đăng ký...' : 'Đăng ký tài khoản'}
+                </button>
               </div>
             </div>
           </div>
