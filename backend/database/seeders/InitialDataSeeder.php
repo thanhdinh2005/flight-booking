@@ -111,6 +111,7 @@ class InitialDataSeeder extends Seeder
                     'flight_duration_minutes' => 60,
                 ],
             ];
+            
 
             foreach ($routes as $route) {
                 DB::table('routes')->updateOrInsert(

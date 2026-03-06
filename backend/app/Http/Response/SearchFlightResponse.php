@@ -5,7 +5,7 @@ namespace App\Http\Response;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
 
-class SearchFlightResponse implements Responsable
+class SearchFlightResponse
 {
     private $outboundFlights;
     private $returnFlights;
@@ -23,9 +23,9 @@ class SearchFlightResponse implements Responsable
     /**
      * Chuyển đổi dữ liệu thành định dạng JSON khi trả về
      */
-    public function toResponse($request): JsonResponse
+    public function toArray(): array
     {
-        return response()->json([
+        return [
             'outbound' => [
                 [
                 'date' => $this->outboundDate,
@@ -37,7 +37,7 @@ class SearchFlightResponse implements Responsable
                 'flights' => $this->mapFlights($this->returnFlights)
                 ]
             ] : [] // tra ve mang rong neu khong co chuyen ve
-        ], 200);
+        ];
     }
     private function mapFlights($flights) {
     return $flights->map(fn($f) => [

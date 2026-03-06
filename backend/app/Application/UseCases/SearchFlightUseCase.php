@@ -1,6 +1,7 @@
 <?php
 namespace App\Application\UseCases;
 use App\Models\FlightInstance;
+use App\Http\Response\SearchFlightResponse;
 
 class SearchFlightUseCase{
     public function execute(array $filters){
@@ -12,21 +13,24 @@ class SearchFlightUseCase{
         //2 tim chuyen ve neu co
         $return = collect();
         if(!empty($filters['return_date'])){
-            $returnFlights = $this->queryFlights(
+            $return = $this->queryFlights(
                 $filters['destination'], // Dao nguoc diem di/den
                 $filters['origin'], 
                 $filters['return_date']);
         }
-        return 
-        [
-            'outbound' => $outbound,
-            'return' => $return
-        ];
+        
+        
+        return new SearchFlightResponse(
+            $outbound, 
+            $return,
+            $filters['departure_date'], 
+            $filters['return_date'] ?? null
+        );
     }
     private function queryFlights($origin, $destination, $date){
         return \App\Models\FlightInstance ::with([
-            'route.originAirport', 
-            'route.destinationAirport',
+            'route.origin', 
+            'route.destination',
             'aircraft' 
             ])
     ->whereHas('route', function ($query) use ($origin, $destination) {
