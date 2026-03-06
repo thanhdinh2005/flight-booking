@@ -1,10 +1,18 @@
 import React, { useState } from 'react'
-import { loginKeycloak, saveToken } from '../services/keycloakService'
+import { useNavigate } from 'react-router-dom'
+import {
+  loginKeycloak,
+  saveToken,
+  getUserFromToken,
+  redirectByRole,
+} from '../services/keycloakService'
+import '../styles/signup.css'
 
-export default function Login({ onNavigate, onLoginSuccess }) {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
+export default function Login({ onNavigate }) {
+  const [form,    setForm]    = useState({ email: '', password: '' })
+  const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -18,7 +26,8 @@ export default function Login({ onNavigate, onLoginSuccess }) {
     try {
       const tokenData = await loginKeycloak(form.email, form.password)
       saveToken(tokenData)
-      onLoginSuccess?.()
+      const user = getUserFromToken(tokenData.access_token)
+      redirectByRole(user?.roles || [], navigate)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -27,25 +36,56 @@ export default function Login({ onNavigate, onLoginSuccess }) {
   }
 
   return (
-    <div className="signup-card login-card">
+    <div className="signup-card">
       <h2 className="title">Đăng nhập</h2>
+      <p className="title-sub">Chào mừng bạn quay trở lại</p>
+
       <form className="form" onSubmit={handleSubmit}>
-        <input name="email" type="email" placeholder="Email..." value={form.email} onChange={handleChange} className="input" required />
-        <input name="password" type="password" placeholder="Mật khẩu..." value={form.password} onChange={handleChange} className="input" required />
+        <input
+          name="email"
+          type="email"
+          placeholder="Email..."
+          value={form.email}
+          onChange={handleChange}
+          className="input"
+          required
+        />
+        <input
+          name="password"
+          type="password"
+          placeholder="Mật khẩu..."
+          value={form.password}
+          onChange={handleChange}
+          className="input"
+          required
+        />
 
-        {error && <p style={{ color: 'red', fontSize: '0.85rem', marginTop: '6px' }}>{error}</p>}
+        {error && (
+          <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginTop: '4px' }}>
+            ⚠️ {error}
+          </p>
+        )}
 
-        <div style={{ textAlign: 'right', marginTop: '6px' }}>
-          <button type="button" className="link" onClick={() => onNavigate('forgot')}>Quên mật khẩu</button>
+        <div style={{ textAlign: 'right', marginTop: '4px' }}>
+          <button type="button" className="link" onClick={() => onNavigate('forgot')}>
+            Quên mật khẩu?
+          </button>
         </div>
 
-        <button type="submit" className="btn" style={{ marginTop: '1.8rem' }} disabled={loading}>
+        <button
+          type="submit"
+          className="btn"
+          style={{ marginTop: '1.4rem', width: '100%' }}
+          disabled={loading}
+        >
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
 
-        <p style={{ textAlign: 'center', marginTop: '1rem', fontWeight: 600 }}>
-          Bạn chưa có tài khoản?{' '}
-          <button type="button" className="link" onClick={() => onNavigate('register')}>Đăng ký ngay</button>
+        <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-mid)' }}>
+          Chưa có tài khoản?{' '}
+          <button type="button" className="link" onClick={() => onNavigate('register')}>
+            Đăng ký ngay
+          </button>
         </p>
       </form>
     </div>
