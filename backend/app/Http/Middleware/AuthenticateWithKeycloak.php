@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
@@ -27,8 +28,19 @@ class AuthenticateWithKeycloak
             throw new AuthenticationException('Invalid token structure');
         }
 
+        $keycloakId = $payload['sub'];
+
+        $user = User::where('keycloak_id', $keycloakId)->first();
+
+        if (!$user) {
+            throw new AuthenticationException('User not found');
+        }
+
+        // attach payload
         $request->attributes->set('auth_user', $payload);
-        $request->attributes->set('keycloak_id', $payload['sub']);
+
+        // attach user cho $request->user()
+        $request->setUserResolver(fn () => $user);
 
         return $next($request);
     }

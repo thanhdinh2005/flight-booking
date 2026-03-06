@@ -690,7 +690,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "PS7SDvDmdr0DB0lQ0ekDzCNdlwlcZvp4",
       "redirectUris": [
         "/*"
       ],

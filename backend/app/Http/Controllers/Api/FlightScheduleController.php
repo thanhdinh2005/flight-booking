@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\api;
 
 use App\Application\UseCases\CreateFlightScheduleUseCase;
+use App\Application\UseCases\PhaseOutScheduleUseCase;
+use App\Application\UseCases\ReactiveScheduleUseCase;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateScheduleRequest;
 use App\Http\Response\ApiResponse;
+use Illuminate\Http\Request;
 
 class FlightScheduleController extends Controller
 {
@@ -23,5 +26,33 @@ class FlightScheduleController extends Controller
             'Created',
             201
         );
+    }
+
+    public function phaseOutSchedule(int $scheduleId, Request $request, PhaseOutScheduleUseCase $usecase) {
+        $admin = $request->user();
+
+        $usecase->execute(
+            $scheduleId,
+            $admin->id,
+            $request->ip()
+        );
+
+        return ApiResponse::success(message: "Phase out schedule successfully");
+    }
+
+    public function reactivateSchedule(
+        int $scheduleId,
+        Request $request,
+        ReactiveScheduleUseCase $usecase
+    ) {
+        $admin = $request->user();
+
+        $usecase->execute(
+            $scheduleId,
+            $admin->id,
+            $request->ip()
+        );
+
+        return ApiResponse::success(message: "Schedule reactivated successfully");
     }
 }

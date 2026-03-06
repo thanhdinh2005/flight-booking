@@ -19,6 +19,11 @@ return new class extends Migration
             $table->foreignId('aircraft_id')->constrained('aircrafts');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
+            $table->unique([
+                'route_id',
+                'flight_number',
+                'departure_time'
+            ]);
         });
     }
 

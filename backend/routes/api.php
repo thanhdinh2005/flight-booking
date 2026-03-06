@@ -31,6 +31,7 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
-
-		Route::post('/schedules', [FlightScheduleController::class, 'store']);
+        Route::put('/schedules/{id}/phase-out', [FlightScheduleController::class, 'phaseOutSchedule']);
+		Route::put('/schedules/{id}/reactivate', [FlightScheduleController::class, 'reactivateSchedule']);
+        Route::post('/schedules', [FlightScheduleController::class, 'store']);
 });

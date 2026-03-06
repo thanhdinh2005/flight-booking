@@ -40,4 +40,18 @@ class FlightSchedule extends Model
     {
         return $query->where('is_active', true);
     }
+
+    public function scopeSameRouteAndTime($query, $routeId, $time)
+    {
+        return $query->where('route_id', $routeId)
+                     ->where('departure_time', $time)
+                     ->where('is_active', true);
+    }
+
+    public function scopeSameAircraftAndTime($query, $aircraftId, $time)
+    {
+        return $query->where('aircraft_id', $aircraftId)
+                     ->where('departure_time', $time)
+                     ->where('is_active', true);
+    }
 }
