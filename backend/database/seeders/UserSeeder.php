@@ -39,7 +39,8 @@ class UserSeeder extends Seeder
                 'Van B',
                 'Nguyen',
                 '0987654321',
-                $keycloakId
+                $keycloakId,
+                'admin'
             );
 
             app(AssignRoleUserCommand::class)->execute($keycloakId, 'ADMIN');

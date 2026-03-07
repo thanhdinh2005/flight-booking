@@ -3,10 +3,11 @@
 namespace App\Application\UseCases;
 
 use App\Application\Command\AuditLog\CreateAuditLogCommand;
-use App\Application\Command\FlightInstance\CreateSeatInventoryCommand;
 use App\Application\Command\FlightSchedule\GenerateFlightInstancesCommand;
 use App\Exceptions\BusinessException;
+use App\Exceptions\EntityNotFoundException;
 use App\Http\Response\ScheduleResponse;
+use App\Models\Aircraft;
 use App\Models\FlightSchedule;
 use Illuminate\Support\Facades\DB;
 
@@ -95,6 +96,10 @@ final class CreateFlightScheduleUseCase
         string $time,
         array $days
     ): void {
+
+        $aircraft = Aircraft::find($aircraftId);
+        if (!$aircraft) throw new EntityNotFoundException("Aircraft not found");
+        if (!$aircraft->status === "ACTIVE") throw new BusinessException("Aircraft is maintenance");
 
         $schedules = FlightSchedule::sameAircraftAndTime($aircraftId, $time)->get();
 

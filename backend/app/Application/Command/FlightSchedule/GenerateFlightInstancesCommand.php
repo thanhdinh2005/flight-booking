@@ -3,7 +3,9 @@
 namespace App\Application\Command\FlightSchedule;
 
 use App\Application\Command\FlightInstance\CreateSeatInventoryCommand;
+use App\Exceptions\BusinessException;
 use App\Exceptions\EntityNotFoundException;
+use App\Models\Aircraft;
 use App\Models\FlightInstance;
 use App\Models\FlightSchedule;
 use App\Models\Route;
@@ -21,6 +23,9 @@ class GenerateFlightInstancesCommand
         }
 
         $route = Route::findOrFail($schedule->route_id);
+
+        $aircraft = Aircraft::find($schedule->aircraft_id);
+        if ($aircraft->status === 'MAINTENANCE') throw new BusinessException("Aircraft is maintenance");
 
         $start = now()->startOfDay();
         $end = now()->copy()->addDays($days);
