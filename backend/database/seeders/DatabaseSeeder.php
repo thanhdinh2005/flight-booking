@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             FlightScheduleSeeder::class,
             FlightInstanceSeeder::class,
-            FlightSeatInventorySeeder::class,
+           // FlightSeatInventorySeeder::class,
             BookingSeeder::class,
             TicketSeeder::class,
             TicketAddonSeeder::class,

@@ -2,12 +2,33 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Response\ApiResponse;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @OA\Schema(
+ *     schema="UpdateProfileRequest",
+ *     type="object",
+ *     title="Update Profile Request",
+ *
+ *     @OA\Property(
+ *         property="full_name",
+ *         type="string",
+ *         maxLength=50,
+ *         example="Nguyen Van A",
+ *         description="User full name"
+ *     ),
+ *
+ *     @OA\Property(
+ *         property="phone_number",
+ *         type="string",
+ *         maxLength=20,
+ *         example="0987654321",
+ *         description="User phone number"
+ *     )
+ * )
+ */
 class UpdateProfileRequest extends FormRequest
 {
 

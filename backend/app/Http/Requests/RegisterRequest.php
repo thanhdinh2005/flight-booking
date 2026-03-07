@@ -5,7 +5,21 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Annotations as OA;
 
+/**
+ * @OA\Schema(
+ *     schema="RegisterRequest",
+ *     type="object",
+ *     required={"email","password","first_name","last_name","phone_number"},
+ *
+ *     @OA\Property(property="email", type="string", format="email", example="user@gmail.com"),
+ *     @OA\Property(property="password", type="string", example="123456"),
+ *     @OA\Property(property="first_name", type="string", example="Phuc"),
+ *     @OA\Property(property="last_name", type="string", example="Dinh"),
+ *     @OA\Property(property="phone_number", type="string", example="0987654321")
+ * )
+ */
 class RegisterRequest extends FormRequest
 {
     public function authorize(): bool

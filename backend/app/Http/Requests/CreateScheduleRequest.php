@@ -4,6 +4,54 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * @OA\Schema(
+ *     schema="CreateScheduleRequest",
+ *     type="object",
+ *     required={"route_id","flight_number","departure_time","days_of_week","aircraft_id"},
+ * 
+ *     @OA\Property(
+ *         property="route_id",
+ *         type="integer",
+ *         example=1,
+ *         description="ID of route"
+ *     ),
+ * 
+ *     @OA\Property(
+ *         property="flight_number",
+ *         type="string",
+ *         maxLength=10,
+ *         example="VN123",
+ *         description="Flight number"
+ *     ),
+ * 
+ *     @OA\Property(
+ *         property="departure_time",
+ *         type="string",
+ *         format="time",
+ *         example="08:30:00",
+ *         description="Departure time (H:i:s)"
+ *     ),
+ * 
+ *     @OA\Property(
+ *         property="days_of_week",
+ *         type="array",
+ *         description="Days of week (1=Monday ... 7=Sunday)",
+ *         @OA\Items(
+ *             type="integer",
+ *             example=1
+ *         ),
+ *         example={1,3,5}
+ *     ),
+ * 
+ *     @OA\Property(
+ *         property="aircraft_id",
+ *         type="integer",
+ *         example=2,
+ *         description="Aircraft ID"
+ *     )
+ * )
+ */
 class CreateScheduleRequest extends FormRequest
 {
     /**
