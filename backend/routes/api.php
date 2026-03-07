@@ -5,8 +5,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\FlightController;
+use App\Http\Controllers\Api\AirportController;
 
 
+Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 
@@ -31,6 +33,7 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
-
-		Route::post('/schedules', [FlightScheduleController::class, 'store']);
+        Route::put('/schedules/{id}/phase-out', [FlightScheduleController::class, 'phaseOutSchedule']);
+		Route::put('/schedules/{id}/reactivate', [FlightScheduleController::class, 'reactivateSchedule']);
+        Route::post('/schedules', [FlightScheduleController::class, 'store']);
 });

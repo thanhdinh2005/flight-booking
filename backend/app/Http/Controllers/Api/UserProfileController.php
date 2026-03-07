@@ -12,6 +12,36 @@ use Illuminate\Http\Request;
 
 class UserProfileController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/me",
+     *     summary="Get current user profile",
+     *     tags={"User"},
+     *     security={{"bearerAuth":{}}},
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="User profile retrieved successfully",
+     *
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/ApiResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         ref="#/components/schemas/UserResponse"
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized"
+     *     )
+     * )
+     */
     public function getProfile(Request $request, GetCurrentUserProfileUseCase $useCase) 
     {
         $keycloakId = $request->attributes->get('keycloak_id');
@@ -21,6 +51,46 @@ class UserProfileController extends Controller
         return ApiResponse::success($userResponse);
     }
 
+    /**
+     * @OA\Put(
+     *     path="/api/me",
+     *     summary="Update current user profile",
+     *     tags={"User"},
+     *     security={{"bearerAuth":{}}},
+     *
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/UpdateProfileRequest")
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Profile updated successfully",
+     *
+     *         @OA\JsonContent(
+     *             allOf={
+     *                 @OA\Schema(ref="#/components/schemas/ApiResponse"),
+     *                 @OA\Schema(
+     *                     @OA\Property(
+     *                         property="data",
+     *                         ref="#/components/schemas/UserResponse"
+     *                     )
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=400,
+     *         description="No data provided for update"
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized"
+     *     )
+     * )
+     */
     public function updateProfile(UpdateProfileRequest $request, UpdateUserProfileUseCase $useCase) 
     {
         $keycloakId = $request->attributes->get('keycloak_id');

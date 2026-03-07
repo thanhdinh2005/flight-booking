@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use App\Models\FlightSchedule;
 
 class FlightScheduleSeeder extends Seeder
 {
@@ -15,15 +16,25 @@ class FlightScheduleSeeder extends Seeder
         $routes = DB::table('routes')->get();
         $aircraft = DB::table('aircrafts')->first();
 
+        $times = ['06:00:00','08:00:00','10:00:00','13:00:00','16:00:00','20:00:00'];
+
         foreach ($routes as $route) {
-            DB::table('flight_schedules')->insert([
-                'route_id' => $route->id,
-                'flight_number' => 'VN' . rand(100, 999),
-                'departure_time' => '08:00:00',
-                'days_of_week' => '1,2,3,4,5,6,7',
-                'aircraft_id' => $aircraft->id,
-                'is_active' => true,
-            ]);
+
+            for ($i = 0; $i < 2; $i++) {
+
+                FlightSchedule::create([
+                    'route_id' => $route->id,
+                    'flight_number' => 'VN' . rand(100,999),
+                    'departure_time' => $times[array_rand($times)],
+                    'days_of_week' => collect(range(1,7))
+                        ->shuffle()
+                        ->take(rand(3,7))
+                        ->values()
+                        ->toArray(),
+                    'aircraft_id' => $aircraft->id,
+                    'is_active' => true,
+                ]);
+            }
         }
     }
 }

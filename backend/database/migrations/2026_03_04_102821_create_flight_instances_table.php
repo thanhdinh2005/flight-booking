@@ -12,19 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('flight_instances', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('flight_schedule_id')->nullable()->constrained('flight_schedules');
-    $table->foreignId('route_id')->constrained('routes');
-    $table->foreignId('aircraft_id')->constrained('aircrafts');
-    $table->string('flight_number', 10);
-    $table->date('departure_date');
-    $table->timestamp('std'); // Giờ đi dự kiến (Scheduled Time of Departure)
-    $table->timestamp('sta'); // Giờ đến dự kiến (Scheduled Time of Arrival)
-    $table->timestamp('etd')->nullable(); // Giờ đi thực tế (Estimated Time of Departure)
-    $table->timestamp('eta')->nullable(); // Giờ đến thực tế (Estimated Time of Arrival)
-    $table->string('status', 20)->default('SCHEDULED');
-    $table->timestamps(); // Bao gồm created_at và updated_at
-});
+            $table->id();
+            $table->foreignId('flight_schedule_id')->nullable()->constrained('flight_schedules');
+            $table->foreignId('route_id')->constrained('routes');
+            $table->foreignId('aircraft_id')->constrained('aircrafts');
+            $table->string('flight_number', 10);
+            $table->date('departure_date');
+            $table->timestamp('std'); // Giờ đi dự kiến (Scheduled Time of Departure)
+            $table->timestamp('sta'); // Giờ đến dự kiến (Scheduled Time of Arrival)
+            $table->timestamp('etd')->nullable(); // Giờ đi thực tế (Estimated Time of Departure)
+            $table->timestamp('eta')->nullable(); // Giờ đến thực tế (Estimated Time of Arrival)
+            $table->string('status', 20)->default('SCHEDULED');
+            $table->timestamps();
+            $table->unique([
+                'flight_schedule_id',
+                'departure_date'
+            ]);
+        });
     }
 
     /**
