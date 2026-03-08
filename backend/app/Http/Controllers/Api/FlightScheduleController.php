@@ -46,7 +46,7 @@ class FlightScheduleController extends Controller
         $admin = $request->user();
     
         $response = $usecase -> execute(
-            adminId: $admin,
+            adminId: $admin->id,
             ipAddress: $rq->ip(),
             route_id: $request->integer('route_id'),
             flight_number: $request->string('flight_number'),
