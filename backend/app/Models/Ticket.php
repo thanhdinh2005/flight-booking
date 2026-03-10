@@ -11,16 +11,25 @@ class Ticket extends Model
     protected $fillable = [
         'booking_id', 
         'flight_instance_id', 
-        'passenger_name', 
-        'passenger_dob', 
-        'passenger_ic', 
+        'passenger_id', // Thay vì lưu tên, DOB, IC trực tiếp, chúng ta sẽ liên kết tới bảng passengers 
         'seat_class', 
         'seat_number', 
         'ticket_price', 
         'status'
     ];
     
-    protected $casts = ['passenger_dob' => 'date', 'ticket_price' => 'decimal:2'];
+    public function booking() {
+        return $this->belongsTo(Booking::class);
+    }
 
-    public function addons() { return $this->hasMany(TicketAddon::class); }
+    public function passenger() {
+        return $this->belongsTo(Passenger::class);
+    }
+
+    public function flightInstance() {
+        return $this->belongsTo(FlightInstance::class);
+    }
+    public function addons() {
+    return $this->hasMany(TicketAddon::class);
+}
 }

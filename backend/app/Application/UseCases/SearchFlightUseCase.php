@@ -2,10 +2,13 @@
 namespace App\Application\UseCases;
 use App\Models\FlightInstance;
 use App\Http\Response\SearchFlightResponse;
+use App\Models\Airport;
+use Illuminate\Support\Collection;
 
 class SearchFlightUseCase{
     public function execute(array $filters){
         //1 tim chuyen di
+        
         $outbound = $this->queryFlights(
             $filters['origin'], 
             $filters['destination'], 
@@ -19,7 +22,15 @@ class SearchFlightUseCase{
                 $filters['return_date']);
         }
         
-        
+        if($outbound->isEmpty() && $return->isEmpty()) {
+            // Nếu không tìm thấy chuyến nào, trả về phản hồi đặc biệt
+            return new SearchFlightResponse(
+                collect(), // Dùng giá trị đặc biệt để FE nhận biết không có chuyến nào
+                collect(),
+                $filters['departure_date'], 
+                $filters['return_date'] ?? null
+            );
+        }
         return new SearchFlightResponse(
             $outbound, 
             $return,
@@ -27,7 +38,14 @@ class SearchFlightUseCase{
             $filters['return_date'] ?? null
         );
     }
-    private function queryFlights($origin, $destination, $date){
+    private function queryFlights($origin, $destination, $date): Collection{
+        // Thay vì gọi trực tiếp, hãy kiểm tra chắc chắn
+        if (!$origin || !$destination) {
+            // Trả về Collection rỗng thay vì JsonResponse
+            return collect();
+        }
+
+
         return \App\Models\FlightInstance ::with([
             'route.origin', 
             'route.destination',

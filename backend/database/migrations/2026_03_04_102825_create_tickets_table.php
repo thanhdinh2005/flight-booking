@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('booking_id')->constrained('bookings');
             $table->foreignId('flight_instance_id')->constrained('flight_instances');
-            $table->string('passenger_name');
-            $table->date('passenger_dob')->nullable();
-            $table->string('passenger_ic', 50)->nullable();
+            // THAY ĐỔI QUAN TRỌNG: Nối tới bảng passengers thay vì lưu tên trực tiếp
+            $table->foreignId('passenger_id')->constrained('passengers')->onDelete('cascade');
+            
             $table->string('seat_class', 20);
             $table->string('seat_number', 10)->nullable();
             $table->decimal('ticket_price', 15, 2);

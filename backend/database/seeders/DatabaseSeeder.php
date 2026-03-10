@@ -18,12 +18,13 @@ class DatabaseSeeder extends Seeder
             FlightInstanceSeeder::class,
             FlightSeatInventorySeeder::class,
             BookingSeeder::class,
+            PassengerSeeder::class,
             TicketSeeder::class,
             TicketAddonSeeder::class,
             BookingRequestSeeder::class,
             TransactionSeeder::class,
             AuditLogSeeder::class,
-    
+           
         ]);
     }
 }
