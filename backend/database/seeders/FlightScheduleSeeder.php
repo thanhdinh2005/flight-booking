@@ -13,7 +13,10 @@ class FlightScheduleSeeder extends Seeder
      */
     public function run(): void
     {
-        $routes = DB::table('routes')->get();
+        $routes = DB::table('routes')
+            ->inRandomOrder()
+            ->limit(3)
+            ->get();
         $aircraft = DB::table('aircrafts')->first();
 
         $times = ['06:00:00','08:00:00','10:00:00','13:00:00','16:00:00','20:00:00'];

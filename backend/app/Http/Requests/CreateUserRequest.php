@@ -9,7 +9,7 @@ use OpenApi\Annotations as OA;
 
 /**
  * @OA\Schema(
- *     schema="RegisterRequest",
+ *     schema="CreateUserRequest",
  *     type="object",
  *     required={"email","password","first_name","last_name","phone_number"},
  *
@@ -17,11 +17,15 @@ use OpenApi\Annotations as OA;
  *     @OA\Property(property="password", type="string", example="123456"),
  *     @OA\Property(property="first_name", type="string", example="Phuc"),
  *     @OA\Property(property="last_name", type="string", example="Dinh"),
- *     @OA\Property(property="phone_number", type="string", example="0987654321")
+ *     @OA\Property(property="phone_number", type="string", example="0987654321"),
+ *     @OA\Property(property="role", type="string", example="customer")
  * )
  */
-class RegisterRequest extends FormRequest
+class CreateUserRequest extends FormRequest
 {
+    /**
+     * Determine if the user is authorized to make this request.
+     */
     public function authorize(): bool
     {
         return true;
@@ -35,6 +39,7 @@ class RegisterRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:50'],
             'last_name' => ['required', 'string', 'max:50'],
             'phone_number' => ['required', 'string', 'regex:/^([0-9\s\-\+\(\)]*)$/', 'min:10'],
+            'role' => ['required', 'string']
         ];
     }
 

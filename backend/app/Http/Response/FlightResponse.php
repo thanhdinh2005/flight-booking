@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Responses;
+namespace App\Http\Response;
 
 use App\Models\FlightInstance;
 

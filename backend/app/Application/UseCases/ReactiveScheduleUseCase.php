@@ -26,13 +26,13 @@ final class ReactiveScheduleUseCase
 
             $this->auditCmd->execute(
                 userId: $adminId,
-                action: 'PHASE_OUT_SCHEDULE',
+                action: 'REACTIVATE_SCHEDULE',
                 targetTable: 'flight_schedules',
                 targetId: $schedule->id,
                 changes: [
                     'is_active' => [
-                        'old' => true,
-                        'new' => false
+                        'new' => true,
+                        'old' => false                        
                     ]
                 ],
                 ipAddress: $ipAddress

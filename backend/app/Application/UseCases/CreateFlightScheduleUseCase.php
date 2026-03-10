@@ -2,14 +2,26 @@
 
 namespace App\Application\UseCases;
 
+use App\Application\Command\AuditLog\CreateAuditLogCommand;
+use App\Application\Command\FlightSchedule\GenerateFlightInstancesCommand;
 use App\Exceptions\BusinessException;
+use App\Exceptions\EntityNotFoundException;
 use App\Http\Response\ScheduleResponse;
+use App\Models\Aircraft;
 use App\Models\FlightSchedule;
 use Illuminate\Support\Facades\DB;
 
 final class CreateFlightScheduleUseCase
 {
+    public function __construct(
+        private GenerateFlightInstancesCommand $generateFlight,
+        private CreateAuditLogCommand $cmd
+    )
+    {}
+
     public function execute(
+        int $adminId,
+        string $ipAddress,
         int $route_id,
         string $flight_number,
         string $departure_time,
@@ -22,7 +34,9 @@ final class CreateFlightScheduleUseCase
             $flight_number,
             $departure_time,
             $days_of_week,
-            $aircraft_id
+            $aircraft_id,
+            $adminId,
+            $ipAddress,
         ) {
 
             $this->ensureNoRouteConflict(
@@ -46,6 +60,15 @@ final class CreateFlightScheduleUseCase
                 'is_active' => true
             ]);
 
+            $this->generateFlight->execute($schedule->id);
+            $this->cmd->execute(
+                userId: $adminId,
+                action: 'CREATE_NEW_SCHEDULE',
+                targetTable: 'flight_schedules',
+                targetId: $schedule->id,
+                changes: [],
+                ipAddress: $ipAddress
+            );
             return ScheduleResponse::fromModel($schedule);
         });
     }
@@ -73,6 +96,10 @@ final class CreateFlightScheduleUseCase
         string $time,
         array $days
     ): void {
+
+        $aircraft = Aircraft::find($aircraftId);
+        if (!$aircraft) throw new EntityNotFoundException("Aircraft not found");
+        if (!$aircraft->status === "ACTIVE") throw new BusinessException("Aircraft is maintenance");
 
         $schedules = FlightSchedule::sameAircraftAndTime($aircraftId, $time)->get();
 
