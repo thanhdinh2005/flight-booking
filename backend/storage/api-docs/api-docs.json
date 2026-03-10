@@ -12,6 +12,53 @@
         }
     ],
     "paths": {
+        "/api/flights/manual": {
+            "post": {
+                "tags": [
+                    "Flight"
+                ],
+                "summary": "Create manual flight instance",
+                "description": "Create a flight instance manually without using schedule",
+                "operationId": "adffcc8ad531e54f5f242263996bce54",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateManualFlightRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Flight instance created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/ApiResponse"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/admin/schedules": {
             "post": {
                 "tags": [
@@ -273,6 +320,45 @@
     },
     "components": {
         "schemas": {
+            "CreateManualFlightRequest": {
+                "required": [
+                    "route_id",
+                    "aircraft_id",
+                    "flight_number",
+                    "departure_date",
+                    "departure_time"
+                ],
+                "properties": {
+                    "route_id": {
+                        "description": "Route ID",
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "aircraft_id": {
+                        "description": "Aircraft ID",
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "flight_number": {
+                        "description": "Flight number",
+                        "type": "string",
+                        "maxLength": 10,
+                        "example": "VN123"
+                    },
+                    "departure_date": {
+                        "description": "Flight departure date",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-04-01"
+                    },
+                    "departure_time": {
+                        "description": "Flight departure time (HH:mm)",
+                        "type": "string",
+                        "example": "08:30"
+                    }
+                },
+                "type": "object"
+            },
             "CreateScheduleRequest": {
                 "required": [
                     "route_id",
@@ -316,6 +402,43 @@
                         "description": "Aircraft ID",
                         "type": "integer",
                         "example": 2
+                    }
+                },
+                "type": "object"
+            },
+            "CreateUserRequest": {
+                "required": [
+                    "email",
+                    "password",
+                    "first_name",
+                    "last_name",
+                    "phone_number"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "user@gmail.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "example": "123456"
+                    },
+                    "first_name": {
+                        "type": "string",
+                        "example": "Phuc"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Dinh"
+                    },
+                    "phone_number": {
+                        "type": "string",
+                        "example": "0987654321"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "customer"
                     }
                 },
                 "type": "object"
@@ -496,6 +619,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Flight",
+            "description": "Flight"
+        },
         {
             "name": "Schedule",
             "description": "Schedule"

@@ -12,7 +12,7 @@ final class UpdateUserProfileUseCase
         $user = User::findByKeycloakId($keycloakId);
 
         if (!$user) {
-            throw new EntityNotFoundException("User not found");
+            throw new EntityNotFoundException("Không tìm thấy người dùng");
         }
 
         $user->update($data);
