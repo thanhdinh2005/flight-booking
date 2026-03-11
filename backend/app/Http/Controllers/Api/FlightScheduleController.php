@@ -8,6 +8,8 @@ use App\Application\UseCases\ReactiveScheduleUseCase;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateScheduleRequest;
 use App\Http\Response\ApiResponse;
+use App\Http\Response\PaginationResponse;
+use App\Models\FlightSchedule;
 use Illuminate\Http\Request;
 
 class FlightScheduleController extends Controller
@@ -134,5 +136,40 @@ class FlightScheduleController extends Controller
         );
 
         return ApiResponse::success(message: "Kích hoạt lịch trình thành công");
+    }
+
+    public function getAll(Request $request) {
+        $perPage = $request->input('per_page', 10);
+
+        $paginator = FlightSchedule::with(['route.origin', 'route.destination', 'aircraft'])
+                    ->paginate($perPage);
+
+        $result = PaginationResponse::fromPaginator(
+            $paginator,
+            fn ($flight) => [
+                'id' => $flight->id,
+                'flight_number' => $flight->flight_number,
+                'departure_time' => $flight->departure_time,
+                'days_of_week' => $flight->days_of_week,
+
+                'route' => [
+                    'id' => $flight->route->id,
+                    'from' => $flight->route->origin->city,
+                    'to' => $flight->route->destination->city,
+                ],
+
+                'aircraft' => [
+                    'id' => $flight->aircraft->id,
+                    'model' => $flight->aircraft->model,
+                    'registration_number' => $flight->aircraft->registration_number
+                ],
+            ]
+        );
+
+        return ApiResponse::success(
+            message: 'Lấy lịch trình thành công',
+            data: $result->data,
+            meta: $result->meta
+        );
     }
 }
