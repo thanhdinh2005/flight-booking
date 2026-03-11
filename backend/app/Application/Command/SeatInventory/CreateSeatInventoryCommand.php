@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Application\Command\FlightInstance;
+namespace App\Application\Command\SeatInventory;
 
 use App\Application\Command\Pricing\BasePricingCommand;
 use App\Exceptions\EntityNotFoundException;
@@ -16,13 +16,13 @@ class CreateSeatInventoryCommand
         $instance = FlightInstance::find($flightInstanceId);
 
         if (!$instance) {
-            throw new EntityNotFoundException("Flight Instance not found");
+            throw new EntityNotFoundException("Không tìm thấy chuyến bay");
         }
 
         $aircraft = Aircraft::find($instance->aircraft_id);
 
         if (!$aircraft) {
-            throw new EntityNotFoundException("Aircraft not found");
+            throw new EntityNotFoundException("Không tìm thấy máy bay");
         }
 
         DB::transaction(function () use ($instance, $aircraft) {

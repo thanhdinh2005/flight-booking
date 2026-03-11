@@ -2,7 +2,7 @@
 
 namespace App\Application\Command\FlightSchedule;
 
-use App\Application\Command\FlightInstance\CreateSeatInventoryCommand;
+use App\Application\Command\SeatInventory\CreateSeatInventoryCommand as SeatInventoryCreateSeatInventoryCommand;
 use App\Exceptions\BusinessException;
 use App\Exceptions\EntityNotFoundException;
 use App\Models\Aircraft;
@@ -27,8 +27,17 @@ class GenerateFlightInstancesCommand
         $aircraft = Aircraft::find($schedule->aircraft_id);
         if ($aircraft->status === 'MAINTENANCE') throw new BusinessException("Aircraft is maintenance");
 
-        $start = now()->startOfDay();
-        $end = now()->copy()->addDays($days);
+        $lastFlight = FlightInstance::where('flight_schedule_id', $schedule->id)
+            ->orderByDesc('departure_date')
+            ->first();
+
+        $start = $lastFlight
+            ? Carbon::parse($lastFlight->departure_date)->addDay()
+            : now()->startOfDay();
+        $end = min(
+            now()->copy()->addDays($days),
+            now()->endOfMonth()
+        );
 
         $daysOfWeek = $schedule->days_of_week;
 
@@ -73,7 +82,7 @@ class GenerateFlightInstancesCommand
                     'status' => 'SCHEDULED'
                 ]);
 
-                app(CreateSeatInventoryCommand::class)
+                app(SeatInventoryCreateSeatInventoryCommand::class)
                     ->execute($instance->id);
             });
         }

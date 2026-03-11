@@ -6,27 +6,31 @@ use App\Application\Command\Register\AssignRoleUserCommand;
 use App\Application\Command\Register\CreateKeycloakUserCommand;
 use App\Application\Command\Register\CreateLocalUserCommand;
 use App\Application\Command\Register\DeleteKeycloakUserCommand;
+use App\Exceptions\BusinessException;
+use App\Exceptions\EntityNotFoundException;
 use App\Http\Response\UserResponse;
-use App\Mail\WelcomeMail;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
-final class RegisterUserUseCase
+final class CreateUserUseCase
 {
     public function __construct(
         private CreateKeycloakUserCommand $createKeycloakUser,
         private CreateLocalUserCommand $createLocalUser,
         private DeleteKeycloakUserCommand $deleteKeycloakUser,
         private AssignRoleUserCommand $assign_role_user
-    ) {}
+    )
+    {}
 
     public function execute(
         string $email,
         string $password,
         string $firstName,
         string $lastName,
-        string $phoneNumber
+        string $phoneNumber,
+        string $role
     ): UserResponse {
+        if ($role !== 'CUSTOMER' && $role !== 'ADMIN' && $role !== 'STAFF') throw new BusinessException('Role không hợp lệ!');
+
         DB::beginTransaction();
         try {
             $keycloakUserId = $this->createKeycloakUser->execute(
@@ -44,15 +48,7 @@ final class RegisterUserUseCase
             keycloakUserId: $keycloakUserId
         );
 
-        $this->assign_role_user->execute($keycloakUserId, "CUSTOMER");
-
-        Mail::to($user->email)->queue(
-            new WelcomeMail([
-                'user_name' => $user->full_name,
-                'email' => $user->email
-            ])
-        );
-
+        $this->assign_role_user->execute($keycloakUserId, $role);
         DB::commit();
         return new UserResponse(
             $user->id,

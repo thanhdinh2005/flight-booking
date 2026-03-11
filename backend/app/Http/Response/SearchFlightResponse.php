@@ -25,6 +25,12 @@ class SearchFlightResponse
      */
     public function toArray(): array
     {
+        if($this->outboundFlights->isEmpty() && $this->returnFlights->isEmpty()) {
+            return [
+                'outbound' => ['lai'],
+                'return' => ['lai']
+            ];
+        }
         return [
             'outbound' => [
                 [
@@ -45,14 +51,14 @@ class SearchFlightResponse
         'flight_number' => $f->flight_number,
         // tra ve obj thay vi tra ve chuoi code
         'origin' => [
-            'code' =>$f->route->originAirport->code,
-            'name' => $f->route->originAirport->name,
-            'city' => $f->route->originAirport->city,
+            'code' =>$f->route->origin->code,
+            'name' => $f->route->origin->name,
+            'city' => $f->route->origin->city,
         ],
         'destination' => [
-            'code' =>$f->route->destinationAirport->code,
-            'name' => $f->route->destinationAirport->name,
-            'city' => $f->route->destinationAirport->city,
+            'code' =>$f->route->destination->code,
+            'name' => $f->route->destination->name,
+            'city' => $f->route->destination->city,
         ],
         'std' => $f->std,
         'sta' => $f->sta,

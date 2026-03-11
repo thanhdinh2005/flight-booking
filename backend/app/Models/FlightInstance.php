@@ -37,4 +37,12 @@ class FlightInstance extends Model
     {
         return $this->belongsTo(Aircraft::class, 'aircraft_id');
     }
+    public function tickets() {
+    return $this->hasMany(Ticket::class);
+}
+    public function seatInventories()
+    {
+        return $this->hasMany(FlightSeatInventory::class, 'flight_instance_id');
+    }
+
 }

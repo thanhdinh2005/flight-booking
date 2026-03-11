@@ -97,11 +97,11 @@ class UserProfileController extends Controller
 
         $validatedData = $request->validated();
         if (empty($validatedData)) {
-            throw new BusinessException("No data provided for update.");
+            throw new BusinessException("Request rỗng.");
         }
 
         $userResponse = $useCase->execute($keycloakId, $validatedData);
 
-        return ApiResponse::success($userResponse, "Profile updated successfully");
+        return ApiResponse::success($userResponse, "Cập nhật hồ sơ thành công");
     }
 }

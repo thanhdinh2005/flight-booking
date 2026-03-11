@@ -42,12 +42,12 @@ class FlightScheduleController extends Controller
      *     )
      * )
      */
-    public function store(Request $rq ,CreateScheduleRequest $request, CreateFlightScheduleUseCase $usecase) {
+    public function store(CreateScheduleRequest $request, CreateFlightScheduleUseCase $usecase) {
         $admin = $request->user();
     
         $response = $usecase -> execute(
             adminId: $admin->id,
-            ipAddress: $rq->ip(),
+            ipAddress: $request->ip(),
             route_id: $request->integer('route_id'),
             flight_number: $request->string('flight_number'),
             departure_time: $request->string('departure_time'),
@@ -57,7 +57,7 @@ class FlightScheduleController extends Controller
 
         return ApiResponse::success(
             $response,
-            'Created',
+            'Tạo mới thành công',
             201
         );
     }
@@ -94,7 +94,7 @@ class FlightScheduleController extends Controller
             $request->ip()
         );
 
-        return ApiResponse::success(message: "Phase out schedule successfully");
+        return ApiResponse::success(message: "Thành công");
     }
 
     /**
@@ -133,6 +133,6 @@ class FlightScheduleController extends Controller
             $request->ip()
         );
 
-        return ApiResponse::success(message: "Schedule reactivated successfully");
+        return ApiResponse::success(message: "Kích hoạt lịch trình thành công");
     }
 }

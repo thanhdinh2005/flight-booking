@@ -85,7 +85,7 @@ final class CreateFlightScheduleUseCase
 
             if (array_intersect($schedule->days_of_week, $days)) {
                 throw new BusinessException(
-                    'Schedule conflict: route already has flight at this time'
+                    'Lịch trình xung đột: đã có máy bay hoạt động trong tuyến đường.'
                 );
             }
         }
@@ -98,8 +98,8 @@ final class CreateFlightScheduleUseCase
     ): void {
 
         $aircraft = Aircraft::find($aircraftId);
-        if (!$aircraft) throw new EntityNotFoundException("Aircraft not found");
-        if (!$aircraft->status === "ACTIVE") throw new BusinessException("Aircraft is maintenance");
+        if (!$aircraft) throw new EntityNotFoundException("Không tìm thấy máy bay");
+        if (!$aircraft->status === "ACTIVE") throw new BusinessException("Máy bay đang bảo trì");
 
         $schedules = FlightSchedule::sameAircraftAndTime($aircraftId, $time)->get();
 
@@ -107,7 +107,7 @@ final class CreateFlightScheduleUseCase
 
             if (array_intersect($schedule->days_of_week, $days)) {
                 throw new BusinessException(
-                    'Aircraft already assigned at this time'
+                    'Trùng lịch máy bay'
                 );
             }
         }
