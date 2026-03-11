@@ -12,6 +12,7 @@ use App\Http\Response\ApiResponse;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -28,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => App\Http\Middleware\RequireRole::class,
             'auth.keycloak' => App\Http\Middleware\AuthenticateWithKeycloak::class,
         ]);
+    })
+        ->withMiddleware(function (Middleware $middleware) {
+        $middleware->append(HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
@@ -77,4 +81,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return ApiResponse::error($message, $status);
         });
+
+
     })->create();

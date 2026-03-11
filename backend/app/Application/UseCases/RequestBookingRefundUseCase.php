@@ -20,6 +20,9 @@ final class RequestBookingRefundUseCase
         int $user_id,
         string $reason,
     ): BookingRequest {
+        if (BookingRequest::where('booking_id', $booking_id)->exists()) {
+            throw new BusinessException("Yêu cầu đã tồn tại trong hệ thống.");
+        }
         $booking = Booking::where('id', $booking_id)
             ->where('user_id', $user_id)
             ->first();

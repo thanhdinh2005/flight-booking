@@ -45,4 +45,39 @@ class FlightInstance extends Model
         return $this->hasMany(FlightSeatInventory::class, 'flight_instance_id');
     }
 
+    public function flightSchedule()
+    {
+        return $this->belongsTo(FlightSchedule::class, 'flight_schedule_id');
+    }
+
+    public function scopeFilter($query, $filters)
+    {
+        return $query
+
+            ->when($filters['flight_number'] ?? null, function ($q, $value) {
+                $q->where('flight_number', 'like', "%{$value}%");
+            })
+
+            ->when(
+                ($filters['from_date'] ?? null) && ($filters['to_date'] ?? null),
+                function ($q) use ($filters) {
+                    $q->whereBetween('departure_date', [
+                        $filters['from_date'],
+                        $filters['to_date']
+                    ]);
+                }
+            )
+
+            ->when($filters['route_id'] ?? null, function ($q, $value) {
+                $q->where('route_id', $value);
+            })
+
+            ->when($filters['aircraft_id'] ?? null, function ($q, $value) {
+                $q->where('aircraft_id', $value);
+            })
+
+            ->when($filters['status'] ?? null, function ($q, $value) {
+                $q->where('status', $value);
+            });
+    }
 }
