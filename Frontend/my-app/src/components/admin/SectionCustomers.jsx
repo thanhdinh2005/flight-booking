@@ -1,0 +1,403 @@
+import { useState } from 'react'
+import Badge from '../badge'
+import Modal from '../model'
+import { INIT_CUSTOMERS } from './mockData'
+import { customerAPI } from './adminAPI'
+
+export function SectionCustomers() {
+  // State quản lý modal
+  const [list, setList]       = useState(INIT_CUSTOMERS)
+  const [q, setQ]             = useState('')
+  const [modal, setModal]     = useState(false)
+  const [editModal, setEditModal] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+
+  // State form
+  const [form, setForm]       = useState({ name: '', email: '', phone: '' })
+  const [editErrors, setEditErrors] = useState({})
+  const [formErrors, setFormErrors] = useState({})
+
+  // Lọc danh sách
+  const filtered = list.filter(c =>
+    c.name.toLowerCase().includes(q.toLowerCase()) ||
+    c.email.includes(q) || c.id.includes(q)
+  )
+
+  // ═══════════════════════════════════
+  // VALIDATION
+  // ═══════════════════════════════════
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+  const validateForm = (data) => {
+    const errors = {}
+    if (!data.name?.trim()) errors.name = 'Họ tên không được trống'
+    if (!data.email?.trim()) errors.email = 'Email không được trống'
+    if (data.email && !validateEmail(data.email)) errors.email = 'Email không hợp lệ'
+    if (data.phone && !/^[\d\s+\-()]*$/.test(data.phone)) errors.phone = 'Số điện thoại không hợp lệ'
+    return errors
+  }
+
+  // ═══════════════════════════════════
+  // TOGGLE STATUS
+  // ═══════════════════════════════════
+  const toggle = (id) => {
+    setList(l => l.map(c => c.id === id
+      ? { ...c, status: c.status === 'active' ? 'suspended' : 'active' }
+      : c
+    ))
+  }
+
+  // ═══════════════════════════════════
+  // THÊM KHÁCH HÀNG
+  // ═══════════════════════════════════
+  const handleAdd = () => {
+    const errors = validateForm(form)
+    setFormErrors(errors)
+
+    if (Object.keys(errors).length > 0) return
+
+    setLoading(true)
+    setError('')
+
+    setTimeout(() => {
+      try {
+        const id = 'KH' + String(list.length + 6).padStart(3, '0')
+        const newCustomer = {
+          id,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          status: 'active',
+          tickets: 0,
+          joined: new Date().toISOString().slice(0, 10)
+        }
+        setList(l => [...l, newCustomer])
+        setModal(false)
+        setForm({ name: '', email: '', phone: '' })
+        setFormErrors({})
+      } catch (err) {
+        setError('Lỗi thêm khách hàng: ' + err.message)
+      } finally {
+        setLoading(false)
+      }
+    }, 300)
+  }
+
+  // ═══════════════════════════════════
+  // CHỈNH SỬA THÔNG TIN
+  // ═══════════════════════════════════
+  const openEdit = (customer) => {
+    setEditModal({
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone
+    })
+    setEditErrors({})
+    setError('')
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editModal) return
+
+    const errors = validateForm({
+      name: editModal.name,
+      email: editModal.email,
+      phone: editModal.phone
+    })
+    setEditErrors(errors)
+
+    if (Object.keys(errors).length > 0) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      await customerAPI.updateProfile(editModal.id, {
+        name: editModal.name.trim(),
+        email: editModal.email.trim(),
+        phone: editModal.phone.trim()
+      })
+
+      setList(l => l.map(c =>
+        c.id === editModal.id
+          ? {
+              ...c,
+              name: editModal.name.trim(),
+              email: editModal.email.trim(),
+              phone: editModal.phone.trim()
+            }
+          : c
+      ))
+
+      setEditModal(null)
+      setEditErrors({})
+    } catch (err) {
+      setError('Cập nhật thất bại: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ═══════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════
+  return (
+    <div className="adm-fade">
+      {/* HEADER */}
+      <div className="adm-sec-header">
+        <div>
+          <div className="adm-sec-title">Quản lý khách hàng</div>
+          <div className="adm-sec-sub">{list.length} khách hàng</div>
+        </div>
+        <button
+          className="adm-btn adm-btn-primary"
+          onClick={() => {
+            setModal(true)
+            setForm({ name: '', email: '', phone: '' })
+            setFormErrors({})
+            setError('')
+          }}
+          disabled={loading}
+        >
+          + Thêm khách hàng
+        </button>
+      </div>
+
+      {/* ERROR ALERT */}
+      {error && (
+        <div style={{
+          backgroundColor: 'var(--danger)',
+          color: 'white',
+          padding: '12px 16px',
+          borderRadius: '4px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <span>⚠️ {error}</span>
+          <button
+            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '18px' }}
+            onClick={() => setError('')}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* TABLE */}
+      <div className="adm-card">
+        <div className="adm-toolbar">
+          <input
+            className="adm-search"
+            placeholder="🔍 Tìm tên, email, mã KH..."
+            value={q}
+            onChange={e => setQ(e.target.value)}
+          />
+        </div>
+        <div className="adm-scroll">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>Mã KH</th>
+                <th>Họ tên</th>
+                <th>Email</th>
+                <th>Điện thoại</th>
+                <th>Trạng thái</th>
+                <th>Số vé</th>
+                <th>Tham gia</th>
+                <th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="adm-empty">
+                      {list.length === 0 ? 'Chưa có khách hàng' : 'Không tìm thấy'}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(c => (
+                  <tr key={c.id}>
+                    <td>
+                      <span className="adm-mono">{c.id}</span>
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{c.name}</td>
+                    <td>
+                      <span className="adm-mono">{c.email}</span>
+                    </td>
+                    <td>
+                      <span className="adm-mono">{c.phone || '-'}</span>
+                    </td>
+                    <td>
+                      <Badge value={c.status} />
+                    </td>
+                    <td>{c.tickets}</td>
+                    <td>
+                      <span className="adm-mono">{c.joined}</span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="adm-btn adm-btn-ghost adm-btn-sm"
+                          onClick={() => openEdit(c)}
+                          disabled={loading}
+                          title="Sửa thông tin"
+                        >
+                          ✏️ Sửa
+                        </button>
+                        <button
+                          className="adm-btn adm-btn-ghost adm-btn-sm"
+                          onClick={() => toggle(c.id)}
+                          disabled={loading}
+                          title={c.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                        >
+                          {c.status === 'active' ? '🔒 Khóa' : '🔓 Mở'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MODAL THÊM */}
+      {modal && (
+        <Modal
+          title="Thêm khách hàng"
+          sub="Điền thông tin bên dưới"
+          onClose={() => {
+            setModal(false)
+            setFormErrors({})
+          }}
+          footer={
+            <>
+              <button
+                className="adm-btn adm-btn-ghost"
+                onClick={() => {
+                  setModal(false)
+                  setFormErrors({})
+                }}
+                disabled={loading}
+              >
+                Hủy
+              </button>
+              <button
+                className="adm-btn adm-btn-primary"
+                onClick={handleAdd}
+                disabled={loading}
+              >
+                {loading ? '⏳ Đang thêm...' : 'Thêm'}
+              </button>
+            </>
+          }
+        >
+          {[
+            ['name', 'Họ tên', 'text', 'Nguyễn Văn A'],
+            ['email', 'Email', 'email', 'email@mail.com'],
+            ['phone', 'Điện thoại', 'text', '+84 9xx']
+          ].map(([k, l, t, p]) => (
+            <div className="adm-field" key={k}>
+              <label className="adm-label">
+                {l}
+                {(k === 'name' || k === 'email') && <span style={{ color: 'var(--danger)' }}>*</span>}
+              </label>
+              <input
+                className={`adm-input ${formErrors[k] ? 'adm-input-error' : ''}`}
+                type={t}
+                placeholder={p}
+                value={form[k]}
+                onChange={e => {
+                  setForm(f => ({ ...f, [k]: e.target.value }))
+                  if (formErrors[k]) {
+                    const newErrors = { ...formErrors }
+                    delete newErrors[k]
+                    setFormErrors(newErrors)
+                  }
+                }}
+                disabled={loading}
+              />
+              {formErrors[k] && (
+                <div style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '4px' }}>
+                  {formErrors[k]}
+                </div>
+              )}
+            </div>
+          ))}
+        </Modal>
+      )}
+
+      {/* MODAL CHỈNH SỬA */}
+      {editModal && (
+        <Modal
+          title="Chỉnh sửa thông tin"
+          sub={`Mã KH: ${editModal.id}`}
+          onClose={() => {
+            setEditModal(null)
+            setEditErrors({})
+          }}
+          footer={
+            <>
+              <button
+                className="adm-btn adm-btn-ghost"
+                onClick={() => {
+                  setEditModal(null)
+                  setEditErrors({})
+                }}
+                disabled={loading}
+              >
+                Hủy
+              </button>
+              <button
+                className="adm-btn adm-btn-primary"
+                onClick={handleSaveEdit}
+                disabled={loading}
+              >
+                {loading ? '⏳ Đang lưu...' : 'Lưu'}
+              </button>
+            </>
+          }
+        >
+          {[
+            ['name', 'Họ tên', 'text'],
+            ['email', 'Email', 'email'],
+            ['phone', 'Điện thoại', 'text']
+          ].map(([k, l, t]) => (
+            <div className="adm-field" key={k}>
+              <label className="adm-label">
+                {l}
+                {(k === 'name' || k === 'email') && <span style={{ color: 'var(--danger)' }}>*</span>}
+              </label>
+              <input
+                className={`adm-input ${editErrors[k] ? 'adm-input-error' : ''}`}
+                type={t}
+                value={editModal[k]}
+                onChange={e => {
+                  setEditModal(m => ({ ...m, [k]: e.target.value }))
+                  if (editErrors[k]) {
+                    const newErrors = { ...editErrors }
+                    delete newErrors[k]
+                    setEditErrors(newErrors)
+                  }
+                }}
+                disabled={loading}
+              />
+              {editErrors[k] && (
+                <div style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '4px' }}>
+                  {editErrors[k]}
+                </div>
+              )}
+            </div>
+          ))}
+        </Modal>
+      )}
+    </div>
+  )
+}

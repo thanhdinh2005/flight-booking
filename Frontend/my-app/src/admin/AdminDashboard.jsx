@@ -2,38 +2,61 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clearToken } from '../services/keycloakService'
 
-import { SectionCustomers, SectionFlights, SectionSchedules, SectionRefunds } from '../components/sections'
+import { 
+  SectionDashboard, 
+  SectionCustomers, 
+  SectionFlights, 
+  SectionTickets,
+  SectionStats,
+  SectionAuditLogs
+} from '../components/admin'
 import '../styles/admin.css'
 
 const NAV = [
   {
+    group: 'Tổng quan',
+    items: [
+      { key: 'dashboard', label: 'Dashboard',      icon: '📊' },
+    ],
+  },
+  {
     group: 'Quản lý',
     items: [
-      { key: 'customers', label: 'Khách hàng',   icon: '👤' },
-      { key: 'flights',   label: 'Chuyến bay',    icon: '✈️' },
-      { key: 'schedules', label: 'Lịch trình',    icon: '📅' },
-      { key: 'refunds',   label: 'Yêu cầu hoàn', icon: '↩️' },
+      { key: 'customers', label: 'Khách hàng',     icon: '👤' },
+      { key: 'flights',   label: 'Chuyến bay',     icon: '✈️' },
+      { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
+    ],
+  },
+  {
+    group: 'Báo cáo',
+    items: [
+      { key: 'stats',     label: 'Thống kê',       icon: '📈' },
+      { key: 'logs',      label: 'Truy vết',       icon: '📋' },
     ],
   },
 ]
 
 const PAGE_TITLE = {
+  dashboard: 'Dashboard Admin',
   customers: 'Quản lý khách hàng',
   flights:   'Quản lý chuyến bay',
-  schedules: 'Lịch trình chuyến bay',
-  refunds:   'Yêu cầu hoàn vé',
+  tickets:   'Quản lý vé máy bay',
+  stats:     'Thống kê báo cáo',
+  logs:      'Truy vết hành động',
 }
 
 const SECTIONS = {
+  dashboard: SectionDashboard,
   customers: SectionCustomers,
   flights:   SectionFlights,
-  schedules: SectionSchedules,
-  refunds:   SectionRefunds,
+  tickets:   SectionTickets,
+  stats:     SectionStats,
+  logs:      SectionAuditLogs,
 }
 
 export default function AdminDashboard() {
   const navigate        = useNavigate()
-  const [tab, setTab]   = useState('customers')
+  const [tab, setTab]   = useState('dashboard')
   const [time, setTime] = useState(new Date().toLocaleTimeString('vi-VN'))
 
   useEffect(() => {
@@ -46,7 +69,7 @@ export default function AdminDashboard() {
     navigate('/login', { replace: true })
   }
 
-  const ActiveSection = SECTIONS[tab] || SectionCustomers
+  const ActiveSection = SECTIONS[tab] || SectionDashboard
 
   return (
     <div className="adm-root">
@@ -54,7 +77,7 @@ export default function AdminDashboard() {
         <div className="adm-logo">
           <div className="adm-logo-icon">✈</div>
           <div>
-            <div className="adm-logo-name">Whisper</div>
+            <div className="adm-logo-name">VietJext</div>
             <div className="adm-logo-tag">Admin Portal</div>
           </div>
         </div>
