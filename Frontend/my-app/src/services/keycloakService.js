@@ -81,7 +81,7 @@ export function hasRole(role) {
 // Roles: ADMIN | STAFF | CUSTOMER
 export function redirectByRole(roles, navigate) {
   if (roles.includes('ADMIN')) {
-    navigate('/admin/dashboard')
+    navigate('/admin')
   } else if (roles.includes('STAFF')) {
     navigate('/staff/dashboard')
   } else {

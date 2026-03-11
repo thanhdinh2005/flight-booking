@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Auth           from './components/Signup'
 import ProtectedRoute from './components/protected'
 import './styles/signup.css'
-import register from './components/Register'
+import AdminDashboard from './admin/AdminDashboard'
+
 
 // ── Placeholder pages (thay bằng trang thật của bạn) ──────────────────────────
 const HomePage  = () => <div style={{ padding: 40, color: 'black' }}>🏠 Trang chủ (CUSTOMER)</div>
@@ -39,13 +40,11 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        {/* ADMIN */}
-        <Route path="/admin/dashboard" element={
-          <ProtectedRoute requiredRole="ADMIN">
-            <AdminPage />
-          </ProtectedRoute>
-        } />
-
+        <Route path="/admin" element={
+        <ProtectedRoute requiredRole="ADMIN">
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 
