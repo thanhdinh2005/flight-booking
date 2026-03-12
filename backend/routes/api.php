@@ -17,6 +17,10 @@ use App\Http\Controllers\api\PaymentController;
 use App\Http\Controllers\api\StaffController;
 use App\Http\Controllers\api\UserController;
 
+Route::options('{any}', function () {
+    return response()->json([], 200);
+})->where('any', '.*');
+
 Route::post('/updateAddon', [BookingController::class, 'addAddon']);
 Route::post('/', [BookingController::class, 'store']);
 Route::get('/airports/search', [AirportController::class, 'search']);

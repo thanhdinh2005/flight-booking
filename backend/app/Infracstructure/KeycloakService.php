@@ -115,4 +115,35 @@ class KeycloakService
             );
         }
     }
+
+    public function removeRealmRole(string $userId, string $roleName): void
+    {
+        $token = $this->adminToken();
+
+        $roleResponse = Http::withToken($token)
+            ->get("{$this->baseUrl}/admin/realms/{$this->realm}/roles/{$roleName}");
+
+        if ($roleResponse->failed()) {
+            throw new KeycloakException(
+                "Role '{$roleName}' not found in realm"
+            );
+        }
+
+        $role = $roleResponse->json();
+
+        $removeResponse = Http::withToken($token)
+            ->delete(
+                "{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}/role-mappings/realm",
+                [[
+                    'id'   => $role['id'],
+                    'name' => $role['name'],
+                ]]
+            );
+
+        if ($removeResponse->failed()) {
+            throw new KeycloakException(
+                'Failed to remove role from user'
+            );
+        }
+    }
 }
