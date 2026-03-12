@@ -12,7 +12,7 @@ final class GetCurrentUserProfileUseCase
         $user = User::findByKeycloakId($keycloakId);
 
         if (!$user) {
-            throw new EntityNotFoundException("User not found");
+            throw new EntityNotFoundException("Không tìm thấy người dùng");
         }
 
         return new UserResponse(

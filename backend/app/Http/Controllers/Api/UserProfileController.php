@@ -44,9 +44,9 @@ class UserProfileController extends Controller
      */
     public function getProfile(Request $request, GetCurrentUserProfileUseCase $useCase) 
     {
-        $keycloakId = $request->attributes->get('keycloak_id');
+        $user = $request->user();
 
-        $userResponse = $useCase->execute($keycloakId);
+        $userResponse = $useCase->execute($user->keycloak_id);
 
         return ApiResponse::success($userResponse);
     }
@@ -93,15 +93,15 @@ class UserProfileController extends Controller
      */
     public function updateProfile(UpdateProfileRequest $request, UpdateUserProfileUseCase $useCase) 
     {
-        $keycloakId = $request->attributes->get('keycloak_id');
+        $user = $request->user();
 
         $validatedData = $request->validated();
         if (empty($validatedData)) {
-            throw new BusinessException("No data provided for update.");
+            throw new BusinessException("Request rỗng.");
         }
 
-        $userResponse = $useCase->execute($keycloakId, $validatedData);
+        $userResponse = $useCase->execute($user->keycloak_id, $validatedData);
 
-        return ApiResponse::success($userResponse, "Profile updated successfully");
+        return ApiResponse::success($userResponse, "Cập nhật hồ sơ thành công");
     }
 }

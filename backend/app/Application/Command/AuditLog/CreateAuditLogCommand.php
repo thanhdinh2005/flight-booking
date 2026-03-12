@@ -11,8 +11,8 @@ final class CreateAuditLogCommand
         string $action,
         string $targetTable,
         int $targetId,
-        ?array $changes,
-        ?string $ipAddress,
+        ?array $changes = null,
+        ?string $ipAddress = null,
     ) : AuditLog {
         return AuditLog::create([
             'user_id'      => $userId,
