@@ -6,12 +6,23 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
+
+
+use app\Http\Controllers\Api\BookingController;
+
+
 use App\Http\Controllers\api\CustomerBookingController;
 use App\Http\Controllers\api\FlightInstanceController;
 use App\Http\Controllers\api\PaymentController;
 use App\Http\Controllers\api\StaffController;
 use App\Http\Controllers\api\UserController;
 
+Route::options('{any}', function () {
+    return response()->json([], 200);
+})->where('any', '.*');
+
+Route::post('/updateAddon', [BookingController::class, 'addAddon']);
+Route::post('/', [BookingController::class, 'store']);
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
@@ -23,7 +34,7 @@ Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
 		return response()->json(['message' => 'Authenticated access granted']);
 	});
-
+    
 	Route::get('/me', [UserProfileController::class, 'getProfile']);
 	Route::put('/me', [UserProfileController::class, 'updateProfile']);
 

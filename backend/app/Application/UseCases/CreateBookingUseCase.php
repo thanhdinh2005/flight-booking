@@ -1,70 +1,66 @@
 <?php
-
 namespace App\Application\UseCases;
 
-use App\Models\FlightInstance;
 use App\Models\Booking;
+use App\Models\Passenger;
+use App\Models\Ticket;
+use App\Application\Command\Pricing\CalculateBaseFareCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Models\Passenger;
+
 class CreateBookingUseCase
 {
-    public function execute(array $data){
-        // Dùng Transaction để đảm bảo nếu lưu hành khách lỗi thì Booking cũng bị hủy
+    protected $calculateCommand;
+
+    public function __construct(CalculateBaseFareCommand $calculateCommand)
+    {
+        $this->calculateCommand = $calculateCommand;
+    }
+
+    public function execute(array $data): mixed
+    {
         return DB::transaction(function () use ($data) {
-            // 1. Tao booking tong truoc(thong tin lien he va PNR)
+            $passengerCount = count($data['passengers']);
+            
+            // 1. GỌI COMMAND ĐỂ LẤY GIÁ & KIỂM TRA CHỖ
+            $pricing = $this->calculateCommand->execute($data['itinerary'], $passengerCount);
+
+            // 2. TẠO BOOKING
             $booking = Booking::create([
-                'user_id' => $data['user_id'],
-                'pnr' => Str::upper(Str::random(6)), // Tạo PNR ngẫu nhiên
-                'total_amount' => 0, // Tạm thời để 0, sẽ cập nhật sau khi tính tổng
-                'status' => 'PENDING',
+                'pnr' => Str::upper(Str::random(6)),
+                'total_amount' => $pricing['total_amount'],
                 'contact_email' => $data['contact_email'],
                 'contact_phone' => $data['contact_phone'],
-                'expires_at' => now()->addMinutes(15) // Đặt thời gian hết hạn
+                'status' => 'PENDING',
+                'expires_at' => now()->addMinutes(15),
             ]);
-// Đếm số lượng hành khách để trừ chỗ
-    $passengerCount = count($data['passengers']);
-    // Kiểm tra và Trừ số chỗ ngồi trong FlightInstance
-    $flightInstance = FlightInstance::lockForUpdate()->find($data['flight_instance_id']);
-    if ($flightInstance->available_seats < $passengerCount) {
-        throw new \Exception("Chuyến bay đã hết chỗ hoặc không đủ chỗ cho đoàn của bạn.");
-    }
-     $flightInstance->decrement('available_seats', $passengerCount);
-            //2 Lặp qua danh sách hành khách từ Validation gửi lên
-            foreach ($data['passengers'] as $passenger){
-                //2.1 tao passenger
-                $passenger = Passenger::create([
-                    'first_name' => $passenger['first_name'],
-                    'last_name' => $passenger['last_name'],
-                    'gender' => $passenger['gender'],
-                    'date_of_birth' => $passenger['date_of_birth'],
-                    'id_number' => $passenger['id_number'],
-                    'type' => $passenger['type']
-                ]);
 
-                //2.2 tao ticket
-                $ticket = Ticket::create([
-                    'booking_id' => $booking->id,
-                    'flight_instance_id' => $data['flight_instance_id'],
-                    'passenger_id' => $passenger->id, // Lưu ID hành khách thay vì thông tin trực tiếp
-                    'seat_class' => $data['seat_class'],
-                    'ticket_price' => 0, // Tạm thời để 0, sẽ cập nhật sau khi tính giá
-                    'status' => 'ACTIVE'
+            // 3. TẠO PASSENGERS & TICKETS + TRỪ GHẾ
+            foreach ($data['passengers'] as $pData) {
+                $passenger = Passenger::create($pData);
+
+                foreach ($data['itinerary'] as $segment) {
+                    $fId = $segment['flight_instance_id'];
+                    $sClass = $segment['seat_class'];
+
+                    Ticket::create([
+                        'booking_id' => $booking->id,
+                        'passenger_id' => $passenger->id,
+                        'flight_instance_id' => $fId,
+                        'seat_class' => $sClass,
+                        'ticket_price' => $pricing['segments_price'][$fId],
+                        'status' => 'RESERVED', // Trạng thái chờ thanh toán
                     ]);
-                if (!empty($passenger['addons'])) {
-                    foreach ($passenger['addons'] as $addon) {
-                        TicketAddon::create([
-                            'ticket_id' => $ticket->id,
-                            'addon_type' => $addon['addon_type'],
-                            'amount' => $addon['amount']
-                        ]);
-                    }
+
+                    // Trừ ghế trong Inventory (Trừ từng ghế một theo vòng lặp Ticket)
+                    DB::table('flight_seat_inventory')
+                        ->where('flight_instance_id', $fId)
+                        ->where('seat_class', $sClass)
+                        ->decrement('available_seats', 1);
                 }
-               
             }
 
-            // tra ve booking kem theo du lieu 
-            return $booking->load('tickets.passenger', 'tickets.flightInstance.route.origin', 'tickets.flightInstance.route.destination');
+            return $booking->load(['tickets.passenger', 'tickets.flightInstance']);
         });
     }
 }

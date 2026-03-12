@@ -22,23 +22,28 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+
     ->withMiddleware(function (Middleware $middleware) {
+
+        // Force JSON response cho API
         $middleware->prepend(ForceJsonResponse::class);
 
+        // CORS middleware
+        $middleware->append(HandleCors::class);
+
+        // Middleware aliases
         $middleware->alias([
             'role' => App\Http\Middleware\RequireRole::class,
             'auth.keycloak' => App\Http\Middleware\AuthenticateWithKeycloak::class,
         ]);
     })
-        ->withMiddleware(function (Middleware $middleware) {
-        $middleware->append(HandleCors::class);
-    })
+
     ->withExceptions(function (Exceptions $exceptions) {
+
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
             if ($request->is('api/*')) {
                 return true;
             }
-
             return $request->expectsJson();
         });
 
@@ -72,7 +77,11 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (\Throwable $e) {
-            $message = config('app.debug') ? $e->getMessage() : 'Internal Server Error';
+
+            $message = config('app.debug')
+                ? $e->getMessage()
+                : 'Internal Server Error';
+
             $status = 500;
 
             if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
@@ -82,5 +91,6 @@ return Application::configure(basePath: dirname(__DIR__))
             return ApiResponse::error($message, $status);
         });
 
+    })
 
-    })->create();
+    ->create();

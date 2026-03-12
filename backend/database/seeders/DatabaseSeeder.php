@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             InitialDataSeeder::class,
             UserSeeder::class,
+            AddonSeeder::class,
             FlightScheduleSeeder::class,
             FlightInstanceSeeder::class,
            // FlightSeatInventorySeeder::class,

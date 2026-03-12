@@ -12,11 +12,21 @@ class TicketAddon extends Model
 
     protected $fillable = [
         'ticket_id', 
-        'addon_type', 
-        'amount'
+        'addon_id', 
+        'amount',
+        'quantity'
     ];
 
-    protected $casts = ['amount' => 'decimal:2'];
+   public function addon()
+    {
+        return $this->belongsTo(Addon::class, 'addon_id');
+    }
 
-    public function ticket() { return $this->belongsTo(Ticket::class); }
+    /**
+     * Liên kết với Ticket để biết dịch vụ này của ai, chặng nào
+     */
+    public function ticket()
+    {
+        return $this->belongsTo(Ticket::class, 'ticket_id');
+    }
 }
