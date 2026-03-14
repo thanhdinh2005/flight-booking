@@ -18,7 +18,7 @@ class AddonSeeder extends Seeder
             ['name' => 'Hành lý ký gửi 15kg', 'code' => 'BAG15', 'type' => 'LUGGAGE', 'price' => 180000],
             ['name' => 'Hành lý ký gửi 23kg', 'code' => 'BAG23', 'type' => 'LUGGAGE', 'price' => 250000],
             ['name' => 'Hành lý ký gửi 32kg', 'code' => 'BAG32', 'type' => 'LUGGAGE', 'price' => 450000],
-
+        
             // Dịch vụ Suất ăn
             ['name' => 'Cơm gà Hội An', 'code' => 'MEAL_CHICKEN', 'type' => 'MEAL', 'price' => 85000],
             ['name' => 'Mì Ý sốt bò bằm', 'code' => 'MEAL_PASTA', 'type' => 'MEAL', 'price' => 95000],

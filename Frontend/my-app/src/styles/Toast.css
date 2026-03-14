@@ -1,0 +1,101 @@
+/* =====================================================
+   Toast.css
+   ===================================================== */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--color-teal-btn);
+  color: white;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: translateY(120px);
+  opacity: 0;
+  transition: transform var(--transition-slow), opacity var(--transition-slow);
+  z-index: 999;
+  pointer-events: none;
+}
+
+.toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* =====================================================
+   SearchOverlay.css
+   ===================================================== */
+
+.search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+}
+
+.search-overlay--active {
+  display: flex;
+}
+
+.search-overlay__box {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  width: 500px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.search-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.search-overlay__title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.search-overlay__close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--color-text-mid);
+  line-height: 1;
+}
+
+.search-overlay__input {
+  width: 100%;
+  border: 2px solid var(--color-sky);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: var(--font-size-md);
+  outline: none;
+}
+
+.search-overlay__results {
+  margin-top: 12px;
+  color: var(--color-text-mid);
+  font-size: var(--font-size-sm);
+}
+
+.search-overlay__result-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.search-overlay__result-item:hover {
+  color: var(--color-teal);
+}

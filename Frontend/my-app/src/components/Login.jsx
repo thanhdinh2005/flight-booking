@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+// src/components/Login.jsx
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   loginKeycloak,
@@ -7,6 +8,7 @@ import {
   redirectByRole,
 } from '../services/keycloakService'
 import '../styles/signup.css'
+
 
 export default function Login({ onNavigate }) {
   const [form,    setForm]    = useState({ email: '', password: '' })
@@ -27,6 +29,7 @@ export default function Login({ onNavigate }) {
       const tokenData = await loginKeycloak(form.email, form.password)
       saveToken(tokenData)
       const user = getUserFromToken(tokenData.access_token)
+
       redirectByRole(user?.roles || [], navigate)
     } catch (err) {
       setError(err.message)
@@ -37,6 +40,9 @@ export default function Login({ onNavigate }) {
 
   return (
     <div className="signup-card">
+      {/* Logo */}
+   
+
       <h2 className="title">Đăng nhập</h2>
       <p className="title-sub">Chào mừng bạn quay trở lại</p>
 
@@ -49,6 +55,7 @@ export default function Login({ onNavigate }) {
           onChange={handleChange}
           className="input"
           required
+          autoComplete="email"
         />
         <input
           name="password"
@@ -58,16 +65,17 @@ export default function Login({ onNavigate }) {
           onChange={handleChange}
           className="input"
           required
+          autoComplete="current-password"
         />
 
         {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginTop: '4px' }}>
+          <p style={{ color: 'var(--danger)', fontSize: '0.82rem', marginTop: 4 }}>
             ⚠️ {error}
           </p>
         )}
 
-        <div style={{ textAlign: 'right', marginTop: '4px' }}>
-          <button type="button" className="link" onClick={() => onNavigate('forgot')}>
+        <div style={{ textAlign: 'right', marginTop: 4 }}>
+          <button type="button" className="link" onClick={() => onNavigate?.('forgot')}>
             Quên mật khẩu?
           </button>
         </div>
@@ -83,7 +91,7 @@ export default function Login({ onNavigate }) {
 
         <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-mid)' }}>
           Chưa có tài khoản?{' '}
-          <button type="button" className="link" onClick={() => onNavigate('register')}>
+          <button type="button" className="link" onClick={() => onNavigate?.('register')}>
             Đăng ký ngay
           </button>
         </p>

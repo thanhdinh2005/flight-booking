@@ -14,6 +14,11 @@ export function getToken() {
   return sessionStorage.getItem('access_token')
 }
 
+export function getAccessToken() {
+  return sessionStorage.getItem('access_token')
+}
+
+
 export function clearToken() {
   sessionStorage.removeItem('access_token')
   sessionStorage.removeItem('refresh_token')
@@ -81,7 +86,7 @@ export function hasRole(role) {
 // Roles: ADMIN | STAFF | CUSTOMER
 export function redirectByRole(roles, navigate) {
   if (roles.includes('ADMIN')) {
-    navigate('/admin/dashboard')
+    navigate('/admin')
   } else if (roles.includes('STAFF')) {
     navigate('/staff/dashboard')
   } else {

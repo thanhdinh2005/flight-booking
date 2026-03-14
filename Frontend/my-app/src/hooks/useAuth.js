@@ -23,7 +23,7 @@ export function useAuth() {
   }
 
   return {
-    user,                              // { id, email, name, username, roles[] }
+    user,                     
     isAuthenticated: isAuthenticated(),
     isAdmin:         hasRole('ADMIN'),
     isStaff:         hasRole('STAFF'),
