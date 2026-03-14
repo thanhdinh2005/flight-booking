@@ -1,0 +1,109 @@
+/* src/styles/FlightCard.css */
+:root {
+  --color-teal: #1ab8a0;
+  --color-teal-hover: #17a08b;
+  --shadow-card: 0 4px 16px rgba(91, 200, 232, 0.15);
+}
+
+.flights-section {
+  padding: 20px 24px 40px;
+   margin-top: -60px;
+  background-color: #e8f7fd; /* Màu nền app */
+}
+
+/* Container màu trắng bao quanh title và card */
+.flights-section__container {
+  background-color: white;
+  border-radius: 20px;
+  padding: 24px;
+  margin-top: 20px; /* Tạo khoảng cách với Search Panel */
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.flights-section__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a3a4a;
+  margin-bottom: 20px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.flight-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  border: 1px solid #f0f0f0;
+}
+
+.flight-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(91, 200, 232, 0.3);
+}
+
+.flight-card__img {
+  height: 160px; /* Tăng chiều cao để thấy ảnh rõ hơn */
+  position: relative;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Lớp phủ để chữ trên ảnh dễ đọc hơn */
+.flight-card__img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5));
+}
+
+.flight-card__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px; /* Chuyển badge sang phải cho giống mẫu */
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  z-index: 2;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.flight-card__body {
+  padding: 15px;
+  text-align: right; /* Căn phải nội dung giá và nút */
+}
+
+.flight-card__price {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a3a4a;
+}
+
+.flight-card__tag {
+  font-size: 12px;
+  color: #7ab0c0;
+  margin-bottom: 12px;
+}
+
+.flight-card__buy {
+  width: 100%;
+  background-color: #56B9C0;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.flight-card__buy:hover {
+  background-color: #45a4ab;
+}

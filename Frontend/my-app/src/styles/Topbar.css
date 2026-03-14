@@ -1,0 +1,83 @@
+/* =====================================================
+   Topbar.css
+   ===================================================== */
+
+.topbar {
+  height: 65px;
+  background: var(--color-topbar-bg);
+  border-bottom: 2px solid var(--color-sky);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-lg);
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+
+/* Logo */
+.topbar__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--color-white);
+  border: 2px solid rgb(151, 208, 224);
+  border-radius:15px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast);
+  text-decoration: none;
+box-shadow:black 0px 2px 2px;
+}
+
+
+
+.topbar__logo-icon {
+  font-size: 22px;
+}
+
+.topbar__logo-text {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-teal);
+  letter-spacing: -0.5px;
+}
+
+/* Actions */
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* Icon buttons */
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 30px;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
+.btn-icon:hover {
+  background: rgba(40, 51, 54, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+}

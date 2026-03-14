@@ -1,28 +1,47 @@
-import React from 'react'
+// src/components/protected.jsx
 import { Navigate } from 'react-router-dom'
-import { isAuthenticated, hasRole } from '../services/keycloakService'
+import {
+  isAuthenticated,
+  getToken,
+  getUserFromToken,
+} from '../services/keycloakService'
 
 /**
- * Bảo vệ route khỏi người dùng chưa đăng nhập hoặc không đủ quyền
+ * ProtectedRoute – bảo vệ route theo role.
  *
- * Dùng:
- *   <ProtectedRoute>                          → chỉ cần đăng nhập
- *   <ProtectedRoute requiredRole="ADMIN">     → cần role ADMIN
- *   <ProtectedRoute requiredRole={['ADMIN','STAFF']}> → 1 trong 2 role
+ * requiredRole:
+ *   'ADMIN'    → chỉ ADMIN vào được
+ *   'STAFF'    → chỉ STAFF vào được
+ *   'CUSTOMER' → user thường (không phải ADMIN/STAFF)
+ *   undefined  → chỉ cần đăng nhập hợp lệ
  */
 export default function ProtectedRoute({ children, requiredRole }) {
-  // Chưa đăng nhập → về trang login
+  // isAuthenticated() kiểm tra token còn hạn không (dùng token_expiry trong sessionStorage)
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
 
-  // Kiểm tra role nếu có yêu cầu
-  if (requiredRole) {
-    const allowed    = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
-    const hasAccess  = allowed.some((r) => hasRole(r))
-    if (!hasAccess) {
-      return <Navigate to="/unauthorized" replace />
-    }
+  const token = getToken()
+  const user  = getUserFromToken(token)
+  if (!user) return <Navigate to="/login" replace />
+
+  const roles = user.roles || []
+
+  if (requiredRole === 'ADMIN') {
+    // Chỉ ADMIN
+    if (!roles.includes('ADMIN')) return <Navigate to="/unauthorized" replace />
+  }
+
+  if (requiredRole === 'STAFF') {
+    // Chỉ STAFF
+    if (!roles.includes('STAFF')) return <Navigate to="/unauthorized" replace />
+  }
+
+  if (requiredRole === 'CUSTOMER') {
+    // Nếu là ADMIN → về trang admin
+    if (roles.includes('ADMIN')) return <Navigate to="/admin" replace />
+    // Nếu là STAFF → về trang staff
+    if (roles.includes('STAFF')) return <Navigate to="/staff/dashboard" replace />
   }
 
   return children

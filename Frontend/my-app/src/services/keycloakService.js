@@ -14,6 +14,11 @@ export function getToken() {
   return sessionStorage.getItem('access_token')
 }
 
+export function getAccessToken() {
+  return sessionStorage.getItem('access_token')
+}
+
+
 export function clearToken() {
   sessionStorage.removeItem('access_token')
   sessionStorage.removeItem('refresh_token')
