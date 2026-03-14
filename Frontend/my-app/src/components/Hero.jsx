@@ -1,16 +1,13 @@
 
-import image20 from '../assets/image 20.png';
+
 
 export default function Hero() {
   return (
-    <div className="hero" style={{
-      backgroundImage: `url(${image20})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      opacity: 0.5,
+   <div className="hero" style={{
       width: '100%',
-      height: '300px'
+      height: '300px',
+      backgroundColor: 'transparent', // Đảm bảo nó hoàn toàn trong suốt
+      display: 'block'                 // Giữ tính chất khối
     }}>
     </div>
   );

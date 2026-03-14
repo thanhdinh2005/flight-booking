@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════════════════════════
+   src/styles/Tokens.css
+   Palette chủ đạo: Sky-blue sáng (#AFDDF1 / #9fc3d3) · Trắng · Vàng nhẹ (#f5a623)
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Sky blue – màu chủ đạo ── */
+  --sky-50:  #f0f9fd;   /* nền trang cực nhạt */
+  --sky-100: #dff1f9;   /* surface nhẹ */
+  --sky-200: #BDE3E9;   /* border, surface header */
+  --sky-300: #AFDDF1;   /* topbar bg, accent surface */
+  --sky-400: #9fc3d3;   /* sidebar, accent mid */
+  --sky-500: #6aaec8;   /* icon active, border strong */
+  --sky-600: #3a8aab;   /* text trên nền trắng, button ghost */
+  --sky-700: #1e6080;   /* heading, text đậm */
+  --sky-800: #0d3d55;   /* text rất đậm */
+
+  /* ── Amber – accent vàng nhẹ ── */
+  --amber:      #f5a623;
+  --amber-light:#fde9b8;
+  --amber-dim:  rgba(245,166,35,0.15);
+  --amber-glow: rgba(245,166,35,0.30);
+  --amber-dark: #c47d0a;
+
+  /* ── Trắng ── */
+  --white:      #ffffff;
+  --white-90:   rgba(255,255,255,0.90);
+  --white-60:   rgba(255,255,255,0.60);
+  --white-30:   rgba(255,255,255,0.30);
+  --white-12:   rgba(255,255,255,0.12);
+
+  /* ── Ngữ nghĩa ── */
+  --success:     #0fa96d;
+  --success-dim: rgba(15,169,109,0.12);
+  --warning:     #f59e0b;
+  --warning-dim: rgba(245,158,11,0.12);
+  --danger:      #e53e3e;
+  --danger-dim:  rgba(229,62,62,0.12);
+  --info:        #3a8aab;
+  --info-dim:    rgba(58,138,171,0.12);
+
+  /* ── Text ── */
+  --text-primary:   #0d3d55;   /* đậm, trên nền trắng/sky nhạt */
+  --text-secondary: #3a6b7c;   /* phụ */
+  --text-muted:     #7aabb8;   /* mờ */
+  --text-inverse:   #ffffff;   /* trên nền tối / nút */
+  --text-on-sky:    #0d3d55;   /* text trên sky-300/400 */
+  --text-on-amber:  #5c3200;   /* text trên nền amber */
+
+  /* ── Surface ── */
+  --surface-0:    #f0f9fd;   /* nền trang */
+  --surface-1:    #e6f4fa;   /* card nhẹ */
+  --surface-2:    #dff1f9;   /* card border */
+  --surface-3:    #ffffff;   /* card chính, input */
+  --surface-4:    #f7fbfd;   /* hover trên card trắng */
+  --surface-sky:  #AFDDF1;   /* topbar, header */
+  --surface-sidebar: linear-gradient(180deg, #9fc3d3 0%, #8fb8c9 100%);
+
+  /* ── Border ── */
+  --border-subtle:  rgba(58,138,171,0.12);
+  --border-default: rgba(58,138,171,0.25);
+  --border-strong:  rgba(58,138,171,0.45);
+  --border-amber:   rgba(245,166,35,0.40);
+  --border-white:   rgba(255,255,255,0.55);
+
+  /* ── Shadow ── */
+  --shadow-sm:    0 1px 4px rgba(13,61,85,0.10);
+  --shadow-md:    0 4px 16px rgba(13,61,85,0.12);
+  --shadow-lg:    0 12px 40px rgba(13,61,85,0.16);
+  --shadow-amber: 0 0 20px rgba(245,166,35,0.25);
+
+  /* ── Typography ── */
+  --font-body: 'Outfit', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  /* ── Spacing ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ── Transition ── */
+  --transition: 0.18s ease;
+}

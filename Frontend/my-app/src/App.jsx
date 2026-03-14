@@ -1,13 +1,15 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import { useState }                                    from 'react'
-import { BrowserRouter, Routes, Route, Navigate }      from 'react-router-dom'
-
-import Home           from './components/Home'
-import Login          from './components/Login'
-import Register       from './components/Register'
-import ProtectedRoute from './components/protected'
-import AdminDashboard from './admin/AdminDashboard'
-
+import MainLayout from "./components/HomeLayout";
+import Home from "./components/HomePage";
+import MyTicket from "./components/Myticker";
+import CancelTicket from "./components/Cancelticker";
+import ChangeFlight from "./components/Changeflight";
+import { useState } from "react";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import ProtectedRoute from "./components/protected";
+import AdminDashboard from "./admin/AdminDashboard";
 import './styles/signup.css'
 
 /* ── Trang Auth: chứa Login / Register / ForgotPassword ── */
@@ -49,18 +51,22 @@ export default function App() {
       <Routes>
 
         {/* Public */}
-        <Route path="/login"        element={<AuthPage />} />
+        <Route path="/login" element={<AuthPage />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
-        {/* Customer – bất kỳ user đã đăng nhập không phải admin */}
+        {/* Customer layout */}
         <Route
-          path="/home"
           element={
             <ProtectedRoute requiredRole="CUSTOMER">
-              <Home />
+              <MainLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path="/home" element={<Home />} />
+          <Route path="/buy-ticket" element={<MyTicket />} />
+          <Route path="/cancel-ticket" element={<CancelTicket />} />
+          <Route path="/change-flight" element={<ChangeFlight />} />
+        </Route>
 
         {/* Admin */}
         <Route
@@ -72,10 +78,9 @@ export default function App() {
           }
         />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
