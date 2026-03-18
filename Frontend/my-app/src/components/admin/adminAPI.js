@@ -58,6 +58,31 @@ export function clearToken() {
   console.log('[Token] Cleared')
 }
 
+function mapFlight(f) {
+  if (!f) return {}
+  const route = f.route || {}
+  const aircraft = f.aircraft || {}
+  // Parse ISO timestamps: "2026-03-19T03:00:00.000000Z"
+  const std = f.std ? new Date(f.std) : null
+  const sta = f.sta ? new Date(f.sta) : null
+  const depDate = f.departure_date ? new Date(f.departure_date) : std
+  return {
+    id: String(f.id ?? ''),
+    flight_number: f.flight_number ?? '',
+    from: route.from ?? '',
+    to: route.to ?? '',
+    date: depDate ? depDate.toISOString().split('T')[0] : '',
+    dep: std ? std.toTimeString().slice(0, 5) : '',
+    arr: sta ? sta.toTimeString().slice(0, 5) : '',
+    aircraft: aircraft.model ?? '',
+    status: (f.status ?? 'SCHEDULED').toLowerCase(),
+    // Fields for display compatibility - API doesn't return these
+    seats: aircraft.model?.includes('A321') ? 180 : (aircraft.model?.includes('A350') ? 300 : 180),
+    sold: 0, // API doesn't return this
+    price: 0, // API doesn't return this
+    raw: f // Keep raw data if needed
+  }
+}
 function normalizeList(data, hints = []) {
   if (Array.isArray(data)) return data
   const keys = [...hints, 'data', 'content', 'items', 'result', 'results', 'list']
@@ -89,27 +114,43 @@ async function apiFetch(method, path, body = null) {
 export const dashboardAPI = {
   getStats: async () => {
     try {
-      const d = await apiFetch('GET', '/admin/dashboard/stats')
+      const d = await apiFetch('GET', '/admin/dashboard/summary')
+      // Response: { success, message, data: { period, financials, operations } }
+      const data = d.data ?? d
       return {
-        revenue: d.revenue ?? d.totalRevenue ?? 0,
-        tickets: d.tickets ?? d.totalTickets ?? 0,
-        flights: d.flights ?? d.totalFlights ?? 0,
-        customers: d.customers ?? d.totalCustomers ?? 0,
-        refunds: d.refunds ?? d.totalRefunds ?? 0,
-        cancelled: d.cancelled ?? d.totalCancelled ?? 0,
+        revenue: data?.financials?.gross_revenue ?? 0,
+        netRevenue: data?.financials?.net_revenue ?? 0,
+        refundedAmount: data?.financials?.refunded_amount ?? 0,
+        totalBookings: data?.operations?.total_bookings ?? 0,
+        totalFlights: data?.operations?.total_flights ?? 0,
+        period: data?.period ?? {}
       }
     } catch (err) {
       console.warn('[dashboardAPI.getStats] mock:', err.message)
-      return { revenue: 4875000000, tickets: 2841, flights: 48, customers: 1293, refunds: 142, cancelled: 38 }
+      return { revenue: 3600000, netRevenue: 3600000, refundedAmount: 0, totalBookings: 3, totalFlights: 0, period: {} }
     }
   },
-  getRevenueChart: async () => {
+  getRevenueChart: async (startDate = '', endDate = '') => {
     try {
-      const d = await apiFetch('GET', '/admin/dashboard/revenue')
-      return normalizeList(d, ['chart', 'revenue', 'values'])
+      const qs = new URLSearchParams()
+      if (startDate) qs.set('start_date', startDate)
+      if (endDate) qs.set('end_date', endDate)
+      const d = await apiFetch('GET', `/admin/revenue-chart?${qs.toString()}`)
+      // Response: { success, message, data: { labels: [], datasets: [{name, type, data: []}, ...] } }
+      const chartData = d.data ?? d
+      return {
+        labels: chartData.labels ?? [],
+        datasets: chartData.datasets ?? []
+      }
     } catch (err) {
       console.warn('[dashboardAPI.getRevenueChart] mock:', err.message)
-      return [320, 410, 290, 480, 560, 390, 510]
+      return {
+        labels: ['12/03', '13/03', '14/03', '15/03', '16/03', '17/03', '18/03'],
+        datasets: [
+          { name: 'Doanh thu gộp', type: 'bar', data: [320, 410, 290, 480, 560, 390, 510] },
+          { name: 'Doanh thu thuần', type: 'line', data: [280, 380, 250, 450, 520, 360, 480] }
+        ]
+      }
     }
   }
 }
@@ -214,14 +255,56 @@ export const customerAPI = {
 export const flightAPI = {
   getAll: async (params = {}) => {
     try {
-      const qs = new URLSearchParams(params).toString()
-      const d = await apiFetch('GET', `/admin/flight-instances${qs ? '?' + qs : ''}`)
-      const list = normalizeList(d, ['flightInstances', 'flight_instances', 'flights'])
-      console.log(`[flightAPI.getAll] OK: ${list.length}`)
-      return list
+      // Fetch all pages to get total data (e.g., 56 flights across 6 pages)
+      const fetchPage = async (page = 1, accumulated = []) => {
+        const p = new URLSearchParams({ per_page: '100', page: String(page), ...params })
+        const d = await apiFetch('GET', `/admin/flight-instances?${p.toString()}`)
+        
+        const list = normalizeList(d, ['data', 'flightInstances', 'flight_instances', 'flights'])
+        const meta = d.meta ?? d.pagination ?? {}
+        const allData = [...accumulated, ...list]
+        
+        const lastPage = meta.last_page ?? meta.lastPage ?? 1
+        if (page < lastPage && list.length > 0) {
+          return fetchPage(page + 1, allData)
+        }
+        return allData
+      }
+      
+      const allFlights = await fetchPage(1)
+      console.log(`[flightAPI.getAll] Total flights: ${allFlights.length}`)
+      return allFlights.map(mapFlight)
     } catch (err) {
       console.warn('[flightAPI.getAll] mock:', err.message)
       return INIT_FLIGHTS
+    }
+  },
+  getPage: async ({ page = 1, per_page = 10 } = {}) => {
+    try {
+      const p = new URLSearchParams({ per_page: String(per_page), page: String(page) })
+      const d = await apiFetch('GET', `/admin/flight-instances?${p.toString()}`)
+      
+      const list = normalizeList(d, ['data', 'flightInstances', 'flight_instances', 'flights'])
+      const meta = d.meta ?? d.pagination ?? { current_page: page, per_page, total: list.length, last_page: 1 }
+      
+      return {
+        data: list.map(mapFlight),
+        meta: {
+          current_page: meta.current_page ?? page,
+          per_page: meta.per_page ?? per_page,
+          total: meta.total ?? list.length,
+          last_page: meta.last_page ?? 1
+        }
+      }
+    } catch (err) {
+      console.warn('[flightAPI.getPage] mock:', err.message)
+      // Return mock data paginated
+      const start = (page - 1) * per_page
+      const end = start + per_page
+      return {
+        data: INIT_FLIGHTS.slice(start, end),
+        meta: { current_page: page, per_page, total: INIT_FLIGHTS.length, last_page: Math.ceil(INIT_FLIGHTS.length / per_page) }
+      }
     }
   },
   filter: async ({ status, from_date, to_date, page = 1, route_id } = {}) => {
@@ -247,7 +330,41 @@ export const flightAPI = {
     }
   },
   create: async (body) => apiFetch('POST', '/admin/flight-instances', body),
-  generate: async (body) => apiFetch('POST', '/admin/flight-instances', body),
+  generate: async ({ from, to, date, count, price }) => {
+    // Transform frontend form data to backend expected format
+    // Backend requires: route_id, aircraft_id, flight_number, departure_date, departure_time
+    const flightNumber = `VN${Math.floor(600 + Math.random() * 399)}`
+    const aircraftId = 1 // Default aircraft ID - should be selected from available aircrafts
+    
+    // Map from/to to route_id (this is simplified - ideally should lookup from routes API)
+    const routeMap = { 'HAN-SGN': 1, 'HAN-DAD': 2, 'SGN-DAD': 3, 'SGN-HAN': 4, 'DAD-HAN': 5, 'DAD-SGN': 6 }
+    const routeKey = `${from}-${to}`
+    const routeId = routeMap[routeKey] || 1
+    
+    const results = []
+    const GEN_TIMES = [['06:00', '08:10'], ['10:00', '12:10'], ['14:00', '16:10'], ['18:00', '20:10']]
+    
+    for (let i = 0; i < count; i++) {
+      const [depTime, arrTime] = GEN_TIMES[i % 4]
+      const body = {
+        route_id: routeId,
+        aircraft_id: aircraftId,
+        flight_number: flightNumber,
+        departure_date: date,
+        departure_time: depTime
+      }
+      
+      try {
+        const result = await apiFetch('POST', '/admin/flight-instances', body)
+        results.push(result)
+      } catch (err) {
+        console.warn(`[flightAPI.generate] Failed to create flight ${i + 1}:`, err.message)
+        throw err
+      }
+    }
+    
+    return { success: true, created: results.length, data: results }
+  },
   update: async (id, body) => apiFetch('PUT', `/admin/flight-instances/${id}`, body),
   delete: async (id) => apiFetch('DELETE', `/admin/flight-instances/${id}`)
 }
@@ -322,6 +439,38 @@ export const statsAPI = {
     } catch (err) {
       console.warn('[statsAPI.getTopRoutes] mock:', err.message)
       return TOP_ROUTES
+    }
+  },
+  getLoadFactor: async (startDate = '', endDate = '') => {
+    try {
+      const qs = new URLSearchParams()
+      if (startDate) qs.set('start_date', startDate)
+      if (endDate) qs.set('end_date', endDate)
+      const d = await apiFetch('GET', `/admin/load-factor?${qs.toString()}`)
+      // Response: { success, message, data: { overall, chart_by_route } }
+      const data = d.data ?? d
+      return {
+        overall: data?.overall ?? { load_factor_percentage: 0, total_seats_supplied: 0, total_seats_sold: 0 },
+        chartByRoute: data?.chart_by_route ?? { labels: [], datasets: [] }
+      }
+    } catch (err) {
+      console.warn('[statsAPI.getLoadFactor] mock:', err.message)
+      return { 
+        overall: { load_factor_percentage: 0, total_seats_supplied: 664, total_seats_sold: 0 },
+        chartByRoute: { labels: ['HAN - DAD', 'SGN - PXU', 'PXU - SGN'], datasets: [{ name: 'Tỉ lệ lấp đầy (%)', data: [0, 0, 0] }] }
+      }
+    }
+  },
+  exportPDF: async (startDate, endDate) => {
+    try {
+      const qs = new URLSearchParams()
+      if (startDate) qs.set('start_date', startDate)
+      if (endDate) qs.set('end_date', endDate)
+      const d = await apiFetch('GET', `/admin/reports/export-pdf?${qs.toString()}`)
+      return d
+    } catch (err) {
+      console.warn('[statsAPI.exportPDF] mock:', err.message)
+      return { success: false, message: 'PDF export not available' }
     }
   }
 }

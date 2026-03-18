@@ -117,10 +117,10 @@ function extractCode(airport) {
   return m ? m[1] : airport.split(' ')[0]
 }
 
-function SearchPanel({ onSearch }) {
+function SearchPanel({ onSearch, initialDestination }) {
   const [tripType,   setTripType]   = useState('one')
-  const [fromCity,   setFromCity]   = useState('Nội Bài (HAN) – Hà Nội')
-  const [toCity,     setToCity]     = useState('')
+  const [fromCity,   setFromCity]   = useState(initialDestination?.from || 'Nội Bài (HAN) – Hà Nội')
+  const [toCity,     setToCity]     = useState(initialDestination?.to || '')
   const [depDate,    setDepDate]    = useState('')
   const [retDate,    setRetDate]    = useState('')
   const [passengers, setPassengers] = useState('1')
@@ -240,7 +240,7 @@ function SearchPanel({ onSearch }) {
 
 // ─── Root: TabMuaVe ──────────────────────────────────────────────────────────
 // Luồng: 'search' → 'results' → 'passenger'
-export default function TabMuaVe({ onAction }) {
+export default function TabMuaVe({ onAction, initialDestination }) {
   const [screen,     setScreen]     = useState('search')   // 'search' | 'results' | 'passenger'
   const [searchData, setSearchData] = useState(null)
   const [selFlight,  setSelFlight]  = useState(null)
@@ -298,6 +298,6 @@ export default function TabMuaVe({ onAction }) {
     )
   }
 
-  // Default: search
-  return <SearchPanel onSearch={handleSearch} />
+  // Default: search - pass initialDestination to preset values
+  return <SearchPanel onSearch={handleSearch} initialDestination={initialDestination} />
 }

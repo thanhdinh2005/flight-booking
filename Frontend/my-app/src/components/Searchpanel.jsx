@@ -1,5 +1,5 @@
 // src/components/SearchPanel.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../styles/SearchPanel.css';
 import TabMuaVe   from './tabs/Tabmuave';
 import TabThuTuc  from './tabs/Tabthutuc';
@@ -14,12 +14,19 @@ const TABS = [
 ];
 
 /**
- * SearchPanel – white card with 5 service tabs.
+ * SearchPanel – white card with 4 service tabs.
  * Props:
  *   onAction {(message: string) => void}
+ *   activeTab {string} - controlled active tab id
+ *   onTabChange {(tabId: string) => void} - callback when tab changes
+ *   initialDestination {{from: string, to: string}} - preset destination for TabMuaVe
  */
-export default function SearchPanel({ onAction }) {
-  const [activeTab, setActiveTab] = useState('muave');
+export default function SearchPanel({ onAction, activeTab: controlledTab, onTabChange, initialDestination }) {
+  const [internalTab, setInternalTab] = useState('muave');
+  
+  // Use controlled tab if provided, otherwise internal
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = onTabChange ?? setInternalTab;
 
   const ActiveComponent = TABS.find((t) => t.id === activeTab)?.Component;
 
@@ -38,8 +45,14 @@ export default function SearchPanel({ onAction }) {
         ))}
       </div>
 
-      {/* Active tab content */}
-      {ActiveComponent && <ActiveComponent onAction={onAction} />}
+      {/* Active tab content - key forces remount when tab changes */}
+      {ActiveComponent && (
+        <ActiveComponent 
+          key={activeTab} 
+          onAction={onAction} 
+          initialDestination={initialDestination}
+        />
+      )}
     </div>
   );
 }

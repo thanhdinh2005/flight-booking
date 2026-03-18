@@ -15,13 +15,21 @@ export function SectionFlights() {
   const [error, setError]   = useState('')
   const [gen, setGen]       = useState({ from: 'HAN', to: 'SGN', date: '2026-03-20', count: 2, price: 1200000 })
 
-  useEffect(() => { fetchFlights() }, [])
+  // Pagination state
+  const [page, setPage]     = useState(1)
+  const [perPage]           = useState(10)
+  const [total, setTotal]   = useState(0)
+  const [meta, setMeta]     = useState({})
 
-  const fetchFlights = async () => {
+  useEffect(() => { fetchFlights(page) }, [page])
+
+  const fetchFlights = async (currentPage = 1) => {
     setLoading(true)
     try {
-      const data = await flightAPI.getAll()
-      setList(data)
+      const result = await flightAPI.getPage({ page: currentPage, per_page: perPage })
+      setList(result.data)
+      setTotal(result.meta?.total ?? result.data.length)
+      setMeta(result.meta ?? {})
       setError('')
     } catch (err) {
       console.error('[SectionFlights] fetchFlights lỗi:', err.message)
@@ -31,11 +39,14 @@ export function SectionFlights() {
     }
   }
 
-  const filtered = list.filter(f =>
-    f.id?.includes(q.toUpperCase()) ||
-    f.from?.includes(q.toUpperCase()) ||
-    f.to?.includes(q.toUpperCase())
-  )
+  const filtered = list.filter(f => {
+    const search = q.toUpperCase()
+    const idMatch = String(f.id ?? '').toUpperCase().includes(search)
+    const fromMatch = String(f.from ?? '').toUpperCase().includes(search)
+    const toMatch = String(f.to ?? '').toUpperCase().includes(search)
+    const flightNumMatch = String(f.flight_number ?? '').toUpperCase().includes(search)
+    return idMatch || fromMatch || toMatch || flightNumMatch
+  })
 
   const generate = async () => {
     setLoading(true)
@@ -46,24 +57,27 @@ export function SectionFlights() {
         count: +gen.count, price: +gen.price
       })
       console.log('%c[flightAPI.generate] ✅', 'color:#22c55e', result)
-      await fetchFlights()
-      setModal(false)
+      console.log('[SectionFlights] Created flights:', result.data)
+      
+      // Update total count first
+      const newTotal = total + result.created
+      setTotal(newTotal)
+      
+      // Calculate last page and jump there to show new flights
+      const lastPage = Math.ceil(newTotal / perPage)
+      setPage(lastPage)
+      
+      // Refresh the last page
+      await fetchFlights(lastPage)
+      
+      // Show success notification
+      setError('')
     } catch (err) {
-      console.warn('[flightAPI.generate] fallback local:', err.message)
-      // Fallback: tạo local nếu API không hỗ trợ
-      const news = Array.from({ length: +gen.count }, (_, i) => {
-        const [dep, arr] = GEN_TIMES[i % 4]
-        return {
-          id: 'VN' + (700 + list.length + i),
-          from: gen.from, to: gen.to,
-          dep, arr, date: gen.date,
-          seats: 180, sold: 0, price: +gen.price, status: 'scheduled'
-        }
-      })
-      setList(l => [...l, ...news])
-      setModal(false)
+      console.error('[flightAPI.generate] ❌', err)
+      setError('Lỗi tạo chuyến bay: ' + err.message)
     } finally {
       setLoading(false)
+      setModal(false)
     }
   }
 
@@ -72,13 +86,12 @@ export function SectionFlights() {
       <div className="adm-sec-header">
         <div>
           <div className="adm-sec-title">Quản lý chuyến bay</div>
-          <div className="adm-sec-sub">{list.length} chuyến</div>
+          <div className="adm-sec-sub">{total} chuyến | Trang {page}/{meta.last_page ?? Math.ceil(total/perPage)}</div>
         </div>
         <div className="adm-row">
           <button className="adm-btn adm-btn-ghost" onClick={() => setModal(true)} disabled={loading}>
             ⚡ Sinh tự động
           </button>
-          <button className="adm-btn adm-btn-primary" disabled={loading}>+ Thêm chuyến</button>
         </div>
       </div>
 
@@ -106,19 +119,52 @@ export function SectionFlights() {
                 <tr><td colSpan={8}><div className="adm-empty">{loading ? '⏳ Đang tải...' : 'Không tìm thấy'}</div></td></tr>
               ) : filtered.map(f => (
                 <tr key={f.id}>
-                  <td><span style={{ fontFamily: 'DM Mono', color: 'var(--accent2)', fontWeight: 600 }}>{f.id}</span></td>
+                  <td><span style={{ fontFamily: 'DM Mono', color: 'var(--accent2)', fontWeight: 600 }}>{f.flight_number || f.id}</span></td>
                   <td><b>{f.from}</b><span style={{ color: 'var(--text-dim)', margin: '0 5px' }}>→</span><b>{f.to}</b></td>
                   <td><span className="adm-mono">{f.date}</span></td>
                   <td><span className="adm-mono">{f.dep}</span></td>
                   <td><span className="adm-mono">{f.arr}</span></td>
                   <td><span style={{ color: f.sold === f.seats ? 'var(--danger)' : 'inherit' }}>{f.sold}/{f.seats}</span></td>
-                  <td><span className="adm-mono" style={{ color: 'var(--accent)' }}>{fmt(f.price)}</span></td>
+                  <td><span className="adm-mono" style={{ color: 'var(--accent)' }}>{f.price ? fmt(f.price) : '—'}</span></td>
                   <td><Badge value={f.status} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination */}
+        {meta.last_page > 1 && (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', padding: '16px', borderTop: '1px solid var(--border)' }}>
+            <button 
+              className="adm-btn adm-btn-ghost" 
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(p => p - 1)}
+            >← Trước</button>
+            
+            {Array.from({ length: meta.last_page ?? 1 }, (_, i) => i + 1).map(p => (
+              <button
+                key={p}
+                className="adm-btn"
+                style={{ 
+                  minWidth: 36, 
+                  background: p === page ? 'var(--accent)' : 'var(--surface)',
+                  color: p === page ? 'white' : 'var(--text)'
+                }}
+                onClick={() => setPage(p)}
+                disabled={loading}
+              >
+                {p}
+              </button>
+            ))}
+            
+            <button 
+              className="adm-btn adm-btn-ghost" 
+              disabled={page >= (meta.last_page ?? 1) || loading}
+              onClick={() => setPage(p => p + 1)}
+            >Sau →</button>
+          </div>
+        )}
       </div>
 
       {modal && (

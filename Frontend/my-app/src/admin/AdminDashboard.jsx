@@ -24,14 +24,14 @@ const NAV = [
     items: [
       { key: 'customers', label: 'Khách hàng',     icon: '👤' },
       { key: 'flights',   label: 'Chuyến bay',     icon: '✈️' },
-      { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
+      // { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
     ],
   },
   {
     group: 'Báo cáo',
     items: [
       { key: 'stats',     label: 'Thống kê',       icon: '📈' },
-      { key: 'logs',      label: 'Truy vết',       icon: '📋' },
+    
     ],
   },
 ]
@@ -42,7 +42,7 @@ const PAGE_TITLE = {
   flights:   'Quản lý chuyến bay',
   tickets:   'Quản lý vé máy bay',
   stats:     'Thống kê báo cáo',
-  logs:      'Truy vết hành động',
+  
 }
 
 const SECTIONS = {
