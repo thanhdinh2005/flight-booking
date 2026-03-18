@@ -44,17 +44,16 @@ const HelpPage = () => {
 // --- HỆ THỐNG STYLES ---
 const styles = {
   container: {
-    // Sửa padding dùng % để không bị Sidebar đè khi màn hình nhỏ
-    padding: '5% 6%',
+    padding: '40px 5%',
     backgroundColor: '#fff',
-    minHeight: '100%',
-    overflowX: 'hidden',
+    minHeight: '100vh',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   headerSection: {
     marginBottom: '40px',
   },
   mainTitle: {
-    // Chữ tự to nhỏ theo màn hình
     fontSize: 'clamp(24px, 3vw, 32px)',
     fontWeight: 'bold',
     color: '#000',
@@ -67,35 +66,36 @@ const styles = {
   },
   gridContainer: {
     display: 'grid',
-    // Tự động nhảy số cột: Nếu hẹp thì 1 cột, rộng thì tối đa 3 cột
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+    gridTemplateColumns: 'repeat(3, 1fr)', 
     gap: '25px',
     maxWidth: '1200px',
+    width: '100%',
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: '25px',
-    padding: '25px',
+    borderRadius: '20px',
+    padding: '30px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
     justifyContent: 'center',
-    minHeight: '160px', // Dùng minHeight thay vì height cố định
-    boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
+    minHeight: '180px', 
+    boxShadow: '0 8px 30px rgba(0,0,0,0.05)',
     cursor: 'pointer',
-    transition: 'all 0.3s ease',
+    transition: 'transform 0.2s ease',
     border: '1px solid #f0f0f0',
+    boxSizing: 'border-box',
   },
   iconWrapper: {
-    marginBottom: '15px',
+    marginBottom: '20px',
   },
   iconImg: {
-    width: 'clamp(40px, 4vw, 50px)',
-    height: 'clamp(40px, 4vw, 50px)',
+    width: '50px',
+    height: '50px',
     objectFit: 'contain',
   },
   cardTitle: {
-    fontSize: 'clamp(15px, 1.2vw, 17px)',
+    fontSize: '17px',
     fontWeight: '600',
     color: '#333',
     lineHeight: '1.4',
