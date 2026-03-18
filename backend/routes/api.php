@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\api\FlightScheduleController;
+use App\Http\Controllers\Api\FlightScheduleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
@@ -8,27 +8,44 @@ use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
 
 
+use App\Http\Controllers\Api\BookingController;
+
+
+use App\Http\Controllers\Api\CustomerBookingController;
+use App\Http\Controllers\Api\FlightInstanceController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\UserController;
+
 use app\Http\Controllers\Api\BookingController;
-
-
 use App\Http\Controllers\api\CustomerBookingController;
+use App\Http\Controllers\api\AdminDashboardController;
 use App\Http\Controllers\api\FlightInstanceController;
 use App\Http\Controllers\api\PaymentController;
+use App\Http\Controllers\api\ReportController;
 use App\Http\Controllers\api\StaffController;
 use App\Http\Controllers\api\UserController;
+
 
 Route::options('{any}', function () {
     return response()->json([], 200);
 })->where('any', '.*');
 
 Route::post('/updateAddon', [BookingController::class, 'addAddon']);
-Route::post('/', [BookingController::class, 'store']);
+Route::post('/createBooking', [BookingController::class, 'store']);
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
-
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
+
+
+
+
+
+
+
+
 
 Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
@@ -38,12 +55,14 @@ Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/me', [UserProfileController::class, 'getProfile']);
 	Route::put('/me', [UserProfileController::class, 'updateProfile']);
 
-    Route::post('/bookings/{bookingId}/refund-requests', [CustomerBookingController::class, 'requestRefund']);
-
     // Create Payment
     Route::post('/payments/vnpay/{bookingId}', [PaymentController::class, 'create']);
+    
 
-
+    Route::get('/bookings/{id}/active-tickets', [CustomerBookingController::class, 'listActiveTickets']);
+Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
+Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
+    
 
 });
 
@@ -54,6 +73,7 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
         Route::post('/processing-refund/{bookingRequestId}/approve', [StaffController::class, 'approveRefundRequest']);
         Route::post('/processing-refund/{bookingRequestId}/reject', [StaffController::class, 'rejectRefundRequest']);
 
+        
         // Route::get('/dashboard', [StaffController::class, 'dashboard']);
         // Route::get('/flights', [StaffController::class, 'manageFlights']);
 });
@@ -73,7 +93,7 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/flight-instances', [FlightInstanceController::class, 'getAll']);
         Route::get('/flight-instances/filter', [FlightInstanceController::class, 'filterFlight']);
         Route::get('/flight-instances/{id}', [FlightInstanceController::class, 'getById']);
-        
+        Route::put('/flight-instances/{flightInstanceId}', [FlightInstanceController::class, 'updateFlight']);
 
 
         // User Management API
@@ -84,6 +104,9 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::put('/users/{userId}/disable', [UserController::class, 'disable']);
         Route::put('/users/{userId}/active', [UserController::class, 'active']);
         
-
-
+        // Statistic & Report API
+        Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
+        Route::get('/dashboard/summary', [AdminDashboardController::class, 'getSummary']);
+        Route::get('/revenue-chart', [AdminDashboardController::class, 'getChart']);
+        Route::get('load-factor', [AdminDashboardController::class, 'loadFactor']);
 });

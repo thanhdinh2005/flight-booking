@@ -24,8 +24,15 @@ class GenerateFlightInstancesCommand
 
         $route = Route::findOrFail($schedule->route_id);
 
-        $aircraft = Aircraft::find($schedule->aircraft_id);
-        if ($aircraft->status === 'MAINTENANCE') throw new BusinessException("Aircraft is maintenance");
+        $aircraft = Aircraft::findOrFail($schedule->aircraft_id);
+
+        if ($aircraft->status === 'MAINTENANCE') {
+            throw new BusinessException("Aircraft is under maintenance");
+        }
+
+        if (!$route->flight_duration_minutes) {
+            throw new BusinessException("Invalid route duration");
+        }
 
         $lastFlight = FlightInstance::where('flight_schedule_id', $schedule->id)
             ->orderByDesc('departure_date')
@@ -34,42 +41,43 @@ class GenerateFlightInstancesCommand
         $start = $lastFlight
             ? Carbon::parse($lastFlight->departure_date)->addDay()
             : now()->startOfDay();
-        $end = min(
-            now()->copy()->addDays($days),
-            now()->endOfMonth()
-        );
+
+        $end = now()->copy()
+            ->addDays($days)
+            ->min(now()->endOfMonth());
 
         $daysOfWeek = $schedule->days_of_week;
 
-        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+        DB::transaction(function () use (
+            $schedule,
+            $route,
+            $start,
+            $end,
+            $daysOfWeek
+        ) {
 
-            if (!in_array($date->dayOfWeekIso, $daysOfWeek)) {
-                continue;
-            }
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
 
-            $exists = FlightInstance::query()
-                ->where('flight_schedule_id', $schedule->id)
-                ->whereDate('departure_date', $date->toDateString())
-                ->exists();
+                if (!in_array($date->dayOfWeekIso, $daysOfWeek)) {
+                    continue;
+                }
 
-            if ($exists) {
-                continue;
-            }
+                $exists = FlightInstance::query()
+                    ->where('flight_schedule_id', $schedule->id)
+                    ->whereDate('departure_date', $date->toDateString())
+                    ->exists();
 
-            $std = Carbon::parse(
-                $date->toDateString().' '.$schedule->departure_time
-            );
+                if ($exists) {
+                    continue;
+                }
 
-            $sta = $std->copy()
-                ->addMinutes($route->flight_duration_minutes);
+                $std = Carbon::parse(
+                    $date->toDateString() . ' ' . $schedule->departure_time,
+                    'Asia/Ho_Chi_Minh'
+                );
 
-            DB::transaction(function () use (
-                $schedule,
-                $route,
-                $date,
-                $std,
-                $sta
-            ) {
+                $sta = $std->copy()
+                    ->addMinutes($route->flight_duration_minutes);
 
                 $instance = FlightInstance::create([
                     'flight_schedule_id' => $schedule->id,
@@ -84,7 +92,8 @@ class GenerateFlightInstancesCommand
 
                 app(SeatInventoryCreateSeatInventoryCommand::class)
                     ->execute($instance->id);
-            });
-        }
+            }
+
+        });
     }
 }

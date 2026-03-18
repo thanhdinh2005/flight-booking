@@ -51,7 +51,6 @@ services:
   postgres:
     image: postgres:15
     container_name: flight_postgres
-    restart: always
     environment:
       POSTGRES_DB: flight_booking
       POSTGRES_USER: postgres

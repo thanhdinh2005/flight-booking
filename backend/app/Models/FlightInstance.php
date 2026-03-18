@@ -8,6 +8,10 @@ class FlightInstance extends Model
 {
     protected $table = "flight_instances";
 
+    const STATUS_SCHEDULED = 'SCHEDULED';
+    const STATUS_DELAYED = 'DELAYED';
+    const STATUS_DEPARTED = 'DEPARTED';
+
     protected $fillable = [
         'flight_schedule_id',
         'route_id',
@@ -18,7 +22,7 @@ class FlightInstance extends Model
         'sta', // Schedule Time of Arrival
         'etd', // Estimated Time of Departure
         'eta', // Estimated Time of Arrival
-        'status',
+        'status', // SCHEDULED, BOARDING, DELAYED, DEPARTED, CANCELLED
     ];
 
     protected $casts = [

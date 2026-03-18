@@ -9,7 +9,9 @@ use App\Application\Command\Register\DeleteKeycloakUserCommand;
 use App\Exceptions\BusinessException;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Response\UserResponse;
+use App\Mail\WelcomeMail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 final class CreateUserUseCase
 {
@@ -45,11 +47,20 @@ final class CreateUserUseCase
             firstName: $firstName,
             lastName: $lastName,
             phoneNumber: $phoneNumber,
-            keycloakUserId: $keycloakUserId
+            keycloakUserId: $keycloakUserId,
+            role: $role
         );
 
         $this->assign_role_user->execute($keycloakUserId, $role);
         DB::commit();
+
+        Mail::to($user->email)->queue(
+            new WelcomeMail([
+                'user_name' => $user->full_name,
+                'email' => $user->email
+            ])
+        );
+
         return new UserResponse(
             $user->id,
             $user->keycloak_id,

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\api;
 
+use App\Application\UseCases\ChangeRoleUseCase;
 use App\Application\UseCases\CreateUserUseCase;
 use App\Application\UseCases\GetAllUserUseCase;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateUserRequest;
-use App\Http\Requests\UserFilterRequest;
 use App\Http\Response\ApiResponse;
 use App\Http\Response\PaginationResponse;
 use App\Models\User;
@@ -66,7 +66,7 @@ class UserController extends Controller
                 'id' => $user->id,
                 'full_name' => $user->full_name,
                 'email' => $user->email,
-                'phone' => $user->phone,
+                'phone_number' => $user->phone_number,
                 'role' => $user->role,
                 'created_at' => $user->created_at,
             ]
@@ -99,5 +99,21 @@ class UserController extends Controller
         $user->update(['status' => 'active']);
 
         return ApiResponse::success(data: $user);
+    }
+
+    public function changeRole(
+        int $userId,
+        Request $request,
+        ChangeRoleUseCase $useCase
+    ) {
+
+        $useCase->execute(
+            $userId,
+            roleName: $request->input('role')
+        );
+
+        return ApiResponse::success(
+            message: "Cập nhật role thành công"
+        );
     }
 }

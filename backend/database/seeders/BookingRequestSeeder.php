@@ -7,13 +7,10 @@ use Illuminate\Support\Facades\DB;
 
 class BookingRequestSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
+    
     public function run(): void
     {
-        $booking = DB::table('bookings')->first();
-        $user = DB::table('users')->first();
+        /*$user = DB::table('users')->first();
 
         DB::table('booking_requests')->insert([
             'booking_id' => $booking->id,
@@ -23,6 +20,6 @@ class BookingRequestSeeder extends Seeder
             'status' => 'PENDING',
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ]);*/
     }
 }
