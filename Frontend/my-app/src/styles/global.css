@@ -1,0 +1,72 @@
+/* =====================================================
+   global.css – reset + base styles
+   ===================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+@import './variables.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-page-bg);
+  color: var(--color-text-dark);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-family);
+  cursor: pointer;
+}
+
+input, select {
+  font-family: var(--font-family);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-sky-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-sky); }
+
+/* Shared button variants */
+.btn-primary {
+  background: var(--color-teal-btn);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px 28px;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background: var(--color-teal);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--color-text-mid);
+  font-size: var(--font-size-xl);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.btn-icon:hover {
+  background: var(--color-sky-light);
+}

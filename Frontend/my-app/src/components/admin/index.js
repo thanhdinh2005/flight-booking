@@ -1,0 +1,6 @@
+export { SectionDashboard } from './SectionDashboard'
+export { SectionCustomers } from './SectionCustomers'
+export { SectionFlights } from './SectionFlights'
+export { SectionTickets } from './SectionTickets'
+export { SectionStats } from './SectionStats'
+export { SectionAuditLogs } from './SectionAuditLogs'

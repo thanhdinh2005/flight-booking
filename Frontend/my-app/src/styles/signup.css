@@ -34,8 +34,9 @@ html, body, #root {
 
 body {
   font-family: var(--font);
-  background: url('../assets/image 20.png') center center / cover no-repeat fixed;
+  background: url('../assets/image 20.png') center center / auto repeat;
   min-height: 100vh;
+  background-attachment: scroll;
 }
 
 /* ═══════════════════════════════════════════
@@ -45,27 +46,29 @@ body {
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5rem;
-  padding: 3rem;
-  box-sizing: border-box;
+  justify-content: space-between;
+  padding: 3rem 6rem;
 }
 
-/* ── Cột trái: form ── */
+/* ── Cột trái: form đăng nhập/đăng ký ── */
 .auth-area {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
+  margin-left: 120px;
+  order: 1; /* Đưa form sang bên trái */
 }
 
 /* ── Cột phải: tagline ── */
 .tagline-panel {
-  margin-left: 300px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
+  margin-left: 0;
+  margin-right: 120px;
+  order: 2; /* Đưa text sang bên phải */
 }
 
 .login-tagline {
@@ -510,7 +513,9 @@ body {
     justify-content: flex-start;
     padding-top: 3rem;
   }
-  .signup-card { width: 100%; max-width: 460px; }
+  .signup-card { width: 100%; max-width: 460px; 
+  margin-top: 500px
+  }
   .rg-card     { width: 100%; min-height: unset; }
 }
 

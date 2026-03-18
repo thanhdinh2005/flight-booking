@@ -1,0 +1,70 @@
+/* =====================================================
+   variables.css – CSS custom properties (design tokens)
+   ===================================================== */
+
+:root {
+  /* Brand colors */
+  --color-sky:          #5bc8e8;
+  --color-sky-light:    #a8e6f5;
+  --color-sky-dark:     #3aafce;
+  --color-teal:         #2ab5b5;
+  --color-teal-btn:     #1a9a8e;
+  --color-accent:       #1ab8a0;
+
+  /* Surface colors */
+  --color-sidebar-bg:   #b8e6f5;
+  --color-sidebar-active: #5bc8e8;
+  --color-topbar-bg:    #d6f0fa;
+  --color-page-bg:      #e8f7fd;
+  --color-white:        #ffffff;
+  --color-card-bg:      #ffffff;
+  --color-input-bg:     #f8fcff;
+
+  /* Text */
+  --color-text-dark:    #1a3a4a;
+  --color-text-mid:     #4a7a90;
+  --color-text-light:   #7ab0c0;
+
+  /* Borders */
+  --color-border:       #cde8f5;
+  --color-border-light: #eef7fc;
+
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+
+  /* Border radius */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  30px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md:  0 8px 32px rgba(91,200,232,0.2);
+  --shadow-lg:  0 12px 30px rgba(91,200,232,0.3);
+  --shadow-hover: 0 4px 16px rgba(26,155,142,0.3);
+
+  /* Typography */
+  --font-family: 'Be Vietnam Pro', sans-serif;
+  --font-size-xs:   11px;
+  --font-size-sm:   13px;
+  --font-size-base: 14px;
+  --font-size-md:   16px;
+  --font-size-lg:   18px;
+  --font-size-xl:   20px;
+
+  /* Layout */
+  --topbar-height:  56px;
+  --sidebar-width-collapsed: 56px;
+  --sidebar-width-expanded:  170px;
+
+  /* Transitions */
+  --transition-fast:   0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow:   0.4s ease;
+}

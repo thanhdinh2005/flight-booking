@@ -3,7 +3,7 @@ import '../styles/signup.css'
 
 const REGION_PREFIX = { VN: '+84', US: '+1', JP: '+81' }
 
-export default function RegisterForm({ onBack, onRegister }) {
+export default function RegisterForm({ onNavigate, onRegister }) {
   const [step, setStep] = useState(1)
   const [info, setInfo] = useState({ email: '', phone: '', username: '', region: 'VN' })
   const [form, setForm] = useState({
@@ -160,7 +160,7 @@ export default function RegisterForm({ onBack, onRegister }) {
             {error && <div className="rg-error">⚠️ {error}</div>}
 
             <div className="rg-actions">
-              <button type="button" className="rg-btn rg-btn-secondary" onClick={onBack}>
+              <button type="button" className="rg-btn rg-btn-secondary" onClick={() => onNavigate('login')}>
                 Quay lại
               </button>
               <button type="submit" className="rg-btn rg-btn-primary">

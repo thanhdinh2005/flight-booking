@@ -1,0 +1,32 @@
+/* src/components/Home.css */
+
+.home-root{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+
+/* BODY */
+
+.home-body{
+  display:flex;
+  flex:1;
+}
+
+/* MAIN CONTENT */
+
+.home-main{
+  flex:1;
+
+  margin-left:75px; /* đúng bằng width sidebar */
+
+  padding:20px;
+
+  transition:margin-left 0.3s ease;
+}
+
+/* khi sidebar mở */
+
+.sidebar--expanded ~ .home-main{
+  margin-left:210px;
+}

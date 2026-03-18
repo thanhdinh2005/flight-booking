@@ -1,0 +1,304 @@
+ @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Lora:ital,wght@0,500;1,400&display=swap');
+
+  .pf-root {
+    font-family: 'Nunito', sans-serif;
+    background: #f0ede6;
+    min-height: 100vh;
+    padding: 32px 20px 48px;
+    --cream: #f0ede6;
+    --card: #faf8f3;
+    --sage: #5a7a5e;
+    --sage-light: #e6efe7;
+    --terracotta: #c26b4a;
+    --ink: #2a2520;
+    --muted: #8a7f74;
+    --border: #ddd7cc;
+    --focus: #5a7a5e;
+  }
+
+  .pf-container { max-width: 680px; margin: 0 auto; }
+
+  /* Steps */
+  .pf-steps {
+    display: flex;
+    align-items: center;
+    margin-bottom: 32px;
+    gap: 0;
+  }
+  .pf-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+  }
+  .pf-step__circle {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+    transition: all .25s;
+  }
+  .pf-step__circle--done   { background: var(--sage); color: #fff; }
+  .pf-step__circle--active { background: var(--ink); color: #fff; box-shadow: 0 0 0 4px rgba(90,122,94,.2); }
+  .pf-step__circle--idle   { background: #ddd7cc; color: var(--muted); }
+  .pf-step__label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .pf-step__label--active { color: var(--ink); }
+  .pf-step-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    margin-bottom: 17px;
+    transition: background .25s;
+  }
+  .pf-step-line--done { background: var(--sage); }
+
+  /* Flight summary pill */
+  .pf-flight-pill {
+    background: var(--sage-light);
+    border: 1.5px solid #b8d1ba;
+    border-radius: 100px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sage);
+  }
+  .pf-flight-pill__sep { color: #b8d1ba; }
+  .pf-flight-pill__price { margin-left: auto; color: var(--ink); font-size: 15px; font-weight: 800; }
+
+  /* Card */
+  .pf-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.04);
+  }
+  .pf-card__title {
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pf-card__title-icon {
+    width: 28px; height: 28px;
+    background: var(--sage-light);
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Form fields */
+  .pf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pf-grid-full { grid-column: 1/-1; }
+
+  .pf-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 2px; }
+  .pf-field label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .pf-field input,
+  .pf-field select {
+    font-family: 'Nunito', sans-serif;
+    background: #fdfcf9;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 13px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .pf-field input:focus,
+  .pf-field select:focus {
+    border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(90,122,94,.12);
+  }
+  .pf-field input::placeholder { color: #c5bfb6; }
+
+  /* Price table */
+  .pf-price-table { border-top: 1.5px solid var(--border); margin-top: 4px; }
+  .pf-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 14px;
+    border-bottom: 1px dashed var(--border);
+    color: var(--muted);
+  }
+  .pf-price-row b { color: var(--ink); font-weight: 600; }
+  .pf-price-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 16px 0 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .pf-price-total span:first-child { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+
+  /* Policy row */
+  .pf-policy-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    background: #fdf6f2;
+    border: 1.5px solid #edd7cc;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .pf-policy-btn {
+    font-family: 'Nunito', sans-serif;
+    background: var(--terracotta);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .pf-policy-btn:hover { background: #a85538; }
+  .pf-policy-btn.read {
+    background: var(--sage);
+  }
+  .pf-policy-note {
+    font-size: 12px;
+    color: #8a7f74;
+    line-height: 1.4;
+  }
+  .pf-policy-check { color: var(--sage); font-size: 15px; }
+
+  /* Payment methods */
+  .pf-payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .pf-payment-opt {
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all .15s;
+    background: #fdfcf9;
+  }
+  .pf-payment-opt.active {
+    border-color: var(--sage);
+    background: var(--sage-light);
+    box-shadow: 0 0 0 2px rgba(90,122,94,.15);
+  }
+  .pf-payment-opt__icon { font-size: 20px; flex-shrink: 0; }
+  .pf-payment-opt__name { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+  /* Buttons */
+  .pf-btn-row { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .pf-btn-back {
+    font-family: 'Nunito', sans-serif;
+    background: transparent;
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .pf-btn-back:hover { border-color: var(--ink); color: var(--ink); }
+
+  .pf-btn-next {
+    font-family: 'Nunito', sans-serif;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    padding: 13px 32px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+    letter-spacing: .2px;
+  }
+  .pf-btn-next:hover:not(:disabled) { background: var(--sage); }
+  .pf-btn-next:disabled { opacity: .35; cursor: not-allowed; }
+
+  .pf-btn-pay {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(135deg, var(--sage) 0%, #3d6641 100%);
+    color: #fff;
+    border: none;
+    padding: 14px 36px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pf-btn-pay:hover { opacity: .92; }
+  .pf-btn-pay:active { transform: scale(.98); }
+
+  /* Success */
+  .pf-success {
+    text-align: center;
+    padding: 56px 24px;
+  }
+  .pf-success__icon {
+    font-size: 72px;
+    display: block;
+    margin-bottom: 20px;
+    animation: pf-pop .4s cubic-bezier(.16,1.5,.3,1);
+  }
+  @keyframes pf-pop {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .pf-success__title {
+    font-family: 'Lora', serif;
+    font-size: 28px;
+    font-style: italic;
+    color: var(--sage);
+    margin: 0 0 8px;
+  }
+  .pf-success__code {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+  .pf-success__code strong { color: var(--ink); font-size: 15px; }
+
+  @media (max-width: 520px) {
+    .pf-grid-2 { grid-template-columns: 1fr; }
+    .pf-payment-grid { grid-template-columns: 1fr; }
+    .pf-flight-pill { border-radius: 16px; }
+  }
