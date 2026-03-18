@@ -26,7 +26,7 @@ class Ticket extends Model
         return $this->belongsTo(Passenger::class);
     }
 
-    public function flightInstance() {
+    public function flight_instance() {
         return $this->belongsTo(FlightInstance::class);
     }
     public function addons() {

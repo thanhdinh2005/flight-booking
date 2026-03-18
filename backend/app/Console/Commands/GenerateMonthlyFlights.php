@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 class GenerateMonthlyFlights extends Command
 {
 
-    protected $signature = 'generate-monthly-flights';
+    protected $signature = 'flights:generate-monthly';
 
     protected $description = 'Generate flight instances util end of month';
 
@@ -30,7 +30,9 @@ class GenerateMonthlyFlights extends Command
 
                 $this->generator->execute($schedule->id, 31);
 
-                $this->info("Generated flights for schedule {$schedule->id}");
+                $count = $this->generator->execute($schedule->id, 31);
+
+                $this->info("Generated {$count} flights for schedule {$schedule->id}");
 
             } catch (\Throwable $e) {
 
