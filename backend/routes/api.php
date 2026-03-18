@@ -17,14 +17,8 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 
-use app\Http\Controllers\Api\BookingController;
-use App\Http\Controllers\api\CustomerBookingController;
 use App\Http\Controllers\api\AdminDashboardController;
-use App\Http\Controllers\api\FlightInstanceController;
-use App\Http\Controllers\api\PaymentController;
 use App\Http\Controllers\api\ReportController;
-use App\Http\Controllers\api\StaffController;
-use App\Http\Controllers\api\UserController;
 
 
 Route::options('{any}', function () {
@@ -41,12 +35,6 @@ Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 
 
 
-
-
-
-
-
-
 Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
 		return response()->json(['message' => 'Authenticated access granted']);
@@ -60,8 +48,8 @@ Route::middleware('auth.keycloak') -> group(function () {
     
 
     Route::get('/bookings/{id}/active-tickets', [CustomerBookingController::class, 'listActiveTickets']);
-Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
-Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
+    Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
+    Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
     
 
 });

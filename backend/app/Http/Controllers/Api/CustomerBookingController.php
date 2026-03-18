@@ -24,10 +24,10 @@ class CustomerBookingController extends Controller
                 ->firstOrFail();
 
             // Lấy danh sách vé kèm theo thông tin chuyến bay và ghế
-            $tickets = Ticket::with(['flightInstance', 'passenger']) // Load các quan hệ đã định nghĩa trong Ticket model
+            $tickets = Ticket::with(['flight_instance', 'passenger']) // Load các quan hệ đã định nghĩa trong Ticket model
     ->where('booking_id', $bookingId)
     ->where('status', 'PAID')
-    ->whereHas('flightInstance', function ($query) {
+    ->whereHas('flight_instance', function ($query) {
         // Sử dụng cột 'std' và so sánh với thời gian hiện tại (now())
         $query->where('std', '>', now());
     })
@@ -44,10 +44,11 @@ class CustomerBookingController extends Controller
         }
     }
 
-    public function previewRefund($ticketId, GetRefundPreviewUseCase $useCase)
+    public function previewRefund($ticketId, GetRefundPreviewUseCase $useCase, Request $request)
 {
     try {
-        $data = $useCase->execute($ticketId);
+        $userId = $request->user()->id;
+        $data = $useCase->execute($ticketId, $userId);
         return ApiResponse::success($data, 'Thông tin hoàn tiền dự kiến.');
     } catch (\Exception $e) {
         return ApiResponse::error($e->getMessage(), 400);

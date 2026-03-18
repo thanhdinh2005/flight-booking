@@ -30,7 +30,7 @@ class ApproveRefundUseCase
                 throw new \Exception("Yêu cầu này đã được xử lý trước đó.");
             }
 
-            $ticket = Ticket::with(['flightInstance', 'booking'])->lockForUpdate()->findOrFail($request->ticket_id);
+            $ticket = Ticket::with(['flight_instance', 'booking'])->lockForUpdate()->findOrFail($request->ticket_id);
 
             // 1. Kiểm tra điều kiện (vẫn phải check thời gian bay)
             $this->checkEligibilityCommand->execute($ticket);
