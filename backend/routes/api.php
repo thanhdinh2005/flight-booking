@@ -6,14 +6,12 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
-
-
 use app\Http\Controllers\Api\BookingController;
-
-
 use App\Http\Controllers\api\CustomerBookingController;
+use App\Http\Controllers\api\AdminDashboardController;
 use App\Http\Controllers\api\FlightInstanceController;
 use App\Http\Controllers\api\PaymentController;
+use App\Http\Controllers\api\ReportController;
 use App\Http\Controllers\api\StaffController;
 use App\Http\Controllers\api\UserController;
 
@@ -73,7 +71,7 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/flight-instances', [FlightInstanceController::class, 'getAll']);
         Route::get('/flight-instances/filter', [FlightInstanceController::class, 'filterFlight']);
         Route::get('/flight-instances/{id}', [FlightInstanceController::class, 'getById']);
-        
+        Route::put('/flight-instances/{flightInstanceId}', [FlightInstanceController::class, 'updateFlight']);
 
 
         // User Management API
@@ -84,6 +82,9 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::put('/users/{userId}/disable', [UserController::class, 'disable']);
         Route::put('/users/{userId}/active', [UserController::class, 'active']);
         
-
-
+        // Statistic & Report API
+        Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
+        Route::get('/dashboard/summary', [AdminDashboardController::class, 'getSummary']);
+        Route::get('/revenue-chart', [AdminDashboardController::class, 'getChart']);
+        Route::get('load-factor', [AdminDashboardController::class, 'loadFactor']);
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api;
 
 use App\Application\UseCases\CreateManualFlightInstanceUseCase;
+use App\Application\UseCases\UpdateFlightInstanceUseCase;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateManualFlightRequest;
@@ -64,8 +65,34 @@ class FlightInstanceController extends Controller
             ipAddress: $ipAddress
         );
 
+        $instance->with(['route', 'aircraft']);
+
         return ApiResponse::success(
-            $instance,
+            [
+                'id' => $instance->id,
+                'flight_number' => $instance->flight_number,
+                'departure_date' => $instance->departure_date,
+
+                'route' => [
+                    'id' => $instance->route->id,
+                    'from' => $instance->route->origin->city,
+                    'to' => $instance->route->destination->city,
+                ],
+
+                'aircraft' => [
+                    'id' => $instance->aircraft->id,
+                    'model' => $instance->aircraft->model,
+                    'registration_number' => $instance->aircraft->registration_number
+                ],
+
+                'std' => $instance->std,
+                'sta' => $instance->sta,
+                'eta' => $instance->eta,
+                'etd' => $instance->etd,
+                'status' => $instance->status,
+                'created_at' => $instance->created_at,
+                'updated_at' => $instance->updated_at
+            ],
             message: "Tạo mới thành công",
             status: 201
         );
@@ -97,10 +124,10 @@ class FlightInstanceController extends Controller
 
                 'std' => $flight->std,
                 'sta' => $flight->sta,
-                'etd' => $flight->eta,
+                'eta' => $flight->eta,
                 'etd' => $flight->etd,
                 'status' => $flight->status,
-                'created_at' => $flight->creatd_at,
+                'created_at' => $flight->created_at,
                 'updated_at' => $flight->updated_at
             ]
         );
@@ -182,10 +209,10 @@ class FlightInstanceController extends Controller
 
                 'std' => $flight->std,
                 'sta' => $flight->sta,
-                'etd' => $flight->eta,
+                'eta' => $flight->eta,
                 'etd' => $flight->etd,
                 'status' => $flight->status,
-                'created_at' => $flight->creatd_at,
+                'created_at' => $flight->created_at,
                 'updated_at' => $flight->updated_at
             ]
         );
@@ -195,5 +222,56 @@ class FlightInstanceController extends Controller
             data: $result->data,
             meta: $result->meta
         );
+    }
+
+    public function updateFlight(
+        Request $request,
+        int $flightInstanceId,
+        UpdateFlightInstanceUseCase $usecase
+    ) {
+        $admin = $request->user();
+        $ipAddress = $request->ip();
+
+        $newDepartureTime = $request->input('new_departure_time');
+
+        $instance = $usecase->execute(
+            instanceId: $flightInstanceId,
+            newDepartureTime: $newDepartureTime,
+            adminId: $admin->id,
+            ipAddress: $ipAddress
+        );
+
+        $instance->load([
+            'route.origin',
+            'route.destination',
+            'aircraft'
+        ]);
+
+
+        return ApiResponse::success([
+            'id' => $instance->id,
+            'flight_number' => $instance->flight_number,
+            'departure_date' => $instance->departure_date,
+
+            'route' => [
+                'id' => $instance->route->id,
+                'from' => $instance->route->origin->city,
+                'to' => $instance->route->destination->city,
+            ],
+
+            'aircraft' => [
+                'id' => $instance->aircraft->id,
+                'model' => $instance->aircraft->model,
+                'registration_number' => $instance->aircraft->registration_number
+            ],
+
+            'std' => $instance->std,
+            'sta' => $instance->sta,
+            'eta' => $instance->eta,
+            'etd' => $instance->etd,
+            'status' => $instance->status,
+            'created_at' => $instance->created_at,
+            'updated_at' => $instance->updated_at
+        ]);
     }
 }

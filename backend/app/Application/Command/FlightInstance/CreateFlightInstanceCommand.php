@@ -26,6 +26,8 @@ class CreateFlightInstanceCommand
             'departure_date' => $departure->toDateString(),
             'std' => $departure,
             'sta' => $departure->copy()->addMinutes($route->flight_duration_minutes),
+            'etd' => $departure,
+            'eta' => $departure->copy()->addMinutes($route->flight_duration_minutes),
             'status' => 'SCHEDULED'
         ]);
 

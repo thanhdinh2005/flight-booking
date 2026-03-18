@@ -151,7 +151,7 @@ class FlightScheduleController extends Controller
                 'flight_number' => $flight->flight_number,
                 'departure_time' => $flight->departure_time,
                 'days_of_week' => $flight->days_of_week,
-
+                'is_active' => $flight->is_active,
                 'route' => [
                     'id' => $flight->route->id,
                     'from' => $flight->route->origin->city,

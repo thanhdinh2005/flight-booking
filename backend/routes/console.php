@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 Schedule::command('flights:generate-monthly')
     ->dailyAt('01:00')
     ->withoutOverlapping();
+
+Schedule::command('flight:update-status')->everyMinute()->withoutOverlapping();
