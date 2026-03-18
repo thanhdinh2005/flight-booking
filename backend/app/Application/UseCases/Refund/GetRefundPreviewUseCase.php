@@ -19,14 +19,16 @@ class GetRefundPreviewUseCase
         $this->checkRefundCommand = $checkRefundCommand;
     }
 
-    public function execute(int $ticketId): array
+    public function execute(int $ticketId, int $userId): array
     {
         // 1. Kiểm tra vé tồn tại và thuộc quyền sở hữu của User qua bảng bookings
         // Vì bảng tickets không có user_id, ta phải check qua quan hệ 'booking'
-        $ticket = Ticket::with(['flightInstance', 'booking'])
+        $ticket = Ticket::with(['flight_instance', 'booking'])
             ->where('id', $ticketId)
-            ->whereHas('booking', function($query) {
-                $query->where('user_id', auth()->id()); // Lấy ID trực tiếp từ Auth
+            // IMPORTANT: Phải có 'use ($userId)' để truyền biến từ hàm execute vào scope của closure.
+            // Trong PHP, anonymous functions không tự động nhận biến từ phạm vi bên ngoài.
+            ->whereHas('booking', function($query) use ($userId){
+                $query->where('user_id', $userId); // Lấy ID trực tiếp từ Auth
             })
             ->firstOrFail();
 

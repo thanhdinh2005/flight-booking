@@ -27,7 +27,7 @@ class CreateRefundRequestUseCase
         return DB::transaction(function () use ($ticketId, $reason, $user_id) {
             
             // 1. Lấy vé và khóa dòng (Lock) để tránh bị thao tác song song
-            $ticket = Ticket::with(['flightInstance', 'booking'])->lockForUpdate()->findOrFail($ticketId);
+            $ticket = Ticket::with(['flight_instance', 'booking'])->lockForUpdate()->findOrFail($ticketId);
 
             // 2. Kiểm tra điều kiện hoàn (Hàm của bạn sẽ throw Exception nếu lỗi)
             $this->checkRefundCommand->execute($ticket);
@@ -41,6 +41,7 @@ class CreateRefundRequestUseCase
                 'booking_id'    => $ticket->booking_id,
                 'user_id'       => $user_id, // Người gửi yêu cầu
                 'refund_amount' => $pricing['total_refund_amount'],
+                'system_refund_amount' => $pricing['total_refund_amount'],
                 'request_type'  => 'REFUND',
                 'reason'        => $reason,
                 'status'        => 'PENDING', // Trạng thái chờ xử lý
