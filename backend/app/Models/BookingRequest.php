@@ -10,15 +10,24 @@ class BookingRequest extends Model
     protected $table = "booking_requests";
 
     protected $fillable = [
-        'booking_id', 
-        'user_id', 
-        'request_type', 
-        'reason', 
-        'staff_note', 
-        'status'
+        'booking_id',
+        'user_id',
+        'ticket_id',      // Thêm vào đây
+        'refund_amount',   // Thêm vào đây
+        'system_refund_amount', // Số tiền hệ thống tính (Mới bổ sung)
+        'request_type',
+        'reason',
+        'staff_note',
+        'status',
+        'staff_id',             // ID Admin xử lý (Mới bổ sung)
+        'processed_at',
+
     ];
 
     protected $casts = [
+        'refund_amount' => 'float',
+        'system_refund_amount' => 'float',
+        'processed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -31,5 +40,13 @@ class BookingRequest extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
+    }
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'staff_id');
     }
 }

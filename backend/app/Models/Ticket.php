@@ -32,4 +32,8 @@ class Ticket extends Model
     public function addons() {
     return $this->hasMany(TicketAddon::class);
 }
+public function bookingRequests()
+{
+    return $this->hasMany(BookingRequest::class);
+}
 }

@@ -1,30 +1,36 @@
 <?php
 
-use App\Http\Controllers\api\FlightScheduleController;
+use App\Http\Controllers\Api\FlightScheduleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
 
+use App\Http\Controllers\Api\BookingController;
 
-use app\Http\Controllers\Api\BookingController;
 
-
-use App\Http\Controllers\api\CustomerBookingController;
-use App\Http\Controllers\api\FlightInstanceController;
-use App\Http\Controllers\api\PaymentController;
-use App\Http\Controllers\api\StaffController;
-use App\Http\Controllers\api\UserController;
+use App\Http\Controllers\Api\CustomerBookingController;
+use App\Http\Controllers\Api\FlightInstanceController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\UserController;
 
 Route::post('/updateAddon', [BookingController::class, 'addAddon']);
-Route::post('/', [BookingController::class, 'store']);
+Route::post('/createBooking', [BookingController::class, 'store']);
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
-
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
+
+
+
+
+
+
+
+
 
 Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
@@ -34,12 +40,14 @@ Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/me', [UserProfileController::class, 'getProfile']);
 	Route::put('/me', [UserProfileController::class, 'updateProfile']);
 
-    Route::post('/bookings/{bookingId}/refund-requests', [CustomerBookingController::class, 'requestRefund']);
-
     // Create Payment
     Route::post('/payments/vnpay/{bookingId}', [PaymentController::class, 'create']);
+    
 
-
+    Route::get('/bookings/{id}/active-tickets', [CustomerBookingController::class, 'listActiveTickets']);
+Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
+Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
+    
 
 });
 
@@ -50,6 +58,7 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
         Route::post('/processing-refund/{bookingRequestId}/approve', [StaffController::class, 'approveRefundRequest']);
         Route::post('/processing-refund/{bookingRequestId}/reject', [StaffController::class, 'rejectRefundRequest']);
 
+        
         // Route::get('/dashboard', [StaffController::class, 'dashboard']);
         // Route::get('/flights', [StaffController::class, 'manageFlights']);
 });
