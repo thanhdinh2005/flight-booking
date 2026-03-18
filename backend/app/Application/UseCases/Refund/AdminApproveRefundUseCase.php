@@ -28,7 +28,7 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
             return (float) $addon->price * $addon->quantity; 
         });
         
-        $maxRefundableAmount = $ticket->total_price + $addonsTotal;
+        
 
         // 3. Kiểm tra tính hợp lệ với Tổng giá trị mới
         if ($finalAmount > $request->system_refund_amount) {
@@ -66,22 +66,24 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
      */
     private function releaseSeat(Ticket $ticket)
 {
-    // 1. Kiểm tra điều kiện cần
-    if (!$ticket->flight_instance_id || !$ticket->seat_class) {
+    // 1. Lấy dữ liệu từ Model Ticket (đúng tên cột seat_class)
+    $seatClass = $ticket->seat_class;
+    $instanceId = $ticket->flight_instance_id;
+
+    // Kiểm tra nếu thiếu dữ liệu thì dừng lại ngay
+    if (!$seatClass || !$instanceId) {
         return;
     }
 
-    // 2. Tìm bản ghi kho ghế tương ứng với Chuyến bay và Hạng ghế đó
-    $inventory = DB::table('flight_seat_inventory')
-        ->where('flight_instance_id', $ticket->flight_instance_id)
-        ->where('seat_class', $ticket->seat_class)
+    // 2. Tìm bản ghi trong kho ghế
+    // Lưu ý: Dùng Model FlightSeatInventory để an toàn hơn DB::table
+    $inventory = \App\Models\FlightSeatInventory::where('flight_instance_id', $instanceId)
+        ->where('seat_class', $seatClass)
         ->first();
 
     if ($inventory) {
-        // 3. Cộng lại 1 ghế vào kho khả dụng
-        DB::table('flight_seat_inventory')
-            ->where('id', $inventory->id)
-            ->increment('available_seats', 1); // Tự động cộng 1
+        // 3. Tăng số lượng ghế trống lên 1
+        $inventory->increment('available_seats');
     }
 }
 }

@@ -17,9 +17,9 @@ class CreateBookingUseCase
         $this->calculateCommand = $calculateCommand;
     }
 
-    public function execute(array $data): mixed
+    public function execute(array $data, $userId): mixed
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $userId) {
             $passengerCount = count($data['passengers']);
             
             // 1. GỌI COMMAND ĐỂ LẤY GIÁ & KIỂM TRA CHỖ
@@ -27,6 +27,7 @@ class CreateBookingUseCase
 
             // 2. TẠO BOOKING
             $booking = Booking::create([
+                'user_id' => $userId,
                 'pnr' => Str::upper(Str::random(6)),
                 'total_amount' => $pricing['total_amount'],
                 'contact_email' => $data['contact_email'],
@@ -60,7 +61,7 @@ class CreateBookingUseCase
                 }
             }
 
-            return $booking->load(['tickets.passenger', 'tickets.flightInstance']);
+            return $booking->load(['tickets.passenger', 'tickets.flight_instance']);
         });
     }
 }

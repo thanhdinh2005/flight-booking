@@ -28,7 +28,7 @@ class TicketSeeder extends Seeder
                 'booking_id'         => $bookingIds[$index % count($bookingIds)], 
                 'flight_instance_id' => $flightIds[$index % count($flightIds)],
                 'passenger_id'       => $pId, 
-                'seat_class'         => 'economy',
+                'seat_class'         => 'ECONOMY',
                 'seat_number'        => null, // ĐỂ NULL: Khách sẽ chọn khi Check-in online
                 'ticket_price'       => 1200000,
                 'status'             => 'ACTIVE',

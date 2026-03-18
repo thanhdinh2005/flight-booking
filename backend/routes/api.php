@@ -16,7 +16,7 @@ use App\Http\Controllers\Api\FlightInstanceController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
-
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\api\AdminDashboardController;
 use App\Http\Controllers\api\ReportController;
 
@@ -25,8 +25,7 @@ Route::options('{any}', function () {
     return response()->json([], 200);
 })->where('any', '.*');
 
-Route::post('/updateAddon', [BookingController::class, 'addAddon']);
-Route::post('/createBooking', [BookingController::class, 'store']);
+
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
@@ -46,8 +45,10 @@ Route::middleware('auth.keycloak') -> group(function () {
     // Create Payment
     Route::post('/payments/vnpay/{bookingId}', [PaymentController::class, 'create']);
     
-
-    Route::get('/bookings/{id}/active-tickets', [CustomerBookingController::class, 'listActiveTickets']);
+    Route::post('/updateAddon', [BookingController::class, 'addAddon']);
+    Route::post('/createBooking', [BookingController::class, 'store']);
+    
+    Route::post('/bookings/search-tickets', [CustomerBookingController::class, 'listActiveTickets']);
     Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
     Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
     
