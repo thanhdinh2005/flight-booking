@@ -9,7 +9,7 @@ use Exception;
 
 class AdminApproveRefundUseCase
 {
-    // File: app/Application/UseCases/Admin/ApproveRefundUseCase.php
+    
 
 public function execute(int $requestId, float $finalAmount, int $adminId, ?string $note = null): BookingRequest
 {
@@ -18,6 +18,10 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
         // 1. Load Ticket kèm theo Addons để tính tổng tiền
         $request = BookingRequest::with(['ticket.addons', 'booking'])->lockForUpdate()->findOrFail($requestId);
         $ticket = $request->ticket;
+        if (!$ticket) {
+            throw new Exception("Yêu cầu hoàn tiền không đi kèm với vé hợp lệ.");
+        }
+        
         $booking = $ticket->booking;
         // 2. Tính tổng giá trị thực tế (Giá vé + Tổng tiền Addons)
         $addonsTotal = $ticket->addons->sum(function($addon) {
@@ -27,16 +31,16 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
         $maxRefundableAmount = $ticket->total_price + $addonsTotal;
 
         // 3. Kiểm tra tính hợp lệ với Tổng giá trị mới
-        if ($finalAmount > $maxRefundableAmount) {
+        if ($finalAmount > $request->system_refund_amount) {
             throw new Exception(
-                "Số tiền hoàn (" . number_format($finalAmount) . ") không được vượt quá tổng giá trị vé và dịch vụ đi kèm (" . number_format($maxRefundableAmount) . ")."
+                "Số tiền hoàn (" . number_format($finalAmount) . ") không được vượt quá tổng giá trị vé và dịch vụ đi kèm (" . number_format($request->system_refund_amount) . ")."
             );
         }
 
         // ... Các bước update trạng thái tiếp theo giữ nguyên ...
         $request->update([
             'status' => 'APPROVED',
-            'total_refund_amount' => $finalAmount,
+            'refund_amount' => $finalAmount,
             'staff_id' => $adminId,
             'staff_note' => $note,
             'processed_at' => now(),
@@ -61,16 +65,23 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
      * Logic giải phóng ghế để hệ thống có thể bán lại
      */
     private function releaseSeat(Ticket $ticket)
-    {
-        // Giả sử bạn quản lý ghế qua bảng flight_seat_availabilities
-        // dựa trên flight_instance_id và seat_id (hoặc seat_number)
-        DB::table('flight_seat_inventory')
-            ->where('flight_instance_id', $ticket->flight_instance_id)
-            ->where('seat_id', $ticket->seat_id)
-            ->update([
-                'status' => 'AVAILABLE', // Chuyển từ OCCUPIED về AVAILABLE
-                'ticket_id' => null,     // Xóa liên kết với vé cũ
-                'updated_at' => now()
-            ]);
+{
+    // 1. Kiểm tra điều kiện cần
+    if (!$ticket->flight_instance_id || !$ticket->seat_class) {
+        return;
     }
+
+    // 2. Tìm bản ghi kho ghế tương ứng với Chuyến bay và Hạng ghế đó
+    $inventory = DB::table('flight_seat_inventory')
+        ->where('flight_instance_id', $ticket->flight_instance_id)
+        ->where('seat_class', $ticket->seat_class)
+        ->first();
+
+    if ($inventory) {
+        // 3. Cộng lại 1 ghế vào kho khả dụng
+        DB::table('flight_seat_inventory')
+            ->where('id', $inventory->id)
+            ->increment('available_seats', 1); // Tự động cộng 1
+    }
+}
 }

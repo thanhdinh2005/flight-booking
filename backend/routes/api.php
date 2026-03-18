@@ -8,10 +8,10 @@ use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
 
 
-use App\Http\Controllers\Api\BookingController;
-
+use App\Http\Controllers\Api\AdminBookRequestController;
 
 use App\Http\Controllers\Api\CustomerBookingController;
+
 use App\Http\Controllers\Api\FlightInstanceController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\StaffController;
@@ -69,6 +69,11 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
+
+        Route::get('/booking-requests', [AdminBookRequestController::class, 'index']);
+        Route::get('/booking-requests/{id}', [AdminBookRequestController::class, 'show']);
+        Route::post('/booking-requests/{id}/approve', [AdminBookRequestController::class, 'approve']);
+        Route::post('/booking-requests/{id}/reject', [AdminBookRequestController::class, 'reject']);
 
         // Flight Schedules API
         Route::put('/schedules/{id}/phase-out', [FlightScheduleController::class, 'phaseOutSchedule']);
