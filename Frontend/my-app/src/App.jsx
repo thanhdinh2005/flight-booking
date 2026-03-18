@@ -5,11 +5,13 @@ import Home from "./components/HomePage";
 import MyTicket from "./components/Myticker";
 import CancelTicket from "./components/Cancelticker";
 import ChangeFlight from "./components/Changeflight";
+import Tabthutuc from "./components/tabs/Tabthutuc";
 import { useState } from "react";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import ProtectedRoute from "./components/protected";
 import AdminDashboard from "./admin/AdminDashboard";
+import FlightResults from "./components/Flightresults";
 import './styles/signup.css'
 
 /* ── Trang Auth: chứa Login / Register / ForgotPassword ── */
@@ -17,11 +19,22 @@ function AuthPage() {
   const [page, setPage] = useState('login')
 
   return (
-    <div className="auth-page">
-      {page === 'register'
-        ? <Register onNavigate={setPage} />
-        : <Login    onNavigate={setPage} />
-      }
+    <div className="signup-wrapper">
+      {/* Cột trái: form đăng nhập/đăng ký */}
+      <div className="auth-area">
+        {page === 'register'
+          ? <Register onNavigate={setPage} />
+          : <Login    onNavigate={setPage} />
+        }
+      </div>
+      
+      {/* Cột phải: tagline */}
+      <div className="tagline-panel">
+        <div className="login-tagline">
+          Khám phá thế giới<br />
+          cùng Việt Jett
+        </div>
+      </div>
     </div>
   )
 }
@@ -63,9 +76,11 @@ export default function App() {
           }
         >
           <Route path="/home" element={<Home />} />
+          <Route path="/flights" element={<FlightResults />} />
           <Route path="/buy-ticket" element={<MyTicket />} />
           <Route path="/cancel-ticket" element={<CancelTicket />} />
           <Route path="/change-flight" element={<ChangeFlight />} />
+          <Route path="/thu-tuc" element={<Tabthutuc />} />
         </Route>
 
         {/* Admin */}

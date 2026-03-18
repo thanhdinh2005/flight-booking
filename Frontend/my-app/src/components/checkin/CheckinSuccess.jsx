@@ -1,6 +1,7 @@
 // src/components/checkin/AddonsService.jsx
 // Aesthetic: Warm market / Bazaar — ivory & terracotta, lush product-card layout
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -295,8 +296,10 @@ const PRIORITY_OPTIONS = [
 
 function fmt(n) { return n.toLocaleString('vi-VN') + '₫' }
 
-export default function AddonsService({ bookings, onNext, onBack }) {
+export default function AddonsService({ bookings, onNext, onBack, onReset }) {
+  const navigate = useNavigate()
   const [flightIdx, setFlightIdx] = useState(0)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   // addons[flightId] = { baggage: Set<id>, meals: Set<id>, priority: Set<id> }
   const [addons, setAddons] = useState(() => {
@@ -328,6 +331,13 @@ export default function AddonsService({ bookings, onNext, onBack }) {
       PRIORITY_OPTIONS.forEach(o => { if (a.priority.has(o.id)) total += o.price })
     })
     return total
+  }
+
+  function handleCheckin() {
+    // Show success modal immediately
+    setShowSuccess(true)
+    // Call the original onNext callback
+    onNext({ bookings, addons, total: calcTotal() })
   }
 
   const total = calcTotal()
@@ -473,13 +483,58 @@ export default function AddonsService({ bookings, onNext, onBack }) {
 
           <div className="as-bar">
             <button className="as-back-btn" onClick={onBack}>← Quay lại</button>
-            <button className="as-checkin-btn" onClick={() => onNext({ bookings, addons, total })}>
+            <button className="as-checkin-btn" onClick={handleCheckin}>
               ✅ Xác nhận Check-in
             </button>
           </div>
 
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: '40px 60px',
+            borderRadius: '16px',
+            textAlign: 'center',
+            minWidth: '300px'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>✅</div>
+            <h2 style={{ fontSize: '24px', color: '#1a3c6e', marginBottom: '12px' }}>
+              Check-in thành công!
+            </h2>
+            <p style={{ fontSize: '16px', color: '#4a7a90', marginBottom: '24px' }}>
+              Bạn đã check-in thành công.
+            </p>
+            <button 
+              onClick={() => {
+                setShowSuccess(false)
+                onReset?.()
+              }}
+              style={{
+                background: '#1a9a8e',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Về trang chủ
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

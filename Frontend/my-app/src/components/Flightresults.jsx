@@ -1,7 +1,9 @@
 // FlightResults.jsx — Kết quả tìm kiếm chuyến bay
 // Aesthetic: Editorial / Newspaper — trắng sạch, typography nặng, grid bất đối xứng
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import '../styles/Flightresult.css';
+
 const MOCK_FLIGHTS = [
   {
     id: 1, airline: "Vietnam Airlines", code: "VN",
@@ -269,8 +271,21 @@ export default function FlightResults({
 }) {
   const [sort, setSort] = useState("price");
   const [detailFlight, setDetailFlight] = useState(null);
+  const [searchParams] = useSearchParams();
   const isCheckin = mode === "checkin";
   const pax = parseInt(searchData.passengers) || 1;
+
+  // Read search query from URL parameters
+  const searchQuery = searchParams.get('q') || '';
+  
+  // Update searchData based on search query for display
+  const displaySearchData = searchQuery ? {
+    ...searchData,
+    from: "HAN",
+    to: "SGN", 
+    date: new Date().toISOString().split('T')[0],
+    passengers: "1"
+  } : searchData;
 
   // Nguồn dữ liệu theo mode; nếu checkin thì lọc theo bookingCode + tên
   const rawList = isCheckin ? MOCK_BOOKED : MOCK_FLIGHTS;
@@ -306,17 +321,17 @@ export default function FlightResults({
 
           <div className="fr-masthead">
             <div className="fr-masthead__route">
-              {searchData.from} <span>→</span> {searchData.to}
+              {displaySearchData.from} <span>→</span> {displaySearchData.to}
             </div>
             <div className="fr-masthead__meta">
               {isCheckin ? (
                 <>
-                  <span>Mã: <b>{searchData.bookingCode || "—"}</b></span>
-                  <span>HK: <b>{searchData.passengerName || "—"}</b></span>
+                  <span>Mã: <b>{displaySearchData.bookingCode || "—"}</b></span>
+                  <span>HK: <b>{displaySearchData.passengerName || "—"}</b></span>
                 </>
               ) : (
                 <>
-                  <span><b>{searchData.date}</b></span>
+                  <span><b>{displaySearchData.date}</b></span>
                   <span><b>{pax}</b> hành khách</span>
                   <span>Bay thẳng</span>
                 </>

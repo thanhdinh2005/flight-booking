@@ -138,6 +138,7 @@ export default function TabThuTuc({ onAction }) {
           bookings={bookingsWithSeats}
           onNext={handleAddonsConfirmed}
           onBack={() => { setScreen('seats'); onAction?.('↩ Quay lại chọn ghế') }}
+          onReset={handleReset}
         />
       )
 

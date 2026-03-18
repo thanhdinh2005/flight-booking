@@ -160,3 +160,300 @@ export async function logoutKeycloak() {
   }
   clearToken()
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN USER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Helper function to get auth headers
+function getAuthHeaders() {
+  const token = getToken()
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : '',
+  }
+}
+
+// ─── Search User (Admin) ──────────────────────────────────────────────────────
+export async function searchUser(query) {
+  const res = await fetch(`${BACKEND_URL}/admin/users/search?q=${encodeURIComponent(query)}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tìm kiếm user thất bại')
+  return data
+}
+
+// ─── Get All Users (Admin) ────────────────────────────────────────────────────
+export async function getAllUsers() {
+  const res = await fetch(`${BACKEND_URL}/admin/users`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lấy danh sách user thất bại')
+  return data
+}
+
+// ─── Get User by Id (Admin) ───────────────────────────────────────────────────
+export async function getUserById(userId) {
+  const res = await fetch(`${BACKEND_URL}/admin/users/${userId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lấy thông tin user thất bại')
+  return data
+}
+
+// ─── Create User (Admin) ──────────────────────────────────────────────────────
+export async function createUser(payload) {
+  const res = await fetch(`${BACKEND_URL}/admin/users`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tạo user thất bại')
+  return data
+}
+
+// ─── Disable User (Admin) ─────────────────────────────────────────────────────
+export async function disableUser(userId) {
+  const res = await fetch(`${BACKEND_URL}/admin/users/${userId}/disable`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Vô hiệu hóa user thất bại')
+  return data
+}
+
+// ─── Active User (Admin) ──────────────────────────────────────────────────────
+export async function activeUser(userId) {
+  const res = await fetch(`${BACKEND_URL}/admin/users/${userId}/active`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Kích hoạt user thất bại')
+  return data
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REFUND REQUEST (Staff & Customer)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Approve Refund Request (Staff) ─────────────────────────────────────────────
+export async function approveRefundRequest(requestId) {
+  const res = await fetch(`${BACKEND_URL}/staff/refund-requests/${requestId}/approve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Phê duyệt hoàn tiền thất bại')
+  return data
+}
+
+// ─── Reject Refund Request (Staff) ──────────────────────────────────────────────
+export async function rejectRefundRequest(requestId, reason) {
+  const res = await fetch(`${BACKEND_URL}/staff/refund-requests/${requestId}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ reason }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Từ chối hoàn tiền thất bại')
+  return data
+}
+
+// ─── Create Refund Request (Customer) ──────────────────────────────────────────
+export async function createRefundRequest(payload) {
+  const res = await fetch(`${BACKEND_URL}/refund-requests`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tạo yêu cầu hoàn tiền thất bại')
+  return data
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FLIGHT MANAGEMENT (Admin)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Get All Flights (Admin) ────────────────────────────────────────────────────
+export async function getAllFlights() {
+  const res = await fetch(`${BACKEND_URL}/admin/flights`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lấy danh sách chuyến bay thất bại')
+  return data
+}
+
+// ─── Create Manual Flight (Admin) ───────────────────────────────────────────────
+export async function createManualFlight(payload) {
+  const res = await fetch(`${BACKEND_URL}/admin/flights`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tạo chuyến bay thất bại')
+  return data
+}
+
+// ─── Update Flight Instance (Admin) ─────────────────────────────────────────────
+export async function updateFlightInstance(flightId, payload) {
+  const res = await fetch(`${BACKEND_URL}/admin/flights/${flightId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Cập nhật chuyến bay thất bại')
+  return data
+}
+
+// ─── Filter Flight (Admin) ──────────────────────────────────────────────────────
+export async function filterFlight(params) {
+  const queryString = new URLSearchParams(params).toString()
+  const res = await fetch(`${BACKEND_URL}/admin/flights/filter?${queryString}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lọc chuyến bay thất bại')
+  return data
+}
+
+// ─── Get Flight by Id (Admin) ─────────────────────────────────────────────────
+export async function getFlightById(flightId) {
+  const res = await fetch(`${BACKEND_URL}/admin/flights/${flightId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lấy thông tin chuyến bay thất bại')
+  return data
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FLIGHT SCHEDULE (Admin)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Create Flight Schedule (Admin) ─────────────────────────────────────────────
+export async function createFlightSchedule(payload) {
+  const res = await fetch(`${BACKEND_URL}/admin/schedules`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tạo lịch bay thất bại')
+  return data
+}
+
+// ─── Get All Schedules (Admin) ────────────────────────────────────────────────
+export async function getAllSchedules() {
+  const res = await fetch(`${BACKEND_URL}/admin/schedules`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Lấy danh sách lịch bay thất bại')
+  return data
+}
+
+// ─── Reactivate Schedule (Admin) ──────────────────────────────────────────────
+export async function reactivateSchedule(scheduleId) {
+  const res = await fetch(`${BACKEND_URL}/admin/schedules/${scheduleId}/reactivate`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Kích hoạt lại lịch bay thất bại')
+  return data
+}
+
+// ─── Phase-out Schedule (Admin) ─────────────────────────────────────────────────
+export async function phaseOutSchedule(scheduleId) {
+  const res = await fetch(`${BACKEND_URL}/admin/schedules/${scheduleId}/phase-out`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Ngừng khai thác lịch bay thất bại')
+  return data
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BOOKING & PAYMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Create Booking ─────────────────────────────────────────────────────────────
+export async function createBooking(payload) {
+  const res = await fetch(`${BACKEND_URL}/bookings`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Đặt vé thất bại')
+  return data
+}
+
+// ─── Update Addon ───────────────────────────────────────────────────────────────
+export async function updateAddon(bookingId, payload) {
+  const res = await fetch(`${BACKEND_URL}/bookings/${bookingId}/addons`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Cập nhật dịch vụ bổ sung thất bại')
+  return data
+}
+
+// ─── Create Payment (Customer) ──────────────────────────────────────────────────
+export async function createPayment(payload) {
+  const res = await fetch(`${BACKEND_URL}/payments`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tạo thanh toán thất bại')
+  return data
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Search Flight ──────────────────────────────────────────────────────────────
+export async function searchFlight(params) {
+  const queryString = new URLSearchParams(params).toString()
+  const res = await fetch(`${BACKEND_URL}/flights/search?${queryString}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tìm kiếm chuyến bay thất bại')
+  return data
+}
+
+// ─── Search Airport ─────────────────────────────────────────────────────────────
+export async function searchAirport(query) {
+  const res = await fetch(`${BACKEND_URL}/airports/search?q=${encodeURIComponent(query)}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Tìm kiếm sân bay thất bại')
+  return data
+}

@@ -72,6 +72,20 @@ export default function MyTickets() {
   const [notif,     setNotif]     = useState(null)
   const [expandId,  setExpandId]  = useState(null)
 
+
+  //loading database 
+  useEffect(() => {
+  async function fetchTickets() {
+    try {
+      const data = await getMyTickets()
+      setTickets(data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  fetchTickets()
+}, [])
   // Nhận state từ CancelTicket hoặc ChangeFlight
   useEffect(() => {
     const state = location.state
@@ -215,7 +229,7 @@ export default function MyTickets() {
                   <div className="mt-card__actions">
                     <button className="mt-action-btn" onClick={() => navigate('/cancel-ticket')}>🚫 Hủy vé</button>
                     <button className="mt-action-btn" onClick={() => navigate('/change-flight')}>🔄 Đổi chuyến</button>
-                    <button className="mt-action-btn mt-action-btn--primary" onClick={() => navigate('/checkin')}>✅ Check-in</button>
+                    <button className="mt-action-btn mt-action-btn--primary" onClick={() => navigate('/thu-tuc')}>✅ Check-in</button>
                   </div>
                 )}
               </div>

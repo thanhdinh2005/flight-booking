@@ -34,8 +34,9 @@ html, body, #root {
 
 body {
   font-family: var(--font);
-  background: url('../assets/image 20.png') center center / cover no-repeat fixed;
+  background: url('../assets/image 20.png') center center / auto repeat;
   min-height: 100vh;
+  background-attachment: scroll;
 }
 
 /* ═══════════════════════════════════════════
@@ -45,24 +46,29 @@ body {
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* sửa chỗ này */
+  justify-content: space-between;
   padding: 3rem 6rem;
 }
+
+/* ── Cột trái: form đăng nhập/đăng ký ── */
 .auth-area {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
-  margin-left: 120px; /* thêm */
+  margin-left: 120px;
+  order: 1; /* Đưa form sang bên trái */
 }
+
 /* ── Cột phải: tagline ── */
 .tagline-panel {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 0; /* bỏ 300px */
+  margin-left: 0;
   margin-right: 120px;
+  order: 2; /* Đưa text sang bên phải */
 }
 
 .login-tagline {
