@@ -14,7 +14,6 @@ import troGiupIcon   from '../assets/trợ giúp.png';
 const NAV_ITEMS = [
   { id: 'khampha',    icon: khamPhaIcon,   label: 'Khám phá',           route: '/home ' },
   { id: 'muave',      icon: muaVeIcon,     label: 'Mua vé & Dịch vụ',  route: null },  // mở modal
-  { id: 'thongtin',   icon: diaDiemIcon,   label: 'Thông tin chuyến',   route: '/flight-info' },
   { id: 'trainghiem', icon: hoaDonIcon,    label: 'Trải nghiệm bay',    route: '/experience' },
   { id: 'trogiup',    icon: troGiupIcon,   label: 'Trợ giúp',           route: '/help' },
 ];

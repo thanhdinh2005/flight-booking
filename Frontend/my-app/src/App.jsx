@@ -12,6 +12,8 @@ import Register from "./components/Register";
 import ProtectedRoute from "./components/protected";
 import AdminDashboard from "./admin/AdminDashboard";
 import FlightResults from "./components/Flightresults";
+import ExperiencePage from "./pages/ExperiencePage";
+import HelpPage from "./pages/HelpPage";
 import './styles/signup.css'
 
 /* ── Trang Auth: chứa Login / Register / ForgotPassword ── */
@@ -77,6 +79,8 @@ export default function App() {
         >
           <Route path="/home" element={<Home />} />
           <Route path="/flights" element={<FlightResults />} />
+          <Route path="/experience" element={<ExperiencePage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/buy-ticket" element={<MyTicket />} />
           <Route path="/cancel-ticket" element={<CancelTicket />} />
           <Route path="/change-flight" element={<ChangeFlight />} />
