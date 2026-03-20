@@ -31,19 +31,21 @@ class BookingController extends Controller
 {
     // 1. Lấy dữ liệu đã qua kiểm duyệt
     $data = $request->validated();
-
+    $userId = $request->user()->id;
+    
     try {
+        
         // 2. Thực thi nghiệp vụ tạo Booking
         // Lúc này UseCase của bạn đang trả về trực tiếp Model Booking (hoặc mixed)
-        $booking = $this->createBookingUseCase->execute($data);
+        $booking = $this->createBookingUseCase->execute($data, $userId);
 
         // 3. Vì bạn muốn kiểm tra logic đã chạy đúng chưa, 
         // ta sẽ load thêm các quan hệ để xem chi tiết trong Postman
         // Lưu ý: Nếu UseCase đã load rồi thì không cần dòng này, nhưng viết thêm cũng không sao.
         $booking->load([
             'tickets.passenger',
-            'tickets.flightInstance.route.origin',
-            'tickets.flightInstance.route.destination'
+            'tickets.flight_instance.route.origin',
+            'tickets.flight_instance.route.destination'
         ]);
 
         // 4. Trả về dữ liệu thô (Array) thông qua ApiResponse để kiểm tra

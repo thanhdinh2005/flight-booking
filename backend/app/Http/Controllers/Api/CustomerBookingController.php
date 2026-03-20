@@ -15,34 +15,51 @@ use Illuminate\Http\Request;
 
 class CustomerBookingController extends Controller
 {
-    public function listActiveTickets(Request $request, $bookingId)
-    {
-        try {
-            // Kiểm tra quyền sở hữu booking
-            $booking = Booking::where('id', $bookingId)
-                ->where('user_id', $request->user()->id)
-                ->firstOrFail();
+    public function listActiveTickets(Request $request)
+{
+    try {
+        // 1. Lấy dữ liệu từ Body của Request POST
+        $pnr = strtoupper(trim($request->input('pnr')));
+        $email = trim($request->input('email'));
 
-            // Lấy danh sách vé kèm theo thông tin chuyến bay và ghế
-            $tickets = Ticket::with(['flight_instance', 'passenger']) // Load các quan hệ đã định nghĩa trong Ticket model
-    ->where('booking_id', $bookingId)
-    ->where('status', 'PAID')
-    ->whereHas('flight_instance', function ($query) {
-        // Sử dụng cột 'std' và so sánh với thời gian hiện tại (now())
-        $query->where('std', '>', now());
-    })
-    ->get();
-
-            // Sử dụng values() để reset lại key của array sau khi filter
-            return ApiResponse::success(
-                $tickets->values(), 
-                'Danh sách vé khả dụng.', 
-                200
-            );
-        } catch (Exception $e) {
-            return ApiResponse::error('Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập.', 404);
+        if (!$pnr || !$email) {
+            return ApiResponse::error('Vui lòng nhập mã PNR và Email để tra cứu.', 400);
         }
+
+        // 2. Truy vấn tìm Booking thông qua PNR và Email chủ sở hữu
+        $booking = \App\Models\Booking::where('pnr', $pnr)
+            ->whereHas('user', function ($query) use ($email) {
+                $query->where('email', $email);
+            })
+            ->first();
+
+        if (!$booking) {
+            return ApiResponse::error('Không tìm thấy thông tin đặt chỗ hoặc Email không khớp.', 404);
+        }
+
+        // 3. Lấy danh sách vé thỏa mãn (Chưa bay, đã thanh toán)
+        $tickets = \App\Models\Ticket::with(['flight_instance.flightSchedule', 'passenger'])
+            ->where('booking_id', $booking->id)
+            ->whereIn('status', ['PAID', 'ISSUED']) // Tùy theo status bạn quy định
+            ->whereHas('flight_instance', function ($query) {
+                // Chỉ lấy vé có giờ khởi hành (std) trong tương lai
+                $query->where('std', '>', now());
+            })
+            ->get();
+
+        if ($tickets->isEmpty()) {
+            return ApiResponse::error('Mã PNR hợp lệ nhưng không có vé nào khả dụng (đã bay hoặc đã hoàn).', 404);
+        }
+
+        return ApiResponse::success(
+            $tickets->values(), 
+            'Danh sách vé khả dụng cho PNR: ' . $pnr
+        );
+
+    } catch (\Exception $e) {
+        return ApiResponse::error('Lỗi hệ thống: ' . $e->getMessage(), 500);
     }
+}
 
     public function previewRefund($ticketId, GetRefundPreviewUseCase $useCase, Request $request)
 {
@@ -70,4 +87,5 @@ public function confirmRefund(StoreRefundRequest $request, CreateRefundRequestUs
         return ApiResponse::error($e->getMessage(), 400);
     }
 }
+
 }

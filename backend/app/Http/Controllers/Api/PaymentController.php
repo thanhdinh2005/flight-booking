@@ -61,9 +61,20 @@ class PaymentController extends Controller
             if (!$booking) throw new EntityNotFoundException("Không tìm thấy đơn hàng!");
 
             if ($vnp_ResponseCode == '00') {
-                // Todo: Check transaction, tiếp tục flow
-                return ApiResponse::success();
+                try {
+                // GỌI USECASE TẠI ĐÂY
+                $booking = $confirmPaymentUseCase->execute(
+                    (int) $bookingId, 
+                    'VNPAY', 
+                    $request->vnp_TransactionNo // Mã giao dịch thực tế từ VNPAY
+                );
 
+                return ApiResponse::success($booking, "Thanh toán thành công và đã xuất vé.");
+
+            } catch (\Exception $e) {
+                // Trường hợp có lỗi logic (ví dụ: Booking đã bị hủy do hết hạn trước đó)
+                return ApiResponse::error($e->getMessage(), 400);
+            }
 
             } else {
                 return ApiResponse::error("Giao dịch không thành công. Mã lỗi ". $vnp_ResponseCode);

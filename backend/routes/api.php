@@ -8,26 +8,28 @@ use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
 
 
-use App\Http\Controllers\Api\BookingController;
-
+use App\Http\Controllers\Api\AdminBookRequestController;
 
 use App\Http\Controllers\Api\CustomerBookingController;
+
 use App\Http\Controllers\Api\FlightInstanceController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
-
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\api\AdminDashboardController;
 use App\Http\Controllers\api\ReportController;
-
+use App\Http\Controllers\api\CheckinController;
 
 Route::options('{any}', function () {
     return response()->json([], 200);
 })->where('any', '.*');
 
-Route::post('/updateAddon', [BookingController::class, 'addAddon']);
-Route::post('/createBooking', [BookingController::class, 'store']);
+
 Route::get('/airports/search', [AirportController::class, 'search']);
+Route::get('/airports/{airportId}', [AirportController::class, 'getAirportById']);
+Route::get('/airports', [AirportController::class, 'getAll']);
+
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
@@ -46,12 +48,24 @@ Route::middleware('auth.keycloak') -> group(function () {
     // Create Payment
     Route::post('/payments/vnpay/{bookingId}', [PaymentController::class, 'create']);
     
-
-    Route::get('/bookings/{id}/active-tickets', [CustomerBookingController::class, 'listActiveTickets']);
+    Route::post('/updateAddon', [BookingController::class, 'addAddon']);
+    Route::post('/createBooking', [BookingController::class, 'store']);
+    
+    Route::post('/bookings/search-tickets', [CustomerBookingController::class, 'listActiveTickets']);
     Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
     Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
     
+    // Bước 1: Xác thực thông tin cá nhân (CCCD, Họ tên, Ngày sinh)
+    // POST /api/checkin/verify
+    Route::post('/verify', [CheckinController::class, 'verifyIdentity']);
 
+    // Bước 2: Lấy sơ đồ ghế của máy bay (Sau khi đã verify thành công)
+    // GET /api/checkin/seat-map?ticket_id=123
+    Route::get('/seat-map', [CheckinController::class, 'getSeatMap']);
+
+    // Bước 3: Xác nhận chọn ghế và hoàn tất Check-in
+    // POST /api/checkin/submit
+    Route::post('/submit', [CheckinController::class, 'submitCheckin']);
 });
 
 Route::middleware(['auth.keycloak', 'role:STAFF'])
@@ -69,6 +83,11 @@ Route::middleware(['auth.keycloak', 'role:STAFF'])
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
+
+        Route::get('/booking-requests', [AdminBookRequestController::class, 'index']);
+        Route::get('/booking-requests/{id}', [AdminBookRequestController::class, 'show']);
+        Route::post('/booking-requests/{id}/approve', [AdminBookRequestController::class, 'approve']);
+        Route::post('/booking-requests/{id}/reject', [AdminBookRequestController::class, 'reject']);
 
         // Flight Schedules API
         Route::put('/schedules/{id}/phase-out', [FlightScheduleController::class, 'phaseOutSchedule']);
@@ -96,5 +115,5 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
         Route::get('/dashboard/summary', [AdminDashboardController::class, 'getSummary']);
         Route::get('/revenue-chart', [AdminDashboardController::class, 'getChart']);
-        Route::get('load-factor', [AdminDashboardController::class, 'loadFactor']);
+        Route::get('/load-factor', [AdminDashboardController::class, 'loadFactor']);
 });
