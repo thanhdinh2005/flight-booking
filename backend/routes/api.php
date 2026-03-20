@@ -27,6 +27,9 @@ Route::options('{any}', function () {
 
 
 Route::get('/airports/search', [AirportController::class, 'search']);
+Route::get('/airports/{airportId}', [AirportController::class, 'getAirportById']);
+Route::get('/airports', [AirportController::class, 'getAll']);
+
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
@@ -112,5 +115,5 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
         Route::get('/dashboard/summary', [AdminDashboardController::class, 'getSummary']);
         Route::get('/revenue-chart', [AdminDashboardController::class, 'getChart']);
-        Route::get('load-factor', [AdminDashboardController::class, 'loadFactor']);
+        Route::get('/load-factor', [AdminDashboardController::class, 'loadFactor']);
 });
