@@ -8,7 +8,6 @@ use App\Http\Response\ApiResponse;
 use App\Http\Response\SearchAirportResponse;
 use App\Models\Airport;
 use Illuminate\Database\QueryException;
-use Illuminate\Http\Request;
 
 class AirportController extends Controller
 {
