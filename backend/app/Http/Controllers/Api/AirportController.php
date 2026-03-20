@@ -8,6 +8,8 @@ use App\Http\Response\ApiResponse;
 use App\Http\Response\SearchAirportResponse;
 use App\Models\Airport;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
+
 class AirportController extends Controller
 {
     public function search(SearchAirportRequest $request)
@@ -46,5 +48,15 @@ class AirportController extends Controller
                 'debug' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
+    }
+
+    public function getAirportById(int $airportId) {
+        $data = Airport::find($airportId);
+
+        return ApiResponse::success($data);
+    }
+
+    public function getAll() {
+        return ApiResponse::success(Airport::all());
     }
 }
