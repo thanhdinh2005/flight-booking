@@ -66,6 +66,8 @@ Route::middleware('auth.keycloak') -> group(function () {
     // Bước 3: Xác nhận chọn ghế và hoàn tất Check-in
     // POST /api/checkin/submit
     Route::post('/submit', [CheckinController::class, 'submitCheckin']);
+
+    Route::get('/checkin/boarding-pass/{id}', [CheckinController::class, 'getBoardingPass']);
 });
 
 Route::middleware(['auth.keycloak', 'role:STAFF'])
