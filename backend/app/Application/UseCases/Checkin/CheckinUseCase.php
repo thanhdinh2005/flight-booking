@@ -1,51 +1,60 @@
 <?php
 namespace App\Application\UseCases\Checkin;
+
 use App\Models\Ticket;
-use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Exception;
 
 class CheckinUseCase
 {
-    public function execute(int $ticketId, string $seatNumber)
-{
-    return DB::transaction(function () use ($ticketId, $seatNumber) {
-        // 1. Lock vé để tránh sửa đổi đồng thời
-        $ticket = Ticket::with('flight_instance.aircraft')->lockForUpdate()->findOrFail($ticketId);
-
-        // 2. Kiểm tra trạng thái vé
-        if (!in_array($ticket->status, ['PAID', 'ISSUED', 'CHECKED_IN'])) {
-            throw new Exception("Trạng thái vé không hợp lệ để làm thủ tục.");
+    public function execute(int $ticketId, string $seatNumber, string $token)
+    {
+        // 1. Kiểm tra Token trong Cache (Giấy thông hành)
+        $cachedToken = Cache::get("checkin_token_{$ticketId}");
+        if (!$cachedToken || $cachedToken !== $token) {
+            throw new Exception("Phiên xác thực đã hết hạn hoặc không hợp lệ.", 403);
         }
 
-        // 3. [MỚI] Kiểm tra xem số ghế có hợp lệ với loại máy bay và HẠNG VÉ không
-        $isValidSeat = \App\Models\AircraftSeat::where('aircraft_id', $ticket->flight_instance->aircraft_id)
-            ->where('seat_number', $seatNumber)
-            ->where('seat_class', $ticket->seat_class) // Đảm bảo đúng hạng Business/Economy
-            ->where('is_active', true)
-            ->exists();
+        return DB::transaction(function () use ($ticketId, $seatNumber) {
+    // 1. Lock vé và lấy thông tin hạng vé của khách
+    $ticket = Ticket::lockForUpdate()->findOrFail($ticketId);
+    $userSeatClass = $ticket->seat_class; // Ví dụ: 'ECONOMY'
 
-        if (!$isValidSeat) {
-            throw new Exception("Ghế $seatNumber không tồn tại, không đúng hạng vé hoặc đang bảo trì.");
-        }
+    // 2. Lấy thông tin thực tế của cái ghế khách vừa chọn
+    $targetSeat = \App\Models\AircraftSeat::where('aircraft_id', $ticket->flight_instance->aircraft_id)
+        ->where('seat_number', $seatNumber)
+        ->first();
 
-        // 4. Kiểm tra trùng ghế (Loại trừ chính nó để cho phép đổi ghế)
-        $isOccupied = Ticket::where('flight_instance_id', $ticket->flight_instance_id)
-            ->where('seat_number', $seatNumber)
-            ->where('status', 'CHECKED_IN')
-            ->where('id', '!=', $ticketId) 
-            ->exists();
+    if (!$targetSeat) {
+        throw new Exception("Chỗ ngồi không tồn tại trên máy bay này.", 404);
+    }
 
-        if ($isOccupied) {
-            throw new Exception("Ghế $seatNumber đã có hành khách khác chọn.");
-        }
+    // 3. KIỂM TRA HẠNG GHẾ (Bảo mật quan trọng)
+    if ($targetSeat->seat_class !== $userSeatClass) {
+        throw new Exception("Bạn không thể chọn ghế hạng {$targetSeat->seat_class} với vé hạng {$userSeatClass}.", 403);
+    }
 
-        // 5. Cập nhật
-        $ticket->update([
-            'seat_number' => $seatNumber,
-            'status' => 'CHECKED_IN'
-        ]);
+    // 4. Kiểm tra tranh chấp ghế (như cũ)
+    $alreadyTaken = Ticket::where('flight_instance_id', $ticket->flight_instance_id)
+        ->where('seat_number', $seatNumber)
+        ->where('status', 'CHECKED_IN')
+        ->exists();
 
-        return $ticket;
-    });
-}
+    if ($alreadyTaken) {
+        throw new Exception("Ghế {$seatNumber} vừa có người chọn.", 409);
+    }
+
+    // 5. Cập nhật
+    $ticket->update([
+        'seat_number' => $seatNumber,
+        'status' => 'CHECKED_IN',
+        'checked_in_at' => now()
+    ]);
+
+    Cache::forget("checkin_token_{$ticketId}");
+
+    return $ticket;
+});
+    }
 }

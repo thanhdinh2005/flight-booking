@@ -6,38 +6,31 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CheckinSubmitRequest extends FormRequest
 {
-    /**
-     * Cho phép mọi user truy cập luồng check-in.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Các quy tắc validate cho việc chọn ghế.
-     */
     public function rules(): array
     {
         return [
-            'ticket_id'   => 'required|integer|exists:tickets,id',
-            'seat_number' => [
+            'ticket_id'      => 'required|integer|exists:tickets,id',
+            'checkin_token'  => 'required|string', // Bắt buộc phải có token từ bước Verify
+            'seat_number'    => [
                 'required',
                 'string',
-                'regex:/^[0-9]{1,2}[A-F]$/' // Chặn định dạng sai ngay lập tức (VD: 12A, 5F là đúng)
+                'regex:/^[0-9]{1,2}[A-F]$/'
             ],
         ];
     }
 
-    /**
-     * Thông báo lỗi tùy chỉnh.
-     */
     public function messages(): array
     {
         return [
-            'ticket_id.exists'      => 'Mã vé không hợp lệ.',
-            'seat_number.required'  => 'Bạn chưa chọn chỗ ngồi trên máy bay.',
-            'seat_number.regex'     => 'Định dạng số ghế không hợp lệ (Ví dụ đúng: 1A, 15F).',
+            'ticket_id.exists'      => 'Mã vé không tồn tại.',
+            'checkin_token.required' => 'Phiên làm việc không hợp lệ (Thiếu token).',
+            'seat_number.required'  => 'Vui lòng chọn chỗ ngồi.',
+            'seat_number.regex'     => 'Định dạng số ghế không đúng (Ví dụ: 12A).',
         ];
     }
 }
