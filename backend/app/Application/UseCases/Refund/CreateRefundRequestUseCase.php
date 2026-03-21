@@ -27,8 +27,16 @@ class CreateRefundRequestUseCase
         return DB::transaction(function () use ($ticketId, $reason, $user_id) {
             
             // 1. Lấy vé và khóa dòng (Lock) để tránh bị thao tác song song
-            $ticket = Ticket::with(['flight_instance', 'booking'])->lockForUpdate()->findOrFail($ticketId);
+$ticket = Ticket::where('id', $ticketId)
+            ->whereHas('booking', function($q) use ($user_id) {
+                $q->where('user_id', $user_id);
+            })
+            ->lockForUpdate() // Chống race-condition
+            ->first();
 
+            if(!$ticket){
+                throw new \Exception("Vé không tồn tại hoặc bạn không có quyền thao tác trên vé này.");
+            }
             // 2. Kiểm tra điều kiện hoàn (Hàm của bạn sẽ throw Exception nếu lỗi)
             $this->checkRefundCommand->execute($ticket);
 

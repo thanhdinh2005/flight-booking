@@ -12,7 +12,7 @@ use App\Http\Requests\StoreRefundRequest;
 use App\Application\UseCases\Refund\CreateRefundRequestUseCase;
 use App\Application\UseCases\Refund\GetRefundPreviewUseCase;
 use Illuminate\Http\Request;
-
+use App\Application\UseCases\Refund\CustomerCancelRefundUseCase;
 class CustomerBookingController extends Controller
 {
     public function listActiveTickets(Request $request)
@@ -72,20 +72,34 @@ class CustomerBookingController extends Controller
     }
 }
 // Route: POST /api/refund/confirm
-public function confirmRefund(StoreRefundRequest $request, CreateRefundRequestUseCase $useCase,)
+public function confirmRefund(StoreRefundRequest $request, CreateRefundRequestUseCase $useCase)
 {
     $data = $request->validated();
-    $userId =$request->user()->id;
+    
+    // THIẾU DÒNG NÀY:
+    $userId = $request->user()->id; 
+
     try {
-        $result = $useCase->execute($data['ticket_ids'], $data['reason'], $userId);
-        return ApiResponse::success(
-            $result, 
-            'Yêu cầu hoàn tiền đã được gửi. Vui lòng chờ Admin phê duyệt.', 
-            201
-        );
+        // Truyền $userId vào đây
+        $result = $useCase->execute((int) $data['ticket_id'], $data['reason'], $userId);
+        return ApiResponse::success($result, 'Yêu cầu hoàn tiền đã được gửi.');
     } catch (\Exception $e) {
         return ApiResponse::error($e->getMessage(), 400);
     }
 }
+public function cancelRefundRequest($id, CustomerCancelRefundUseCase $useCase, Request $request)
+{
+    try {
+        $userId = $request->user()->id;
+        
+        $result = $useCase->execute((int) $id, $userId);
 
+        return ApiResponse::success(
+            $result, 
+            'Đã hủy yêu cầu hoàn vé thành công. Vé của bạn đã có hiệu lực trở lại.'
+        );
+    } catch (Exception $e) {
+        return ApiResponse::error($e->getMessage(), 400);
+    }
+}
 }

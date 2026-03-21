@@ -15,8 +15,8 @@ class StoreRefundRequest extends FormRequest
     {
         return [
             // Khách chọn danh sách ID vé muốn hoàn
-            'ticket_ids' => 'required|int|min:1',
-            'ticket_ids.*' => 'required|exists:tickets,id',
+            'ticket_id' => 'required|int|min:1',
+            'ticket_id.*' => 'required|exists:tickets,id',
             // Lý do hoàn vé
             'reason' => 'required|string|min:10|max:500',
         ];
@@ -25,8 +25,8 @@ class StoreRefundRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'ticket_ids.required' => 'Bạn chưa chọn vé nào để hoàn tiền.',
-            'ticket_ids.*.exists' => 'Một trong các vé được chọn không tồn tại.',
+            'ticket_id.required' => 'Bạn chưa chọn vé nào để hoàn tiền.',
+            'ticket_id.*.exists' => 'Một trong các vé được chọn không tồn tại.',
             'reason.required' => 'Vui lòng cung cấp lý do hoàn vé.',
             'reason.min' => 'Lý do hoàn vé cần chi tiết hơn (tối thiểu 10 ký tự).',
         ];
