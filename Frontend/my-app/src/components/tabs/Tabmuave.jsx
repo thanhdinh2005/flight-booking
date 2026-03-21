@@ -1,8 +1,9 @@
 // src/components/tabs/TabMuaVe.jsx
 // Kết nối: SearchPanel → FlightResults → PassengerForm (+ RefundPolicyModal)
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
+import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
 import '../../styles/SearchPanel.css'  
 
 // ─── Mini Calendar ──────────────────────────────────────────────────────────
@@ -98,6 +99,99 @@ function DateField({ label, value, onChange, className }) {
   )
 }
 
+// ─── Airport Search Component with API ──────────────────────────────────────
+function AirportSearch({ label, value, onChange, placeholder }) {
+  const [query, setQuery] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (query.length >= 1) {
+        setLoading(true)
+        try {
+          const results = await searchAirports(query)
+          setSuggestions(results.map(a => `${a.display_name} - ${a.city}`))
+        } catch (err) {
+          console.error('Airport search failed:', err)
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        setSuggestions([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const handleSelect = (airport) => {
+    onChange(airport)
+    setQuery('')
+    setSuggestions([])
+    setOpen(false)
+  }
+
+  return (
+    <div className="form-field" style={{ position: 'relative' }}>
+      <label className="form-field__label">{label}</label>
+      <div className="airport-search">
+        <input
+          className="form-field__input"
+          placeholder={value || placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+        />
+        {value && (
+          <button 
+            className="clear-btn" 
+            onClick={() => onChange('')}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      {open && (suggestions.length > 0 || loading) && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
+          <div className="suggestions-dropdown" style={{ 
+            position: 'absolute', 
+            top: '100%', 
+            left: 0, 
+            right: 0, 
+            zIndex: 200,
+            background: 'white',
+            border: '1px solid #ddd',
+            borderRadius: 4,
+            maxHeight: 200,
+            overflowY: 'auto'
+          }}>
+            {loading && <div style={{ padding: 8 }}>⏳ Đang tìm...</div>}
+            {suggestions.map((airport, i) => (
+              <div
+                key={i}
+                className="suggestion-item"
+                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
+                onClick={() => handleSelect(airport)}
+                onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
+                onMouseLeave={(e) => e.target.style.background = 'white'}
+              >
+                {airport}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Search Panel ────────────────────────────────────────────────────────────
 const AIRPORTS = [
   'Nội Bài (HAN) – Hà Nội',
@@ -117,13 +211,14 @@ function extractCode(airport) {
   return m ? m[1] : airport.split(' ')[0]
 }
 
-function SearchPanel({ onSearch, initialDestination }) {
+function SearchPanel({ onSearch, initialDestination, isLoading }) {
   const [tripType,   setTripType]   = useState('one')
   const [fromCity,   setFromCity]   = useState(initialDestination?.from || 'Nội Bài (HAN) – Hà Nội')
   const [toCity,     setToCity]     = useState(initialDestination?.to || '')
   const [depDate,    setDepDate]    = useState('')
   const [retDate,    setRetDate]    = useState('')
   const [passengers, setPassengers] = useState('1')
+  const [useLiveSearch, setUseLiveSearch] = useState(false)
 
   function swap() {
     if (!toCity) return
@@ -164,36 +259,66 @@ function SearchPanel({ onSearch, initialDestination }) {
         ))}
       </div>
 
+      {/* Toggle live search */}
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={useLiveSearch}
+            onChange={(e) => setUseLiveSearch(e.target.checked)}
+          />
+          🔍 Tìm kiếm sân bay trực tiếp (gõ để tìm)
+        </label>
+      </div>
+
       {/* From / To */}
       <div className="form-row">
-        <div className="form-field">
-          <label className="form-field__label">✈️ Từ</label>
-          <select
-            className="form-field__input"
+        {useLiveSearch ? (
+          <AirportSearch
+            label="✈️ Từ"
             value={fromCity}
-            onChange={e => setFromCity(e.target.value)}
-            style={{ cursor: 'pointer' }}
-          >
-            {AIRPORTS.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
+            onChange={setFromCity}
+            placeholder="Gõ tên thành phố hoặc mã sân bay..."
+          />
+        ) : (
+          <div className="form-field">
+            <label className="form-field__label">✈️ Từ</label>
+            <select
+              className="form-field__input"
+              value={fromCity}
+              onChange={e => setFromCity(e.target.value)}
+              style={{ cursor: 'pointer' }}
+            >
+              {AIRPORTS.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        )}
 
         <button className="swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
-        <div className="form-field">
-          <label className="form-field__label">🛬 Đến</label>
-          <select
-            className="form-field__input"
+        {useLiveSearch ? (
+          <AirportSearch
+            label="🛬 Đến"
             value={toCity}
-            onChange={e => setToCity(e.target.value)}
-            style={{ cursor: 'pointer' }}
-          >
-            <option value="">-- Chọn điểm đến --</option>
-            {AIRPORTS.filter(a => a !== fromCity).map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
+            onChange={setToCity}
+            placeholder="Gõ tên thành phố hoặc mã sân bay..."
+          />
+        ) : (
+          <div className="form-field">
+            <label className="form-field__label">🛬 Đến</label>
+            <select
+              className="form-field__input"
+              value={toCity}
+              onChange={e => setToCity(e.target.value)}
+              style={{ cursor: 'pointer' }}
+            >
+              <option value="">-- Chọn điểm đến --</option>
+              {AIRPORTS.filter(a => a !== fromCity).map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Dates + Passengers */}
@@ -229,11 +354,164 @@ function SearchPanel({ onSearch, initialDestination }) {
         <button
           className="btn-primary"
           onClick={handleSearch}
-          style={{ opacity: isValid ? 1 : 0.45, cursor: isValid ? 'pointer' : 'not-allowed' }}
+          disabled={!isValid || isLoading}
+          style={{ opacity: isValid && !isLoading ? 1 : 0.45, cursor: isValid && !isLoading ? 'pointer' : 'not-allowed' }}
         >
-          Tìm chuyến bay
+          {isLoading ? '⏳ Đang tìm...' : 'Tìm chuyến bay'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─── Flight Filters Component ────────────────────────────────────────────────
+function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrder, resultCount }) {
+  const [localFilters, setLocalFilters] = useState(filters || {})
+  const [showFilters, setShowFilters] = useState(false)
+
+  const handleApply = () => {
+    onFilterChange(localFilters)
+  }
+
+  const handleReset = () => {
+    setLocalFilters({})
+    onFilterChange({})
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          style={{ 
+            padding: '8px 16px', 
+            border: '1px solid #ddd', 
+            borderRadius: 4, 
+            background: showFilters ? '#e0e7ff' : 'white',
+            cursor: 'pointer',
+            fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
+          🔍 Bộ lọc {showFilters ? '▲' : '▼'}
+        </button>
+        
+        <span style={{ fontSize: 14, color: '#666' }}>
+          {resultCount} chuyến bay
+        </span>
+      </div>
+
+      {showFilters && (
+        <div style={{ 
+          padding: 16, 
+          background: '#f8fafc', 
+          borderRadius: 8, 
+          marginTop: 12,
+          border: '1px solid #e2e8f0'
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            {/* Price Range */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
+                💰 Khoảng giá (VNĐ)
+              </label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="number"
+                  placeholder="Từ"
+                  value={localFilters.minPrice || ''}
+                  onChange={(e) => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
+                />
+                <span style={{ color: '#999' }}>-</span>
+                <input
+                  type="number"
+                  placeholder="Đến"
+                  value={localFilters.maxPrice || ''}
+                  onChange={(e) => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
+                />
+              </div>
+            </div>
+
+            {/* Departure Time */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
+                🕐 Giờ khởi hành
+              </label>
+              <select
+                value={localFilters.timeRange || ''}
+                onChange={(e) => setLocalFilters({...localFilters, timeRange: e.target.value || undefined})}
+                style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
+              >
+                <option value="">Tất cả</option>
+                <option value="0-6">Sáng sớm (00:00 - 06:00)</option>
+                <option value="6-12">Buổi sáng (06:00 - 12:00)</option>
+                <option value="12-18">Buổi chiều (12:00 - 18:00)</option>
+                <option value="18-24">Buổi tối (18:00 - 24:00)</option>
+              </select>
+            </div>
+
+            {/* Sort Options */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
+                📊 Sắp xếp theo
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select
+                  value={sortBy}
+                  onChange={(e) => onSortChange(e.target.value, sortOrder)}
+                  style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value="price">Giá vé</option>
+                  <option value="duration">Thời gian bay</option>
+                  <option value="departure">Giờ khởi hành</option>
+                  <option value="arrival">Giờ hạ cánh</option>
+                </select>
+                <button
+                  onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+                  style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer' }}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Actions */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+            <button
+              onClick={handleReset}
+              style={{ 
+                padding: '8px 16px', 
+                border: '1px solid #ddd', 
+                borderRadius: 4, 
+                background: 'white',
+                cursor: 'pointer',
+                fontSize: 13
+              }}
+            >
+              Đặt lại
+            </button>
+            <button
+              onClick={handleApply}
+              style={{ 
+                padding: '8px 16px', 
+                border: 'none', 
+                borderRadius: 4, 
+                background: '#3b82f6',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: 13
+              }}
+            >
+              Áp dụng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -244,43 +522,136 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   const [screen,     setScreen]     = useState('search')   // 'search' | 'results' | 'passenger'
   const [searchData, setSearchData] = useState(null)
   const [selFlight,  setSelFlight]  = useState(null)
+  const [isLoading,  setIsLoading]  = useState(false)
+  const [apiResults, setApiResults] = useState(null)
+  const [filters,    setFilters]    = useState({})
+  const [sortBy,     setSortBy]     = useState('price')
+  const [sortOrder,  setSortOrder]  = useState('asc')
+  const [error,      setError]      = useState(null)
 
-  // Bước 1 → 2
-  function handleSearch(data) {
+  // Bước 1 → 2: Call API
+  async function handleSearch(data) {
+    setIsLoading(true)
+    setError(null)
     setSearchData(data)
-    setScreen('results')
-    onAction?.('🔍 Đang tìm chuyến bay...')
+    
+    try {
+      const result = await searchFlights({
+        origin: data.from,
+        destination: data.to,
+        departure_date: data.date,
+        return_date: data.retDate || undefined,
+        adults: parseInt(data.passengers) || 1,
+      })
+      
+      // Format flights from API
+      const formattedResults = {
+        outbound: result.data?.outbound?.flatMap(day => 
+          day.flights.map(f => formatFlight(f))
+        ) || [],
+        return: result.data?.return?.flatMap(day => 
+          day.flights.map(f => formatFlight(f))
+        ) || [],
+      }
+      
+      setApiResults(formattedResults)
+      setScreen('results')
+      onAction?.(`🔍 Tìm thấy ${formattedResults.outbound.length} chuyến bay`)
+    } catch (err) {
+      setError(err.message || 'Lỗi tìm kiếm chuyến bay')
+      onAction?.('❌ ' + (err.message || 'Lỗi tìm kiếm'))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  // Bước 2 → 3
-  function handleSelectFlight(flight) {
+  // Apply filters and sorting
+  const getFilteredFlights = () => {
+    if (!apiResults) return { outbound: [], return: [] }
+    
+    const filterConfig = {
+      ...filters,
+      depTimeRange: filters.timeRange 
+        ? filters.timeRange.split('-').map(Number) 
+        : undefined,
+    }
+    
+    return {
+      outbound: sortFlights(
+        filterFlights(apiResults.outbound, filterConfig),
+        sortBy,
+        sortOrder
+      ),
+      return: sortFlights(
+        filterFlights(apiResults.return, filterConfig),
+        sortBy,
+        sortOrder
+      ),
+    }
+  }
+
+  // Bước 2 → 3: chuyển sang màn hình nhập thông tin hành khách
+  const handleSelectFlight = useCallback((flight) => {
     setSelFlight(flight)
     setScreen('passenger')
-    onAction?.(`✅ Đã chọn ${flight.airline} ${flight.dep}→${flight.arr}`)
-  }
+    const dep = flight.dep || flight.dep_time || ''
+    const arr = flight.arr || flight.arr_time || ''
+    onAction?.(`✅ Đã chọn ${flight.airline} ${dep}→${arr}`)
+  }, [onAction])
 
   // Bước 3 hoàn tất
   function handleDone() {
     onAction?.('🎉 Đặt vé thành công! Vui lòng kiểm tra email.')
-    // Sau 4 giây quay về trang tìm kiếm
     setTimeout(() => {
       setScreen('search')
       setSearchData(null)
       setSelFlight(null)
+      setApiResults(null)
+      setFilters({})
     }, 4000)
   }
 
   // ── Render theo screen ──
   if (screen === 'results') {
+    const filteredFlights = getFilteredFlights()
+    
     return (
-      <FlightResults
-        searchData={searchData}
-        onSelect={handleSelectFlight}
-        onBack={() => {
-          setScreen('search')
-          onAction?.('↩ Quay lại tìm kiếm')
-        }}
-      />
+      <div>
+        <FlightFilters
+          filters={filters}
+          onFilterChange={setFilters}
+          onSortChange={(by, order) => { setSortBy(by); setSortOrder(order); }}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          resultCount={filteredFlights.outbound.length}
+        />
+        
+        {error && (
+          <div style={{ 
+            padding: 12, 
+            background: '#fef2f2', 
+            color: '#dc2626',
+            borderRadius: 4,
+            marginBottom: 16 
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+        
+        <FlightResults
+          searchData={searchData}
+          flights={filteredFlights}
+          isLoading={isLoading}
+          onSelect={(flight) => handleSelectFlight(flight)}
+          onBack={() => {
+            setScreen('search')
+            setError(null)
+            setFilters({})
+            setApiResults(null)
+            onAction?.('↩ Quay lại tìm kiếm')
+          }}
+        />
+      </div>
     )
   }
 
@@ -298,6 +669,25 @@ export default function TabMuaVe({ onAction, initialDestination }) {
     )
   }
 
-  // Default: search - pass initialDestination to preset values
-  return <SearchPanel onSearch={handleSearch} initialDestination={initialDestination} />
+  // Default: search
+  return (
+    <div>
+      <SearchPanel 
+        onSearch={handleSearch} 
+        initialDestination={initialDestination}
+        isLoading={isLoading}
+      />
+      {error && (
+        <div style={{ 
+          padding: 12, 
+          background: '#fef2f2', 
+          color: '#dc2626',
+          borderRadius: 4,
+          marginTop: 16 
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
+    </div>
+  )
 }

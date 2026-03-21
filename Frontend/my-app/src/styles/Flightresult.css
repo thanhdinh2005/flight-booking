@@ -377,7 +377,39 @@
   background: rgba(232,155,32,0.12); color: var(--vj-warn);
 }
 
+/* ── Loading State ── */
+.fr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+}
+
+.fr-loading-spinner {
+  font-size: 40px;
+  animation: spin 1s linear infinite;
+  color: var(--vj-teal);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Empty State ── */
+.fr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+  padding: 40px 20px;
+}
+
 @media (max-width: 600px) {
   .fr-card { flex-direction: column; align-items: flex-start; }
   .fdm-grid2 { grid-template-columns: 1fr; }
-} 
+}

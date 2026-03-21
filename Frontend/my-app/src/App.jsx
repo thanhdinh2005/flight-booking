@@ -15,6 +15,8 @@ import FlightResults from "./components/Flightresults";
 import ExperiencePage from "./pages/ExperiencePage";
 import HelpPage from "./pages/HelpPage";
 import './styles/signup.css'
+import FlightsPage from "./components/Flightspage";
+import BuyTicketPage from "./components/Buyticketpage";
 
 /* ── Trang Auth: chứa Login / Register / ForgotPassword ── */
 function AuthPage() {
@@ -81,6 +83,8 @@ export default function App() {
           <Route path="/flights" element={<FlightResults />} />
           <Route path="/experience" element={<ExperiencePage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/flights"     element={<FlightsPage />} />
+          <Route path="/buy-ticket"  element={<BuyTicketPage />} />
           <Route path="/buy-ticket" element={<MyTicket />} />
           <Route path="/cancel-ticket" element={<CancelTicket />} />
           <Route path="/change-flight" element={<ChangeFlight />} />
