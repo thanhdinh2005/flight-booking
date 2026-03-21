@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(ForceJsonResponse::class);
 
         // CORS middleware
-        $middleware->append(HandleCors::class);
+        $middleware->prepend(HandleCors::class);
 
         // Middleware aliases
         $middleware->alias([

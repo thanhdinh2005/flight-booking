@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Sidebar.css';
 import MyTicket from './Myticker';
 import CancelTicket from './Cancelticker';
@@ -12,7 +12,7 @@ import hoaDonIcon    from '../assets/hóa đơn.png';
 import troGiupIcon   from '../assets/trợ giúp.png';
 
 const NAV_ITEMS = [
-  { id: 'khampha',    icon: khamPhaIcon,   label: 'Khám phá',           route: '/home ' },
+  { id: 'khampha',    icon: khamPhaIcon,   label: 'Khám phá',           route: '/home' },
   { id: 'muave',      icon: muaVeIcon,     label: 'Mua vé & Dịch vụ',  route: null },  // mở modal
   { id: 'trainghiem', icon: hoaDonIcon,    label: 'Trải nghiệm bay',    route: '/experience' },
   { id: 'trogiup',    icon: troGiupIcon,   label: 'Trợ giúp',           route: '/help' },
@@ -46,14 +46,21 @@ const SERVICE_OPTIONS = [
   },
 ];
 
+// Routes that should keep 'muave' tab active
+const MUAVE_CHILD_ROUTES = ['/buy-ticket', '/cancel-ticket', '/change-flight'];
+
 export default function Sidebar({ activeId = 'khampha', onSelect }) {
   const navigate  = useNavigate();
+  const location  = useLocation();
   const [expanded,      setExpanded]      = useState(false);
   const [serviceModal,  setServiceModal]  = useState(false);
 
+  // Check if current route is a child of muave
+  const currentPath = location.pathname;
+  const isMuaveActive = MUAVE_CHILD_ROUTES.some(route => currentPath.startsWith(route)) || activeId === 'muave';
+
   function handleItemClick(item) {
     if (item.id === 'muave') {
-      activeId = 'muave';
       setServiceModal(true);
       return;
     }
@@ -81,7 +88,7 @@ export default function Sidebar({ activeId = 'khampha', onSelect }) {
         </button>
 
         {NAV_ITEMS.map(item => {
-          const isActive = activeId === item.id;
+          const isActive = item.id === 'muave' ? isMuaveActive : activeId === item.id;
           return (
             <div
               key={item.id}

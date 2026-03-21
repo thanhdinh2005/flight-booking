@@ -1,12 +1,52 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán
-// Aesthetic: Soft organic — warm cream, sage green, rounded shapes, airy spacing
 import { useState } from "react";
-import RefundPolicyModal from "./Refundpolicymodal";
 import '../styles/Passenger.css';
 
+function fmt(n) { return Number(n || 0).toLocaleString("vi-VN") + "₫"; }
 
+// Chuẩn hoá ngày từ mọi format: ISO, YYYY-MM-DD, dd/MM/yyyy, timestamp
+function parseDate(raw) {
+  if (!raw) return null;
+  if (raw instanceof Date) return isNaN(raw) ? null : raw;
+  if (typeof raw === 'number') return new Date(raw);
+  const s = String(raw).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const [d, m, y] = s.split('/');
+    return new Date(`${y}-${m}-${d}`);
+  }
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+function fmtDate(raw) {
+  const d = parseDate(raw);
+  if (!d) return '—';
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
-function fmt(n) { return n.toLocaleString("vi-VN") + "₫"; }
+// ── Refund Policy Modal (inline) ──────────────────────────────────────────────
+function RefundPolicyModal({ flight, onClose, onAgree }) {
+  return (
+    <div className="rpm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="rpm-box">
+        <div className="rpm-header">
+          <span>📋 Chính sách hoàn vé</span>
+          <button className="rpm-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="rpm-body">
+          <div className="rpm-row"><span>Hoàn vé</span><b>{flight?.refund || 'Vui lòng kiểm tra với hãng'}</b></div>
+          <div className="rpm-row"><span>Đổi vé</span><b>{flight?.exchange || 'Vui lòng kiểm tra với hãng'}</b></div>
+          <div className="rpm-row"><span>Hành lý xách tay</span><b>{flight?.baggage || '—'}</b></div>
+          <div className="rpm-row"><span>Hành lý ký gửi</span><b>{flight?.checkin || '—'}</b></div>
+          <p className="rpm-note">⚠️ Chính sách có thể thay đổi. Vui lòng xác nhận với hãng hàng không trước khi đặt vé.</p>
+        </div>
+        <div className="rpm-footer">
+          <button className="pf-btn-back" onClick={onClose}>Đóng</button>
+          <button className="pf-btn-next" onClick={() => { onAgree?.(); onClose(); }}>✓ Đã đọc & Đồng ý</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PAYMENT_METHODS = [
   { id: "card",   icon: "💳", name: "Thẻ tín dụng / ghi nợ" },
@@ -16,7 +56,13 @@ const PAYMENT_METHODS = [
 ];
 
 export default function PassengerForm({
-  flight = { airline: "VietJet Air", icon: "VJ", dep: "09:30", arr: "11:45", duration: "2g15p", price: 890000, class: "Phổ thông" },
+  flight = {
+    airline: "VietJet Air", code: "VJ",
+    dep: "09:30", arr: "11:45", duration: "2g15p",
+    price: 890000, class: "Phổ thông",
+    refund: "Không hoàn", exchange: "Phí 300.000₫",
+    baggage: "1 xách tay 7kg", checkin: "Không (có thể mua thêm)",
+  },
   searchData = { from: "HAN", to: "SGN", date: "2026-04-01", passengers: "2" },
   onBack = () => {},
   onDone = () => {},
@@ -51,7 +97,6 @@ export default function PassengerForm({
 
   if (done) return (
     <>
-      <style>{css}</style>
       <div className="pf-root">
         <div className="pf-container">
           <div className="pf-card pf-success">
@@ -74,6 +119,7 @@ export default function PassengerForm({
      
       {showPolicy && (
         <RefundPolicyModal
+          flight={flight}
           onClose={() => setShowPolicy(false)}
           onAgree={() => { setPolicyRead(true); setShowPolicy(false); }}
         />
@@ -104,7 +150,9 @@ export default function PassengerForm({
             <span className="pf-flight-pill__sep">·</span>
             <span>{searchData.from} → {searchData.to}</span>
             <span className="pf-flight-pill__sep">·</span>
-            <span>{flight.dep} – {flight.arr}</span>
+            <span>{fmtDate(searchData.date)}</span>
+            <span className="pf-flight-pill__sep">·</span>
+            <span>{flight.dep || flight.dep_time} – {flight.arr || flight.arr_time}</span>
             <span className="pf-flight-pill__sep">·</span>
             <span>{pax} khách</span>
             <span className="pf-flight-pill__price">{fmt(total)}</span>

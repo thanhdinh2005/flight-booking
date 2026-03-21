@@ -1,7 +1,7 @@
 // FlightResults.jsx — Kết quả tìm kiếm chuyến bay
 // Aesthetic: Editorial / Newspaper — trắng sạch, typography nặng, grid bất đối xứng
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import '../styles/Flightresult.css';
 
 const MOCK_FLIGHTS = [
@@ -266,29 +266,88 @@ function FlightDetailModal({ flight, pax, mode, onClose, onBuy }) {
 export default function FlightResults({
   mode       = "buy",
   searchData = { from: "HAN", to: "SGN", date: "2026-04-01", passengers: "2" },
+  flights,
+  isLoading,
   onSelect   = () => {},
   onBack     = () => {},
 }) {
   const [sort, setSort] = useState("price");
   const [detailFlight, setDetailFlight] = useState(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const isCheckin = mode === "checkin";
   const pax = parseInt(searchData.passengers) || 1;
 
-  // Read search query from URL parameters
-  const searchQuery = searchParams.get('q') || '';
-  
-  // Update searchData based on search query for display
-  const displaySearchData = searchQuery ? {
-    ...searchData,
-    from: "HAN",
-    to: "SGN", 
-    date: new Date().toISOString().split('T')[0],
-    passengers: "1"
-  } : searchData;
+  // Chuẩn hoá flight object để đảm bảo đủ field cho PassengerForm
+  function handleBuy(f) {
+    const flight = {
+      id:          f.id,
+      airline:     f.airline,
+      flightNo:    f.flightNo || f.flight_number,
+      dep:         f.dep || f.dep_time,
+      arr:         f.arr || f.arr_time,
+      depAirport:  f.depAirport || f.origin_name || f.origin,
+      arrAirport:  f.arrAirport || f.destination_name || f.destination,
+      depCode:     f.depCode || f.origin,
+      arrCode:     f.arrCode || f.destination,
+      duration:    f.duration,
+      aircraft:    f.aircraft,
+      class:       f.class,
+      price:       f.price,
+      baggage:     f.baggage,
+      checkin:     f.checkin,
+      meal:        f.meal,
+      wifi:        f.wifi,
+      refund:      f.refund,
+      exchange:    f.exchange,
+      logoColor:   f.logoColor,
+      logoText:    f.logoText,
+      code:        f.code,
+    };
 
-  // Nguồn dữ liệu theo mode; nếu checkin thì lọc theo bookingCode + tên
-  const rawList = isCheckin ? MOCK_BOOKED : MOCK_FLIGHTS;
+    // Luồng nhúng trong TabMuaVe → gọi callback để TabMuaVe chuyển screen
+    if (typeof onSelect === 'function') {
+      onSelect(flight);
+    }
+
+    // Luồng độc lập từ Topbar → navigate sang trang mua vé
+    // (dù onSelect có hay không, luôn navigate để đảm bảo điều hướng)
+    navigate('/buy-ticket', {
+      state: {
+        flight,
+        searchData: {
+          from:       searchData.from,
+          to:         searchData.to,
+          fromLabel:  searchData.fromLabel || searchData.from,
+          toLabel:    searchData.toLabel   || searchData.to,
+          date:       searchData.date,
+          retDate:    searchData.retDate,
+          passengers: searchData.passengers || '1',
+          tripType:   searchData.tripType   || 'one',
+        },
+      },
+    });
+  }
+  
+  // Đọc params từ URL (khi điều hướng từ Topbar)
+  const searchQuery  = searchParams.get('q')          || '';
+  const urlOrigin    = searchParams.get('origin')     || searchParams.get('from') || '';
+  const urlDest      = searchParams.get('destination')|| searchParams.get('to')   || '';
+  const urlDate      = searchParams.get('date')       || searchParams.get('departure_date') || '';
+  const urlPax       = searchParams.get('adults')     || searchParams.get('passengers')     || '';
+
+  // Merge URL params vào searchData — URL params có độ ưu tiên cao hơn props
+  const displaySearchData = {
+    ...searchData,
+    from:       urlOrigin  || searchData.from,
+    to:         urlDest    || searchData.to,
+    date:       urlDate    || searchData.date,
+    passengers: urlPax     || searchData.passengers || '1',
+  };
+
+  // Use flights from props if provided, otherwise use mock data
+  const rawList = flights?.outbound || (isCheckin ? MOCK_BOOKED : MOCK_FLIGHTS);
+  
   const dataList = isCheckin && searchData.bookingCode
     ? rawList.filter(f =>
         f.bookingCode?.toUpperCase().includes(searchData.bookingCode.toUpperCase()) &&
@@ -301,6 +360,56 @@ export default function FlightResults({
   const sorted = [...dataList].sort((a, b) =>
     sort === "price" ? a.price - b.price : a.dep.localeCompare(b.dep)
   );
+  
+  // Format flight data to ensure consistent structure
+  const formattedFlights = sorted.map(f => ({
+    ...f,
+    airline: f.airline || 'Vietnam Airlines',
+    flightNo: f.flightNo || f.flight_number,
+    dep: f.dep || f.dep_time,
+    arr: f.arr || f.arr_time,
+    depAirport: f.depAirport || f.origin_name || f.origin,
+    arrAirport: f.arrAirport || f.destination_name || f.destination,
+    depCode: f.depCode || f.origin,
+    arrCode: f.arrCode || f.destination,
+    price: f.price || 0,
+    duration: f.duration || '2g00p',
+    aircraft: f.aircraft || 'Airbus A321',
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="fr-root">
+        <div className="fr-container">
+          <div className="fr-loading">
+            <div className="fr-loading-spinner">⟳</div>
+            <div>Đang tìm chuyến bay...</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (formattedFlights.length === 0) {
+    return (
+      <div className="fr-root">
+        <div className="fr-container">
+          <div className="fr-empty">
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#1a3c6e", marginBottom: 8 }}>
+              Không tìm thấy chuyến bay
+            </div>
+            <div style={{ fontSize: 13, color: "#6b6560", marginBottom: 16 }}>
+              Vui lòng thử tìm kiếm với tiêu chí khác
+            </div>
+            <button className="fr-back-btn" onClick={onBack}>
+              ← Tìm lại
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -312,7 +421,7 @@ export default function FlightResults({
           pax={pax}
           mode={mode}
           onClose={() => setDetailFlight(null)}
-          onBuy={onSelect}
+          onBuy={handleBuy}
         />
       )}
 
@@ -342,7 +451,7 @@ export default function FlightResults({
           <div className="fr-count">
             {isCheckin
               ? `${dataList.length} vé đã đặt`
-              : `${MOCK_FLIGHTS.length} chuyến bay được tìm thấy`}
+              : `${formattedFlights.length} chuyến bay được tìm thấy`}
           </div>
 
           <div className="fr-sortbar">
@@ -355,7 +464,7 @@ export default function FlightResults({
             ))}
           </div>
 
-          {sorted.map((f, i) => {
+          {formattedFlights.map((f, i) => {
             const isPending = f.status === "pending";
             return (
             <div key={f.id} className="fr-card" style={{ opacity: isPending ? 0.65 : 1 }}>
@@ -414,41 +523,39 @@ export default function FlightResults({
                 </button>
 
                 {!isCheckin ? (
-                  // Luồng mua vé
                   <button
                     className="fr-btn-buy"
-                    onClick={e => { e.stopPropagation(); onSelect(f); }}
+                    type="button"
+                    onClick={e => { e.stopPropagation(); handleBuy(f); }}
                   >
                     Mua ngay →
                   </button>
                 ) : isPending ? (
-                  // Checkin nhưng chuyến chưa xác nhận
                   <button className="fr-btn-buy fr-btn-disabled" disabled>
                     Chưa xác nhận
                   </button>
                 ) : (
-                  // Checkin chuyến đã xác nhận
                   <button
                     className="fr-btn-buy fr-btn-checkin"
-                    onClick={e => { e.stopPropagation(); onSelect(f); }}
+                    onClick={e => { e.stopPropagation(); handleBuy(f); }}
                   >
                     Check-in →
                   </button>
                 )}
-              </div>
             </div>
-            );
-          })}
-
-          <div className="fr-footer">
-            <button className="fr-back-btn" onClick={onBack}>← Tìm lại</button>
-            <span style={{ fontSize: 12, color: "#6b6560" }}>
-              {isCheckin ? "Chọn chuyến để tiến hành check-in" : "Giá đã bao gồm thuế & phí"}
-            </span>
           </div>
+          );
+        })}
 
+        <div className="fr-footer">
+          <button className="fr-back-btn" onClick={onBack}>← Tìm lại</button>
+          <span style={{ fontSize: 12, color: "#6b6560" }}>
+            {isCheckin ? "Chọn chuyến để tiến hành check-in" : "Giá đã bao gồm thuế & phí"}
+          </span>
         </div>
+
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 }
