@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clearToken } from '../services/keycloakService'
 
-import { 
-  SectionDashboard, 
-  SectionCustomers, 
-  SectionFlights, 
+import {
+  SectionDashboard,
+  SectionCustomers,
+  SectionFlights,
   SectionTickets,
   SectionStats,
-  SectionAuditLogs
+  SectionAuditLogs,
+  SectionBookingRequests,
+  SectionSchedules,
 } from '../components/admin'
 import '../styles/admin.css'
 
@@ -24,14 +26,16 @@ const NAV = [
     items: [
       { key: 'customers', label: 'Khách hàng',     icon: '👤' },
       { key: 'flights',   label: 'Chuyến bay',     icon: '✈️' },
-      { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
+      { key: 'schedules', label: 'Lịch bay',       icon: '🗓️' },
+      { key: 'bookings',  label: 'Yêu cầu đặt vé', icon: '📋' },
+      // { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
     ],
   },
   {
     group: 'Báo cáo',
     items: [
       { key: 'stats',     label: 'Thống kê',       icon: '📈' },
-      { key: 'logs',      label: 'Truy vết',       icon: '📋' },
+      // { key: 'logs',   label: 'Audit Logs',      icon: '📝' },
     ],
   },
 ]
@@ -40,15 +44,19 @@ const PAGE_TITLE = {
   dashboard: 'Dashboard Admin',
   customers: 'Quản lý khách hàng',
   flights:   'Quản lý chuyến bay',
+  schedules: 'Quản lý lịch bay',
+  bookings:  'Yêu cầu đặt vé',
   tickets:   'Quản lý vé máy bay',
   stats:     'Thống kê báo cáo',
-  logs:      'Truy vết hành động',
+  logs:      'Audit Logs',
 }
 
 const SECTIONS = {
   dashboard: SectionDashboard,
   customers: SectionCustomers,
   flights:   SectionFlights,
+  schedules: SectionSchedules,
+  bookings:  SectionBookingRequests,
   tickets:   SectionTickets,
   stats:     SectionStats,
   logs:      SectionAuditLogs,

@@ -1,0 +1,122 @@
+// src/pages/FlightsPage.jsx
+// Trang kết quả tìm kiếm — điều hướng từ Topbar
+// URL ví dụ: /flights?origin=DAD&destination=HAN&departure_date=2026-03-17&return_date=2026-03-19&price=1000000
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import FlightResults from '../components/Flightresults';
+import { searchFlights, formatFlight, filterFlights } from '../services/flightAPI';
+
+export default function FlightsPage() {
+  const [searchParams] = useSearchParams();
+  const navigate        = useNavigate();
+
+  const origin         = (searchParams.get('origin')         || '').toUpperCase();
+  const destination    = (searchParams.get('destination')    || '').toUpperCase();
+  const departure_date = searchParams.get('departure_date')  || '';
+  const return_date    = searchParams.get('return_date')     || '';
+  const maxPrice       = searchParams.get('price') ? parseInt(searchParams.get('price')) : undefined;
+  const adults         = parseInt(searchParams.get('adults') || '1');
+
+  const [flights,   setFlights]   = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error,     setError]     = useState('');
+
+  const searchData = {
+    from:       origin      || 'HAN',
+    to:         destination || 'SGN',
+    date:       departure_date,
+    retDate:    return_date,
+    passengers: String(adults),
+    tripType:   return_date ? 'round' : 'one',
+  };
+
+  useEffect(() => {
+    // Chỉ cần ít nhất 1 trong các param có giá trị là gọi API
+    const hasAnyParam = origin || destination || departure_date || searchParams.get('q');
+    if (hasAnyParam) fetchFlights();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin, destination, departure_date, return_date, adults]);
+
+  async function fetchFlights() {
+    setIsLoading(true);
+    setError('');
+    try {
+      // Nếu thiếu origin/destination thì dùng wildcard hoặc bỏ qua
+      // API yêu cầu origin + destination + departure_date → nếu thiếu thì hiển thị mock/empty
+      if (!origin || !destination || !departure_date) {
+        // Không đủ params để gọi API → trả về rỗng, FlightResults sẽ hiển thị mock data
+        setFlights({ outbound: [], return: [] });
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await searchFlights({
+        origin,
+        destination,
+        departure_date,
+        return_date: return_date || undefined,
+        adults,
+      });
+
+      let outbound = (result.data?.outbound ?? []).flatMap(day =>
+        (day.flights ?? []).map(f => formatFlight(f))
+      );
+      let returnFlights = (result.data?.return ?? []).flatMap(day =>
+        (day.flights ?? []).map(f => formatFlight(f))
+      );
+
+      if (maxPrice) {
+        outbound      = filterFlights(outbound,      { maxPrice });
+        returnFlights = filterFlights(returnFlights, { maxPrice });
+      }
+
+      setFlights({ outbound, return: returnFlights });
+    } catch (err) {
+      setError(err.message || 'Lỗi tải chuyến bay');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (!searchParams.toString()) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: '50vh', gap: 12,
+        fontFamily: 'sans-serif', color: '#555',
+      }}>
+        <div style={{ fontSize: 48 }}>✈️</div>
+        <div style={{ fontSize: 16, fontWeight: 600 }}>Vui lòng nhập thông tin tìm kiếm</div>
+        <div style={{ fontSize: 13, color: '#888' }}>Dùng thanh tìm kiếm ở trên để tìm chuyến bay</div>
+        <button onClick={() => navigate(-1)} style={{
+          marginTop: 8, padding: '10px 24px', background: '#1a3c6e',
+          color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14,
+        }}>← Quay lại</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {error && (
+        <div style={{
+          padding: '12px 16px', background: '#fef2f2', color: '#dc2626',
+          borderRadius: 6, margin: '16px auto', maxWidth: 700, fontSize: 14,
+        }}>
+          ⚠️ {error} —{' '}
+          <button onClick={fetchFlights} style={{
+            background: 'none', border: 'none', color: '#dc2626',
+            cursor: 'pointer', textDecoration: 'underline',
+          }}>Thử lại</button>
+        </div>
+      )}
+      <FlightResults
+        mode="buy"
+        searchData={searchData}
+        flights={flights}
+        isLoading={isLoading}
+        onBack={() => navigate(-1)}
+      />
+    </div>
+  );
+}

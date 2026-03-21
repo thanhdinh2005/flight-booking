@@ -28,7 +28,7 @@ Route::options('{any}', function () {
 
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/airports/{airportId}', [AirportController::class, 'getAirportById']);
-Route::get('/airports', [AirportController::class, 'getAll']);
+Route::get('/airports/', [AirportController::class, 'getAll']);
 
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);

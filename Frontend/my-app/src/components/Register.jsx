@@ -72,7 +72,7 @@ export default function RegisterForm({ onNavigate, onRegister }) {
         throw new Error(data.message || `Lỗi ${res.status}`)
       }
       setSuccess(true)
-      setTimeout(() => onRegister?.(), 2500)
+      window.location.reload()
     } catch (err) {
       setError(err.message || 'Đăng ký thất bại, vui lòng thử lại.')
     } finally {
