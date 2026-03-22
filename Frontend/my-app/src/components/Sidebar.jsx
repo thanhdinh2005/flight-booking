@@ -2,9 +2,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Sidebar.css';
-import MyTicket from './Myticker';
-import CancelTicket from './Cancelticker';
-import ChangeFlight from './Changeflight';
+
 import khamPhaIcon   from '../assets/khám phá.png';
 import muaVeIcon     from '../assets/mua vé.png';
 import diaDiemIcon   from '../assets/địa điểm.png';
@@ -22,10 +20,10 @@ const NAV_ITEMS = [
 const SERVICE_OPTIONS = [
   {
     id: 'buy',
-    icon: '🛫',
-    title: 'Lịch sử Mua vé',
-    desc: 'Xem lại lịch sử mua vé và dịch vụ của bạn',
-    route: '/buy-ticket',
+    icon: '🎫',
+    title: 'Lịch sử mua hàng',
+    desc: 'Xem lại toàn bộ vé đã đặt và trạng thái chuyến bay',
+    route: '/my-tickets',
     color: '#f5a623',
   },
   {
@@ -36,18 +34,11 @@ const SERVICE_OPTIONS = [
     route: '/cancel-ticket',
     color: '#ef4444',
   },
-  {
-    id: 'change',
-    icon: '🔄',
-    title: 'Đổi chuyến bay',
-    desc: 'Đổi sang chuyến bay khác trong 1 tuần tới',
-    route: '/change-flight',
-    color: '#3b82f6',
-  },
+ 
 ];
 
 // Routes that should keep 'muave' tab active
-const MUAVE_CHILD_ROUTES = ['/buy-ticket', '/cancel-ticket', '/change-flight'];
+const MUAVE_CHILD_ROUTES = ['/my-tickets', '/cancel-ticket'];
 
 export default function Sidebar({ activeId = 'khampha', onSelect }) {
   const navigate  = useNavigate();

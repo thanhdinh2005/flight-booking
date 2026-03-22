@@ -1,10 +1,27 @@
-// PassengerForm.jsx — Điền thông tin hành khách & thanh toán
+// PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
+// Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
 import { useState } from "react";
+import { getToken, isTokenExpired } from '../services/keycloakService';
 import '../styles/Passenger.css';
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
+
+// ── Auth helper — lấy token từ sessionStorage qua keycloakService ─────────────
+function getAuthHeaders(includeContentType = true) {
+  const token = getToken(); // sessionStorage.getItem('access_token')
+  if (!token || isTokenExpired()) {
+    throw new Error('TOKEN_MISSING');
+  }
+  const headers = {
+    'Accept':        'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+  if (includeContentType) headers['Content-Type'] = 'application/json';
+  return headers;
+}
 
 function fmt(n) { return Number(n || 0).toLocaleString("vi-VN") + "₫"; }
 
-// Chuẩn hoá ngày từ mọi format: ISO, YYYY-MM-DD, dd/MM/yyyy, timestamp
 function parseDate(raw) {
   if (!raw) return null;
   if (raw instanceof Date) return isNaN(raw) ? null : raw;
@@ -23,7 +40,7 @@ function fmtDate(raw) {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-// ── Refund Policy Modal (inline) ──────────────────────────────────────────────
+// ── Refund Policy Modal ───────────────────────────────────────────────────────
 function RefundPolicyModal({ flight, onClose, onAgree }) {
   return (
     <div className="rpm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -48,75 +65,177 @@ function RefundPolicyModal({ flight, onClose, onAgree }) {
   );
 }
 
-const PAYMENT_METHODS = [
-  { id: "card",   icon: "💳", name: "Thẻ tín dụng / ghi nợ" },
-  { id: "momo",   icon: "💜", name: "Ví MoMo" },
-  { id: "vnpay",  icon: "🏦", name: "VNPay QR" },
-  { id: "bank",   icon: "🏛️", name: "Chuyển khoản" },
-];
+// ── VNPay waiting banner — tab mới đã mở, trang này chờ kết quả ────────────────
+function VNPayWaiting({ vnpayUrl }) {
+  return (
+    <div className="vnp-waiting">
+      <div className="vnp-waiting__icon-wrap">
+        <svg viewBox="0 0 56 56" fill="none" width="56" height="56">
+          <rect width="56" height="56" rx="14" fill="url(#vnpw-g)"/>
+          <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle"
+            fill="#fff" fontSize="14" fontWeight="800" fontFamily="sans-serif">VNP</text>
+          <defs>
+            <linearGradient id="vnpw-g" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#00bfa8"/>
+              <stop offset="1" stopColor="#007869"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        {/* Pulse ring */}
+        <div className="vnp-waiting__pulse" />
+      </div>
 
+      <div className="vnp-waiting__content">
+        <div className="vnp-waiting__title">Đang chờ thanh toán...</div>
+        <div className="vnp-waiting__sub">
+          Trang thanh toán VNPay đã được mở trong tab mới.<br/>
+          Trang này sẽ tự cập nhật sau khi bạn hoàn tất.
+        </div>
+      </div>
+
+      <div className="vnp-waiting__steps">
+        <div className="vnp-waiting__step vnp-waiting__step--done">
+          <span className="vnp-waiting__step-dot">✓</span>
+          Giữ chỗ thành công
+        </div>
+        <div className="vnp-waiting__step vnp-waiting__step--active">
+          <span className="vnp-waiting__step-dot vnp-waiting__step-dot--spin">⟳</span>
+          Chờ xác nhận thanh toán
+        </div>
+        <div className="vnp-waiting__step vnp-waiting__step--idle">
+          <span className="vnp-waiting__step-dot">○</span>
+          Xác nhận vé
+        </div>
+      </div>
+
+      <button
+        className="vnp-waiting__reopen"
+        onClick={() => window.open(vnpayUrl, '_blank')}
+      >
+        Mở lại trang thanh toán →
+      </button>
+      <div className="vnp-sandbox-badge">🧪 Môi trường Sandbox</div>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function PassengerForm({
   flight = {
     airline: "VietJet Air", code: "VJ",
     dep: "09:30", arr: "11:45", duration: "2g15p",
     price: 890000, class: "Phổ thông",
+    seat_class: "ECONOMY",
     refund: "Không hoàn", exchange: "Phí 300.000₫",
     baggage: "1 xách tay 7kg", checkin: "Không (có thể mua thêm)",
+    flightNo: "VJ-134", depCode: "HAN", arrCode: "SGN",
+    logoColor: "#e5002b", logoText: "#fff",
   },
   searchData = { from: "HAN", to: "SGN", date: "2026-04-01", passengers: "2" },
   onBack = () => {},
   onDone = () => {},
 }) {
-  const pax = parseInt(searchData.passengers);
-  const [subStep, setSubStep] = useState(0); // 0=info, 1=payment
-  const [forms, setForms] = useState(() =>
-    Array.from({ length: pax }, () => ({ name: "", dob: "", phone: "", email: "", passport: "" }))
+  const pax = parseInt(searchData.passengers) || 1;
+
+  const [subStep, setSubStep]       = useState(0);
+  const [forms, setForms]           = useState(() =>
+    Array.from({ length: pax }, () => ({ first_name: '', last_name: '', birthday: '', gender: 'MALE' }))
   );
+  const [contact, setContact]       = useState({ email: '', phone: '' });
   const [policyRead, setPolicyRead] = useState(false);
   const [showPolicy, setShowPolicy] = useState(false);
-  const [payMethod, setPayMethod] = useState("card");
-  const [paying, setPaying] = useState(false);
-  const [done, setDone] = useState(false);
 
-  function upd(i, k, v) {
-    setForms(p => p.map((f, idx) => idx === i ? { ...f, [k]: v } : f));
+  const [booking, setBooking]       = useState(null);
+  const [apiError, setApiError]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [paying, setPaying]         = useState(false);
+  const [vnpayUrl, setVnpayUrl]     = useState(null);
+
+  function updForm(i, field, val) {
+    setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
 
-  const basePrice = flight.price * pax;
-  const tax = Math.round(basePrice * 0.1);
-  const total = basePrice + tax;
+  const infoValid =
+    forms.every(f => f.first_name.trim() && f.last_name.trim() && f.gender) &&
+    contact.email.trim() && contact.phone.trim() && policyRead;
 
-  const infoValid = forms.every(f => f.name && f.dob && f.phone) && policyRead;
+  // ── BƯỚC 0 → 1: POST /api/createBooking ──────────────────────────────────
+  async function handleCreateBooking() {
+    if (!infoValid) return;
+    setSubmitting(true);
+    setApiError('');
+    try {
+      const res = await fetch(`${API_BASE}/createBooking`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          contact_email: contact.email.trim(),
+          contact_phone: contact.phone.trim(),
+          itinerary: [{
+            flight_instance_id: flight.id,
+            description: `${flight.depCode} - ${flight.arrCode}`,
+            seat_class: flight.seat_class || 'ECONOMY',
+          }],
+          passengers: forms.map(f => ({
+            first_name: f.first_name.trim(),
+            last_name:  f.last_name.trim(),
+            birthday:   f.birthday || undefined,
+            gender:     f.gender,
+          })),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || `Lỗi ${res.status}`);
+      setBooking(json.data);
+      setSubStep(1);
+    } catch (err) {
+      setApiError(
+        err.message === 'TOKEN_MISSING'
+          ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+          : err.message || 'Đặt chỗ thất bại. Vui lòng thử lại.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-  function pay() {
+  // ── BƯỚC 1: GET /api/payments/vnpay/{id} → redirect ──────────────────────
+  async function handleVNPayRedirect() {
+    if (!booking?.id) return;
     setPaying(true);
-    setTimeout(() => { setPaying(false); setDone(true); onDone(); }, 2200);
+    setApiError('');
+    try {
+      const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || `Lỗi ${res.status}`);
+
+      const url = json.data;
+      if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ');
+
+      setVnpayUrl(url);
+      // Mở VNPay sandbox trong tab mới, trang hiện tại giữ nguyên chờ kết quả
+      setTimeout(() => { window.open(url, '_blank'); }, 800);
+    } catch (err) {
+      setApiError(
+        err.message === 'TOKEN_MISSING'
+          ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+          : err.message || 'Không lấy được link thanh toán. Vui lòng thử lại.'
+      );
+      setPaying(false);
+    }
+    // Không setPaying(false) khi success — overlay giữ đến khi redirect
   }
+
+  // ── Redirect overlay ──────────────────────────────────────────────────────
+  // Không replace toàn trang — hiện banner chờ ngay trong layout
 
   const stepLabels = ["Thông tin", "Thanh toán"];
 
-  if (done) return (
-    <>
-      <div className="pf-root">
-        <div className="pf-container">
-          <div className="pf-card pf-success">
-            <span className="pf-success__icon">🌿</span>
-            <div className="pf-success__title">Đặt vé thành công!</div>
-            <div className="pf-success__code">
-              Mã đặt chỗ: <strong>VB-{Math.random().toString(36).slice(2, 8).toUpperCase()}</strong>
-            </div>
-            <div style={{ fontSize: 14, color: "#8a7f74", lineHeight: 1.7 }}>
-              Vé điện tử đã được gửi tới email của bạn.<br />Chúc chuyến đi thật vui vẻ! ✈️
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-
   return (
     <>
-     
       {showPolicy && (
         <RefundPolicyModal
           flight={flight}
@@ -124,6 +243,7 @@ export default function PassengerForm({
           onAgree={() => { setPolicyRead(true); setShowPolicy(false); }}
         />
       )}
+
       <div className="pf-root">
         <div className="pf-container">
 
@@ -152,134 +272,327 @@ export default function PassengerForm({
             <span className="pf-flight-pill__sep">·</span>
             <span>{fmtDate(searchData.date)}</span>
             <span className="pf-flight-pill__sep">·</span>
-            <span>{flight.dep || flight.dep_time} – {flight.arr || flight.arr_time}</span>
+            <span>{flight.dep} – {flight.arr}</span>
             <span className="pf-flight-pill__sep">·</span>
             <span>{pax} khách</span>
-            <span className="pf-flight-pill__price">{fmt(total)}</span>
+            <span className="pf-flight-pill__price">{fmt(flight.price * pax)}</span>
           </div>
 
-          {/* ── Sub-step 0: Passenger info ── */}
+          {/* ── BƯỚC 0: Nhập thông tin ── */}
           {subStep === 0 && (
             <>
+              {/* Thông tin liên hệ */}
+              <div className="pf-card">
+                <div className="pf-card__title">
+                  <span className="pf-card__title-icon">📬</span>
+                  Thông tin liên hệ
+                </div>
+                <div className="pf-grid-2">
+                  <div className="pf-field">
+                    <label>Email nhận vé <span className="pf-req">*</span></label>
+                    <input
+                      type="email" placeholder="email@example.com"
+                      value={contact.email}
+                      onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
+                    />
+                  </div>
+                  <div className="pf-field">
+                    <label>Số điện thoại <span className="pf-req">*</span></label>
+                    <input
+                      type="tel" placeholder="09xxxxxxxx"
+                      value={contact.phone}
+                      onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Từng hành khách */}
               {forms.map((f, i) => (
                 <div className="pf-card" key={i}>
                   <div className="pf-card__title">
                     <span className="pf-card__title-icon">👤</span>
                     Hành khách {i + 1}
+                    <span className="pf-card__title-sub"> · Người lớn</span>
                   </div>
                   <div className="pf-grid-2">
-                    <div className="pf-grid-full">
-                      <div className="pf-field">
-                        <label>Họ và tên *</label>
-                        <input placeholder="NGUYEN VAN A" value={f.name}
-                          onChange={e => upd(i, "name", e.target.value.toUpperCase())} />
-                      </div>
+                    <div className="pf-field">
+                      <label>Họ <span className="pf-req">*</span></label>
+                      <input placeholder="VD: Nguyễn" value={f.last_name}
+                        onChange={e => updForm(i, 'last_name', e.target.value)} />
                     </div>
                     <div className="pf-field">
-                      <label>Ngày sinh *</label>
-                      <input type="date" value={f.dob} onChange={e => upd(i, "dob", e.target.value)} />
+                      <label>Tên <span className="pf-req">*</span></label>
+                      <input placeholder="VD: Văn A" value={f.first_name}
+                        onChange={e => updForm(i, 'first_name', e.target.value)} />
                     </div>
                     <div className="pf-field">
-                      <label>Số điện thoại *</label>
-                      <input placeholder="09xxxxxxxx" value={f.phone} onChange={e => upd(i, "phone", e.target.value)} />
+                      <label>Ngày sinh</label>
+                      <input type="date" value={f.birthday}
+                        onChange={e => updForm(i, 'birthday', e.target.value)} />
                     </div>
                     <div className="pf-field">
-                      <label>Email</label>
-                      <input placeholder="email@example.com" value={f.email} onChange={e => upd(i, "email", e.target.value)} />
-                    </div>
-                    <div className="pf-field">
-                      <label>CMND / Hộ chiếu</label>
-                      <input placeholder="0123456789" value={f.passport} onChange={e => upd(i, "passport", e.target.value)} />
+                      <label>Giới tính <span className="pf-req">*</span></label>
+                      <select value={f.gender}
+                        onChange={e => updForm(i, 'gender', e.target.value)}>
+                        <option value="MALE">Nam</option>
+                        <option value="FEMALE">Nữ</option>
+                      </select>
                     </div>
                   </div>
                 </div>
               ))}
 
-              {/* Policy */}
+              {/* Chính sách */}
               <div className="pf-policy-row">
-                <button className={`pf-policy-btn${policyRead ? " read" : ""}`} onClick={() => setShowPolicy(true)}>
+                <button className={`pf-policy-btn${policyRead ? " read" : ""}`}
+                  onClick={() => setShowPolicy(true)}>
                   {policyRead ? "✓ Đã xem" : "📋 Chính sách hoàn vé"}
                 </button>
                 <div className="pf-policy-note">
                   {policyRead
                     ? <><span className="pf-policy-check">✓</span> Bạn đã đọc và đồng ý với chính sách hoàn vé</>
-                    : "Vui lòng đọc chính sách hoàn vé trước khi tiếp tục đặt vé"}
+                    : "Vui lòng đọc chính sách hoàn vé trước khi tiếp tục"}
                 </div>
               </div>
 
+              {apiError && <div className="pf-error">⚠️ {apiError}</div>}
+
               <div className="pf-btn-row">
                 <button className="pf-btn-back" onClick={onBack}>← Quay lại</button>
-                <button className="pf-btn-next" disabled={!infoValid} onClick={() => setSubStep(1)}>
-                  Tiếp tục →
+                <button className="pf-btn-next" disabled={!infoValid || submitting}
+                  onClick={handleCreateBooking}>
+                  {submitting
+                    ? <><span className="pf-spinner-sm" /> Đang giữ chỗ...</>
+                    : 'Tiếp tục →'}
                 </button>
               </div>
             </>
           )}
 
-          {/* ── Sub-step 1: Payment ── */}
-          {subStep === 1 && (
+          {/* ── BƯỚC 1: Xác nhận & Thanh toán ── */}
+          {subStep === 1 && booking && (
             <>
+              {/* Khi đã mở tab VNPay → hiện banner chờ, ẩn nút thanh toán */}
+              {vnpayUrl ? (
+                <VNPayWaiting vnpayUrl={vnpayUrl} />
+              ) : (
+              <>
+              {/* PNR badge */}
+              <div className="pf-pnr-card">
+                <div className="pf-pnr-card__label">Mã đặt chỗ (PNR)</div>
+                <div className="pf-pnr-card__code">{booking.pnr}</div>
+                <div className="pf-pnr-card__status">
+                  <span className="pf-status-dot pf-status-dot--pending" />
+                  Giữ chỗ thành công · Chờ thanh toán
+                </div>
+                <div className="pf-pnr-card__expire">
+                  ⏳ Hết hạn lúc{' '}
+                  <b>{new Date(booking.expires_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</b>
+                  {' '}ngày {new Date(booking.expires_at).toLocaleDateString('vi-VN')}
+                </div>
+              </div>
+
+              {/* Chi tiết vé */}
               <div className="pf-card">
                 <div className="pf-card__title">
-                  <span className="pf-card__title-icon">💰</span>
-                  Tổng chi phí
+                  <span className="pf-card__title-icon">🎫</span>Chi tiết vé
+                </div>
+                {booking.tickets?.map(t => (
+                  <div key={t.id} className="pf-ticket-row">
+                    <div className="pf-ticket-row__pax">
+                      👤 {t.passenger.last_name} {t.passenger.first_name}
+                      <span className="pf-ticket-row__gender">
+                        {t.passenger.gender === 'MALE' ? ' · Nam' : ' · Nữ'}
+                      </span>
+                    </div>
+                    <div className="pf-ticket-row__flight">
+                      {t.flight_instance?.route?.origin?.code} →{' '}
+                      {t.flight_instance?.route?.destination?.code}
+                      {' · '}
+                      <span className={`pf-class-tag pf-class-tag--${(t.seat_class || '').toLowerCase()}`}>
+                        {t.seat_class === 'BUSINESS' ? '👑 Thương gia' : '💺 Phổ thông'}
+                      </span>
+                    </div>
+                    <div className="pf-ticket-row__price">{fmt(t.ticket_price)}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tổng tiền */}
+              <div className="pf-card">
+                <div className="pf-card__title">
+                  <span className="pf-card__title-icon">💰</span>Tổng chi phí
                 </div>
                 <div className="pf-price-table">
-                  <div className="pf-price-row"><span>Giá vé ({pax} người)</span><b>{fmt(basePrice)}</b></div>
-                  <div className="pf-price-row"><span>Thuế & phí (10%)</span><b>{fmt(tax)}</b></div>
-                  <div className="pf-price-total"><span>Tổng thanh toán</span><span>{fmt(total)}</span></div>
-                </div>
-              </div>
-
-              <div className="pf-card">
-                <div className="pf-card__title">
-                  <span className="pf-card__title-icon">💳</span>
-                  Phương thức thanh toán
-                </div>
-                <div className="pf-payment-grid">
-                  {PAYMENT_METHODS.map(m => (
-                    <div key={m.id} className={`pf-payment-opt${payMethod === m.id ? " active" : ""}`} onClick={() => setPayMethod(m.id)}>
-                      <span className="pf-payment-opt__icon">{m.icon}</span>
-                      <span className="pf-payment-opt__name">{m.name}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {payMethod === "card" && (
-                  <div style={{ marginTop: 4 }}>
-                    <div className="pf-field" style={{ marginBottom: 12 }}>
-                      <label>Số thẻ</label>
-                      <input placeholder="1234 5678 9012 3456" maxLength={19} />
-                    </div>
-                    <div className="pf-grid-2">
-                      <div className="pf-field">
-                        <label>Ngày hết hạn</label>
-                        <input placeholder="MM/YY" maxLength={5} />
-                      </div>
-                      <div className="pf-field">
-                        <label>CVV</label>
-                        <input placeholder="•••" maxLength={3} type="password" />
-                      </div>
-                      <div className="pf-grid-full pf-field">
-                        <label>Tên chủ thẻ</label>
-                        <input placeholder="NGUYEN VAN A" />
-                      </div>
-                    </div>
+                  <div className="pf-price-row">
+                    <span>Tổng tiền vé ({pax} vé)</span>
+                    <b>{fmt(booking.total_amount)}</b>
                   </div>
-                )}
+                  <div className="pf-price-total">
+                    <span>Thanh toán ngay</span>
+                    <span>{fmt(booking.total_amount)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="pf-btn-row">
-                <button className="pf-btn-back" onClick={() => setSubStep(0)}>← Quay lại</button>
-                <button className="pf-btn-pay" onClick={pay} disabled={paying}>
-                  {paying ? <>⏳ Đang xử lý...</> : <>🔒 Thanh toán {fmt(total)}</>}
+              {apiError && <div className="pf-error">⚠️ {apiError}</div>}
+
+              {/* Nút VNPay */}
+              <div className="pf-btn-row pf-btn-row--pay">
+                <button className="pf-btn-back"
+                  onClick={() => { setSubStep(0); setBooking(null); setApiError(''); }}>
+                  ← Quay lại
+                </button>
+                <button className="pf-btn-vnpay" onClick={handleVNPayRedirect} disabled={paying}>
+                  {paying ? (
+                    <><span className="pf-spinner-sm pf-spinner-sm--white" /> Đang lấy link...</>
+                  ) : (
+                    <>
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{flexShrink:0}}>
+                        <rect width="22" height="22" rx="5" fill="#fff" fillOpacity=".25"/>
+                        <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle"
+                          fill="#fff" fontSize="7" fontWeight="800" fontFamily="sans-serif">VNP</text>
+                      </svg>
+                      Thanh toán {fmt(booking.total_amount)} qua VNPay
+                    </>
+                  )}
                 </button>
               </div>
+
+              <p className="pf-vnpay-note">
+                🔒 Bạn sẽ được chuyển đến trang thanh toán an toàn của VNPay Sandbox.
+                Sau khi hoàn tất, hệ thống sẽ tự động xác nhận vé.
+              </p>
+              </>
+              )} {/* end vnpayUrl ? ... : ... */}
             </>
           )}
 
         </div>
       </div>
+
+      {/* CSS bổ sung cho elements mới */}
+      <style>{`
+        @keyframes vnp-spin { to { transform: rotate(360deg); } }
+        @keyframes vnp-pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.18);opacity:.15} }
+
+        /* ── VNPay Waiting Banner ── */
+        .vnp-waiting {
+          background: linear-gradient(135deg, #f0fdf9, #e6f7f5);
+          border: 1.5px solid #5eead4;
+          border-radius: 16px;
+          padding: 28px 24px;
+          margin-bottom: 16px;
+          display: flex; flex-direction: column; align-items: center;
+          gap: 14px; text-align: center;
+        }
+        .vnp-waiting__icon-wrap { position: relative; display: inline-flex; }
+        .vnp-waiting__pulse {
+          position: absolute; inset: -8px;
+          border-radius: 20px;
+          background: rgba(0,191,168,.25);
+          animation: vnp-pulse 1.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .vnp-waiting__title { font-size: 18px; font-weight: 800; color: #065f46; }
+        .vnp-waiting__sub   { font-size: 13px; color: #047857; line-height: 1.6; }
+
+        .vnp-waiting__steps {
+          display: flex; gap: 0; align-items: center;
+          background: #fff; border-radius: 10px;
+          padding: 12px 16px; width: 100%; box-sizing: border-box;
+          border: 1px solid #d1fae5;
+        }
+        .vnp-waiting__step {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 12px; font-weight: 600; flex: 1;
+          justify-content: center; position: relative;
+        }
+        .vnp-waiting__step + .vnp-waiting__step::before {
+          content: ''; position: absolute; left: 0; top: 50%;
+          transform: translateY(-50%);
+          width: 1px; height: 24px; background: #d1fae5;
+        }
+        .vnp-waiting__step--done  { color: #059669; }
+        .vnp-waiting__step--active{ color: #0891b2; }
+        .vnp-waiting__step--idle  { color: #9ca3af; }
+        .vnp-waiting__step-dot { font-size: 14px; }
+        .vnp-waiting__step-dot--spin {
+          display: inline-block;
+          animation: vnp-spin .9s linear infinite;
+        }
+
+        .vnp-waiting__reopen {
+          background: #009B8D; color: #fff;
+          border: none; border-radius: 8px;
+          padding: 10px 20px; font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: background .15s, transform .12s;
+        }
+        .vnp-waiting__reopen:hover { background: #007869; transform: translateY(-1px); }
+
+        .vnp-sandbox-badge {
+          font-size: 11px; font-weight: 600;
+          background: #fff8e1; color: #b45309;
+          border: 1px solid #fde68a; padding: 3px 10px; border-radius: 20px;
+        }
+
+        .pf-pnr-card {
+          background: linear-gradient(135deg,#f0fdf9,#e6f7f5);
+          border: 1.5px solid #a7f3d0; border-radius: 14px;
+          padding: 20px 24px; margin-bottom: 14px; text-align: center;
+        }
+        .pf-pnr-card__label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #059669; margin-bottom: 6px; }
+        .pf-pnr-card__code  { font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #065f46; font-family: 'Courier New', monospace; }
+        .pf-pnr-card__status { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: #374151; margin-top: 8px; }
+        .pf-pnr-card__expire { font-size: 12px; color: #d97706; margin-top: 6px; }
+        .pf-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .pf-status-dot--pending { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.2); animation: pulse-dot 1.5s ease-in-out infinite; }
+        @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 3px rgba(245,158,11,.2)} 50%{box-shadow:0 0 0 6px rgba(245,158,11,.08)} }
+
+        .pf-ticket-row {
+          display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+          padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .pf-ticket-row:last-child { border-bottom: none; }
+        .pf-ticket-row__pax   { flex: 1; font-size: 14px; font-weight: 600; color: #111; min-width: 140px; }
+        .pf-ticket-row__gender { font-weight: 400; color: #888; font-size: 13px; }
+        .pf-ticket-row__flight { font-size: 13px; color: #555; }
+        .pf-ticket-row__price  { margin-left: auto; font-size: 14px; font-weight: 700; color: #1a3c6e; white-space: nowrap; }
+        .pf-class-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+        .pf-class-tag--economy  { background: #eff6ff; color: #1d4ed8; }
+        .pf-class-tag--business { background: #fffbeb; color: #92400e; }
+
+        .pf-btn-vnpay {
+          flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
+          padding: 14px 28px;
+          background: linear-gradient(135deg, #00bfa8, #007869);
+          color: #fff; border: none; border-radius: 10px;
+          font-size: 15px; font-weight: 700; cursor: pointer;
+          transition: opacity .15s, transform .12s, box-shadow .15s;
+          box-shadow: 0 4px 18px rgba(0,155,141,.35); white-space: nowrap;
+        }
+        .pf-btn-vnpay:hover:not(:disabled) { opacity:.92; transform:translateY(-1px); box-shadow:0 6px 22px rgba(0,155,141,.45); }
+        .pf-btn-vnpay:active:not(:disabled) { transform:translateY(0); }
+        .pf-btn-vnpay:disabled { opacity:.55; cursor:not-allowed; }
+
+        .pf-vnpay-note { text-align:center; font-size:12px; color:#888; margin-top:6px; line-height:1.6; }
+
+        .pf-spinner-sm {
+          display:inline-block; width:14px; height:14px;
+          border:2px solid rgba(26,60,110,.2); border-top-color:#1a3c6e;
+          border-radius:50%; animation:vnp-spin .7s linear infinite;
+          vertical-align:middle; margin-right:4px;
+        }
+        .pf-spinner-sm--white { border-color:rgba(255,255,255,.3); border-top-color:#fff; }
+        .pf-error {
+          background:#fef2f2; border:1px solid #fecaca; color:#dc2626;
+          border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:12px;
+        }
+        .pf-req { color:#e53e3e; }
+        .pf-card__title-sub { font-size:12px; font-weight:400; color:#888; }
+        .pf-btn-row--pay { margin-top:8px; }
+      `}</style>
     </>
   );
 }

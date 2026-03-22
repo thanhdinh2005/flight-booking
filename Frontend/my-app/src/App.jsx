@@ -4,7 +4,7 @@ import MainLayout from "./components/HomeLayout";
 import Home from "./components/HomePage";
 import MyTicket from "./components/Myticker";
 import CancelTicket from "./components/Cancelticker";
-import ChangeFlight from "./components/Changeflight";
+
 import Tabthutuc from "./components/tabs/Tabthutuc";
 import { useState } from "react";
 import Login from "./components/Login";
@@ -85,9 +85,9 @@ export default function App() {
           <Route path="/help" element={<HelpPage />} />
           <Route path="/flights"     element={<FlightsPage />} />
           <Route path="/buy-ticket"  element={<BuyTicketPage />} />
-          <Route path="/buy-ticket" element={<MyTicket />} />
+          <Route path="/my-tickets" element={<MyTicket />} />
           <Route path="/cancel-ticket" element={<CancelTicket />} />
-          <Route path="/change-flight" element={<ChangeFlight />} />
+        
           <Route path="/thu-tuc" element={<Tabthutuc />} />
         </Route>
 
