@@ -26,7 +26,9 @@ class SearchFlightRequest extends FormRequest
             'destination'    => 'required|string|exists:airports,code',
             'departure_date' => 'required|date',
             'return_date'    => 'nullable|date|after_or_equal:departure_date', // Ngày về phải sau ngày đi
-            'passengers'     => 
+            'cabin_class'    => 'nullable|string|in:ECONOMY,BUSINESS',
+            'adults'         => 'nullable|integer|min:1',
+            'children'       => 'nullable|integer|min:0',
         ];
     }
 }
