@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\Booking\TicketStatus;
 class Ticket extends Model
 {
     protected $table = "tickets";
@@ -17,7 +17,10 @@ class Ticket extends Model
         'ticket_price', 
         'status'
     ];
-    
+    protected $casts = [
+        'status' => TicketStatus::class,
+        'ticket_price' => 'decimal:2',
+    ];
     public function booking() {
         return $this->belongsTo(Booking::class);
     }

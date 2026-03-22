@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\SystemStatus; // Dùng chung: ACTIVE, INACTIVE
 class User extends Model
 {
    
@@ -21,6 +21,7 @@ protected $table = 'users';
     ];
 
     protected $casts = [
+        'status' => SystemStatus::class,
         'keycloak_id' => 'string',
         'disabled_at' => 'datetime',
         'created_at' => 'datetime',

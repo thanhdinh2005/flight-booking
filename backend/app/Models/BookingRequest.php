@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use App\Enums\Booking\RequestStatus;
 class BookingRequest extends Model
 {
     protected $table = "booking_requests";
@@ -30,6 +30,7 @@ class BookingRequest extends Model
         'processed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'status' => RequestStatus::class,
     ];
 
     public function booking(): BelongsTo

@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\Booking\BookingStatus; // Giả sử bạn đặt trong thư mục này
 class Booking extends Model
 {
     protected $table = "bookings";
@@ -18,6 +18,12 @@ class Booking extends Model
         'expires_at'
     ];
 
+    protected $casts = [
+        // Tự động convert string trong DB sang Enum Object trong PHP
+        'status' => BookingStatus::class,
+        'expires_at' => 'datetime',
+        'total_amount' => 'decimal:2',
+    ];
     public function tickets() { return $this->hasMany(Ticket::class); }
     public function transactions() { return $this->hasMany(Transaction::class); }
    // Một Booking có nhiều hành khách THÔNG QUA bảng tickets

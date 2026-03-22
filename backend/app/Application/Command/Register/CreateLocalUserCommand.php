@@ -20,7 +20,7 @@ final class CreateLocalUserCommand
             'role' => $role,
             'phone_number' => $phoneNumber,
             'full_name' => $this->buildFullName($firstName, $lastName),
-            'status' => 'active',
+            'status' => \App\Enums\SystemStatus::ACTIVE,
         ]);
     }
 

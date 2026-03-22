@@ -9,7 +9,6 @@ use App\Application\Command\Register\DeleteKeycloakUserCommand;
 use App\Application\UseCases\RegisterUserUseCase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Seeder;
-
 class UserSeeder extends Seeder
 {
     /**
