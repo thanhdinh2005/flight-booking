@@ -16,7 +16,7 @@ class AdminRejectRefundUseCase
             if ($request->status !== 'PENDING') {
                 throw new Exception("Yêu cầu này đã được xử lý, không thể từ chối.");
             }
-
+            $request->ticket->update(['status' => 'PAID']);
             // Cập nhật trạng thái từ chối
             $request->update([
                 'status' => 'REJECTED',

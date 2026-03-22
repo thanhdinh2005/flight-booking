@@ -36,7 +36,10 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
                 "Số tiền hoàn (" . number_format($finalAmount) . ") không được vượt quá tổng giá trị vé và dịch vụ đi kèm (" . number_format($request->system_refund_amount) . ")."
             );
         }
-
+// Bổ sung: Kiểm tra số tiền hoàn không được lớn hơn số tiền còn lại trong Booking
+if ($finalAmount > $booking->total_amount) {
+    throw new Exception("Số tiền hoàn (" . number_format($finalAmount) . ") không được vượt quá tổng giá trị còn lại của đơn hàng (" . number_format($booking->total_amount) . ").");
+}
         // ... Các bước update trạng thái tiếp theo giữ nguyên ...
         $request->update([
             'status' => 'APPROVED',
@@ -46,12 +49,11 @@ public function execute(int $requestId, float $finalAmount, int $adminId, ?strin
             'processed_at' => now(),
         ]);
         // Giảm tổng tiền của đơn hàng tương ứng với số tiền Admin quyết định hoàn trả
-        $booking->total_amount = $booking->total_amount - $finalAmount;
-        // Nếu sau khi hoàn, tổng tiền nhỏ hơn 0 (lỗi logic dữ liệu), trả về lỗi
+$booking->decrement('total_amount', $finalAmount);        // Nếu sau khi hoàn, tổng tiền nhỏ hơn 0 (lỗi logic dữ liệu), trả về lỗi
         if ($booking->total_amount < 0) {
-            $booking->total_amount = 0; 
-        }
-        $booking->save();
+    $booking->update(['total_amount' => 0]);
+}
+
 
         // Đừng quên giải phóng ghế và cập nhật trạng thái vé nhé!
         $ticket->update(['status' => 'REFUNDED']);

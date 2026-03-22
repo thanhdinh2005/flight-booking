@@ -83,7 +83,6 @@ class GenerateFlightInstancesCommand
                     'flight_schedule_id' => $schedule->id,
                     'route_id' => $schedule->route_id,
                     'aircraft_id' => $schedule->aircraft_id,
-                    'flight_number' => $schedule->flight_number,
                     'departure_date' => $date->toDateString(),
                     'std' => $std,
                     'sta' => $sta,

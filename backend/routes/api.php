@@ -28,7 +28,7 @@ Route::options('{any}', function () {
 
 Route::get('/airports/search', [AirportController::class, 'search']);
 Route::get('/airports/{airportId}', [AirportController::class, 'getAirportById']);
-Route::get('/airports/', [AirportController::class, 'getAll']);
+Route::get('/airports', [AirportController::class, 'getAll']);
 
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
@@ -54,19 +54,11 @@ Route::middleware('auth.keycloak') -> group(function () {
     Route::post('/bookings/search-tickets', [CustomerBookingController::class, 'listActiveTickets']);
     Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
     Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);
-    
-    // Bước 1: Xác thực thông tin cá nhân (CCCD, Họ tên, Ngày sinh)
-    // POST /api/checkin/verify
+    Route::post('/refund/cancel/{id}', [CustomerBookingController::class, 'cancelRefundRequest']);
+
     Route::post('/verify', [CheckinController::class, 'verifyIdentity']);
-
-    // Bước 2: Lấy sơ đồ ghế của máy bay (Sau khi đã verify thành công)
-    // GET /api/checkin/seat-map?ticket_id=123
     Route::get('/seat-map', [CheckinController::class, 'getSeatMap']);
-
-    // Bước 3: Xác nhận chọn ghế và hoàn tất Check-in
-    // POST /api/checkin/submit
     Route::post('/submit', [CheckinController::class, 'submitCheckin']);
-
     Route::get('/checkin/boarding-pass/{id}', [CheckinController::class, 'getBoardingPass']);
 });
 

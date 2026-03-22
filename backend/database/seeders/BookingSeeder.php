@@ -22,7 +22,7 @@ class BookingSeeder extends Seeder
                 'user_id' => $user->id,
                 'pnr' => strtoupper(Str::random(6)),
                 'total_amount' => 1200000,
-                'status' => 'CONFIRMED',
+                'status' => 'PAID',
                 'contact_email' => $user->email,
                 'contact_phone' => '0900000000',
                 'created_at' => now(),

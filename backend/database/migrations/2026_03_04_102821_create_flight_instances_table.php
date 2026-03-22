@@ -16,7 +16,6 @@ return new class extends Migration
             $table->foreignId('flight_schedule_id')->nullable()->constrained('flight_schedules');
             $table->foreignId('route_id')->constrained('routes');
             $table->foreignId('aircraft_id')->constrained('aircrafts');
-            $table->string('flight_number', 10);
             $table->date('departure_date');
             $table->timestamp('std'); // Giờ đi dự kiến (Scheduled Time of Departure)
             $table->timestamp('sta'); // Giờ đến dự kiến (Scheduled Time of Arrival)

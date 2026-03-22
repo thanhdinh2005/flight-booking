@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use App\Enums\Flight\FlightStatus; // Tạo Enum này cho: SCHEDULED, DELAYED, CANCELLED, LANDED
 class FlightInstance extends Model
 {
     protected $table = "flight_instances";
@@ -16,7 +16,6 @@ class FlightInstance extends Model
         'flight_schedule_id',
         'route_id',
         'aircraft_id',
-        'flight_number',
         'departure_date',
         'std', // Schedule Time of Departure
         'sta', // Schedule Time of Arrival
@@ -26,12 +25,17 @@ class FlightInstance extends Model
     ];
 
     protected $casts = [
+        'status' => FlightStatus::class,
         'departure_date' => 'date',
         'std' => 'datetime',
         'sta' => 'datetime',
         'etd' => 'datetime',
         'eta' => 'datetime',
     ];
+    public function isDeparted(): bool
+    {
+        return $this->std->isPast();
+    }
     public function route()
     {
         return $this->belongsTo(Route::class, 'route_id');

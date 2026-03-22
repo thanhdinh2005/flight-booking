@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-
+use App\Enums\SystemStatus; // Import Enum để dùng giá trị chuẩn
 class InitialDataSeeder extends Seeder
 {
     public function run(): void
@@ -54,21 +54,21 @@ class InitialDataSeeder extends Seeder
                     'registration_number' => 'VN-A392',
                     'total_economy_seats' => 150,
                     'total_business_seats' => 16,
-                    'status' => 'ACTIVE',
+                    'status' => SystemStatus::ACTIVE->value,
                 ],
                 [
                     'model' => 'Boeing 787-9',
                     'registration_number' => 'VN-A867',
                     'total_economy_seats' => 250,
                     'total_business_seats' => 28,
-                    'status' => 'ACTIVE',
+                    'status' => SystemStatus::ACTIVE->value,
                 ],
                 [
                     'model' => 'Airbus A320',
                     'registration_number' => 'VN-A610',
                     'total_economy_seats' => 140,
                     'total_business_seats' => 12,
-                    'status' => 'MAINTENANCE',
+                    'status' => SystemStatus::MAINTENANCE->value,
                 ],
             ];
 

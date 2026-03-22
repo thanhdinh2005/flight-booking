@@ -50,7 +50,7 @@ class CreateBookingUseCase
                         'flight_instance_id' => $fId,
                         'seat_class' => $sClass,
                         'ticket_price' => $pricing['segments_price'][$fId],
-                        'status' => 'RESERVED', // Trạng thái chờ thanh toán
+                        'status' => 'PENDING', // Trạng thái chờ thanh toán
                     ]);
 
                     // Trừ ghế trong Inventory (Trừ từng ghế một theo vòng lặp Ticket)
