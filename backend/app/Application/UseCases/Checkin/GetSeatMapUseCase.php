@@ -7,7 +7,7 @@ use App\Models\AircraftSeat;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache; // Thêm Facade Cache
 use Exception;
-
+use App\Enums\Booking\TicketStatus;
 class GetSeatMapUseCase
 {
     /**
@@ -38,7 +38,7 @@ $allSeats = AircraftSeat::where('aircraft_id', $aircraftId)
 
         // 4. Lấy danh sách số ghế đã bị chiếm trong chuyến bay này
         $occupiedSeats = Ticket::where('flight_instance_id', $flightInstanceId)
-            ->where('status', 'CHECKED_IN')
+            ->where('status', TicketStatus::CHECKED_IN->value)
             ->whereNotNull('seat_number')
             ->pluck('seat_number')
             ->toArray();

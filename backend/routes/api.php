@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\AirportController;
-
+use App\Http\Controllers\api\AddonController;
 
 use App\Http\Controllers\Api\AdminBookRequestController;
 
@@ -50,7 +50,8 @@ Route::middleware('auth.keycloak') -> group(function () {
     
     Route::post('/updateAddon', [BookingController::class, 'addAddon']);
     Route::post('/createBooking', [BookingController::class, 'store']);
-    
+    Route::get('/getAddon', [AddonController::class, 'getAll']);
+
     Route::post('/bookings/search-tickets', [CustomerBookingController::class, 'listActiveTickets']);
     Route::get('/refund/preview/{ticketId}', [CustomerBookingController::class, 'previewRefund']);
     Route::post('/refund/confirm', [CustomerBookingController::class, 'confirmRefund']);

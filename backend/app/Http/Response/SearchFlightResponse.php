@@ -27,8 +27,8 @@ class SearchFlightResponse
     {
         if($this->outboundFlights->isEmpty() && $this->returnFlights->isEmpty()) {
             return [
-                'outbound' => ['lai'],
-                'return' => ['lai']
+                'outbound' => [],
+                'return' => []
             ];
         }
         return [

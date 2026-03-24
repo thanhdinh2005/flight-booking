@@ -137,11 +137,20 @@ class PaymentController extends Controller
 
             if ($request->vnp_ResponseCode == '00') {
                 // Thanh toán thành công
-                $booking->update(['status' => 'PAID']);
-
+                $booking->update([
+                    'status' => BookingStatus::PAID, // Dùng Enum chuẩn
+                    'expires_at' => null,            // Thanh toán xong thì không còn hạn giữ chỗ
+    ]);
+    // 2. Kích hoạt toàn bộ Vé thuộc Booking này sang ACTIVE
+            $booking->tickets()->update([
+                'status' => TicketStatus::ACTIVE // Giúp vé có hiệu lực để bay
+            ]);
+            // 2. Gửi Email cho khách hàng
+    // Nên dùng queue (Mail::to(...)->queue(...)) để không làm chậm tốc độ phản hồi của API
+            Mail::to($booking->contact_email)->queue(new BookingConfirmedMail($booking));
             } else {
                 // Thanh toán thất bại
-                $booking->update(['status' => 'FAILED']);
+                $booking->update(['status' => 'PENDING']);
                 // Bạn có thể lưu transaction thất bại vào đây nếu muốn
             }
 

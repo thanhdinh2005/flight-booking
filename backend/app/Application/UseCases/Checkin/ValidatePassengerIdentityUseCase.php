@@ -4,6 +4,7 @@ namespace App\Application\UseCases\Checkin;
 use App\Models\Ticket;
 use Exception;
 use Carbon\Carbon;
+use App\Enums\Booking\TicketStatus;
 
 class ValidatePassengerIdentityUseCase {
     public function execute(int $ticketId, array $data): Ticket // Khai báo trả về kiểu Ticket
@@ -35,7 +36,7 @@ class ValidatePassengerIdentityUseCase {
         }
 
         // 4. Kiểm tra trạng thái vé
-        if (!in_array($ticket->status, ['PAID', 'ISSUED'])) {
+        if ($ticket->status !== TicketStatus::ACTIVE) {
             throw new Exception("Trạng thái vé không hợp lệ để thực hiện xác thực.");
         }
 

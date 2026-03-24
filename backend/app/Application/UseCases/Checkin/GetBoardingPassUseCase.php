@@ -5,7 +5,7 @@ namespace App\Application\UseCases\Checkin;
 use App\Models\Ticket;
 use Exception;
 use Illuminate\Support\Facades\Crypt;
-
+use App\Enums\Booking\TicketStatus;
 class GetBoardingPassUseCase
 {
     /**
@@ -16,6 +16,7 @@ class GetBoardingPassUseCase
      */
     public function execute(int $ticketId, $userId): array
     {
+        
         // 1. Lấy vé kèm thông tin hành trình theo đúng quan hệ Model đã gửi
         $ticket = Ticket::with([
             'passenger',
@@ -35,8 +36,10 @@ class GetBoardingPassUseCase
         }
 
         // 2. Kiểm tra xem đã check-in chưa
-        if ($ticket->status !== 'CHECKED_IN' || empty($ticket->seat_number)) {
-            throw new Exception("Vui lòng hoàn tất chọn ghế trước khi xem thẻ lên máy bay.", 400);
+        if ($ticket->status !== TicketStatus::CHECKED_IN) {
+            throw new Exception("Trạng thái vé không hợp lệ: ".$ticket->status->value, 400);        }
+        if(empty($ticket->seat_number)){
+            throw new Exception("Vui lòng hoàn tất chọn ghế trước khi xem thẻ lên máy bay.".$ticket->status, 400);
         }
 
         $instance = $ticket->flight_instance;
