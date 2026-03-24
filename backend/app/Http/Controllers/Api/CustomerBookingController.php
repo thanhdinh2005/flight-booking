@@ -13,6 +13,7 @@ use App\Application\UseCases\Refund\CreateRefundRequestUseCase;
 use App\Application\UseCases\Refund\GetRefundPreviewUseCase;
 use Illuminate\Http\Request;
 use App\Application\UseCases\Refund\CustomerCancelRefundUseCase;
+use App\Enums\Booking\TicketStatus;
 class CustomerBookingController extends Controller
 {
     public function listActiveTickets(Request $request)
@@ -40,7 +41,7 @@ class CustomerBookingController extends Controller
         // 3. Lấy danh sách vé thỏa mãn (Chưa bay, đã thanh toán)
         $tickets = \App\Models\Ticket::with(['flight_instance.flightSchedule', 'passenger'])
             ->where('booking_id', $booking->id)
-            ->whereIn('status', ['PAID', 'ISSUED']) // Tùy theo status bạn quy định
+            ->where('status', TicketStatus::ACTIVE->value) // Tùy theo status bạn quy định
             ->whereHas('flight_instance', function ($query) {
                 // Chỉ lấy vé có giờ khởi hành (std) trong tương lai
                 $query->where('std', '>', now());
