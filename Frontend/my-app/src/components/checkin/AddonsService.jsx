@@ -310,7 +310,18 @@ export default function AddonsService({ bookings, onNext, onBack }) {
 
   const flight = bookings[flightIdx]
   const fa = addons[flight.id]
-
+// Thêm hàm này vào trong AddonsService
+const mapApiToAddons = (apiData) => {
+  return apiData.map(item => ({
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    price: parseFloat(item.price),
+    type: item.type, // LUGGAGE, MEAL, SERVICE
+    emoji: item.type === 'LUGGAGE' ? '💼' : item.type === 'MEAL' ? '🍱' : '✨',
+    desc: item.name
+  }));
+};
   function toggle(category, id) {
     setAddons(prev => {
       const s = new Set(prev[flight.id][category])

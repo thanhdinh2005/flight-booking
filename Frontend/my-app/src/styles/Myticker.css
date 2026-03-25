@@ -13,7 +13,9 @@
   color: var(--text-primary);
 }
 .mt-container { max-width: 820px; margin: 0 auto; }
-
+.mt-buy-btn{
+color: black;
+}
 /* ── Page header ── */
 .mt-header { margin-bottom: 28px; }
 .mt-header__title {

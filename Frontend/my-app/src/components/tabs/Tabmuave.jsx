@@ -226,12 +226,6 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
         ))}
       </div>
 
-      <div style={{ marginBottom: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-          <input type="checkbox" checked={useLiveSearch} onChange={e => setUseLiveSearch(e.target.checked)} />
-          🔍 Tìm kiếm sân bay trực tiếp
-        </label>
-      </div>
 
       <div className="form-row">
         {useLiveSearch ? (

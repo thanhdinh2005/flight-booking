@@ -1,8 +1,9 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
 // Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { getToken, isTokenExpired } from '../services/keycloakService';
 import '../styles/Passenger.css';
+import '../styles/Refundpolicy.css';
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
 
@@ -39,33 +40,94 @@ function fmtDate(raw) {
   if (!d) return '—';
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
-
-// ── Refund Policy Modal ───────────────────────────────────────────────────────
 function RefundPolicyModal({ flight, onClose, onAgree }) {
+  // Lược bỏ hoàn toàn các state scrollPct và hasScrolledToEnd
+
+  const sections = [
+    {
+      id: 1,
+      title: "Điều kiện thay đổi",
+      items: [
+        { label: "Hoàn vé", value: flight?.refund || 'Theo quy định hạng vé' },
+        { label: "Đổi vé", value: flight?.exchange || 'Áp dụng phí đổi + chênh lệch' }
+      ]
+    },
+    {
+      id: 2,
+      title: "Hành lý & Dịch vụ",
+      items: [
+        { label: "Hành lý xách tay", value: flight?.baggage || '07kg tiêu chuẩn' },
+        { label: "Hành lý ký gửi", value: flight?.checkin || 'Chưa bao gồm' }
+      ]
+    }
+  ];
+
   return (
     <div className="rpm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="rpm-box">
+        <div className="rpm-topbar" />
+        
         <div className="rpm-header">
-          <span>📋 Chính sách hoàn vé</span>
-          <button className="rpm-close" onClick={onClose}>✕</button>
+          <div className="rpm-title-area" style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontSize: '20px' }}>📋</span>
+            <span style={{ marginLeft: '10px', fontWeight: 700 }}>Chính sách & Điều khoản</span>
+          </div>
+          <button className="rpm-close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#888' }}>✕</button>
         </div>
-        <div className="rpm-body">
-          <div className="rpm-row"><span>Hoàn vé</span><b>{flight?.refund || 'Vui lòng kiểm tra với hãng'}</b></div>
-          <div className="rpm-row"><span>Đổi vé</span><b>{flight?.exchange || 'Vui lòng kiểm tra với hãng'}</b></div>
-          <div className="rpm-row"><span>Hành lý xách tay</span><b>{flight?.baggage || '—'}</b></div>
-          <div className="rpm-row"><span>Hành lý ký gửi</span><b>{flight?.checkin || '—'}</b></div>
-          <p className="rpm-note">⚠️ Chính sách có thể thay đổi. Vui lòng xác nhận với hãng hàng không trước khi đặt vé.</p>
+
+        {/* Bỏ ref và onScroll, chỉ giữ lại vùng chứa nội dung */}
+        <div className="rpm-content" style={{ padding: '24px', overflowY: 'auto', maxHheight: '400px' }}>
+          <div className="rpm-alert-box" style={{ background: '#f0fafa', padding: '12px', borderRadius: '8px', color: '#1e8888', marginBottom: '20px', borderLeft: '4px solid #2aabab' }}>
+            Thông tin chi tiết cho chuyến bay <strong>{flight?.flightNo}</strong>.
+          </div>
+
+          {sections.map(sec => (
+            <div key={sec.id} className="rpm-section" style={{ marginBottom: '20px' }}>
+              <div style={{ fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: '#2aabab', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>{sec.id}</span>
+                {sec.title}
+              </div>
+              <div style={{ paddingLeft: '30px' }}>
+                {sec.items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
+                    <span style={{ color: '#5a7a7a' }}>{item.label}</span>
+                    <strong style={{ color: '#1a2a2a' }}>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="rpm-footer">
-          <button className="pf-btn-back" onClick={onClose}>Đóng</button>
-          <button className="pf-btn-next" onClick={() => { onAgree?.(); onClose(); }}>✓ Đã đọc & Đồng ý</button>
+
+        <div className="rpm-footer" style={{ padding: '16px 24px', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: '#fafafa' }}>
+          <button 
+            className="rpm-btn-cancel" 
+            onClick={onClose}
+            style={{ padding: '10px 20px', border: 'none', background: 'transparent', color: '#666', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Đóng
+          </button>
+          <button 
+            className="rpm-btn-confirm active" // Luôn ở trạng thái active
+            onClick={() => { onAgree?.(); onClose(); }}
+            style={{ 
+              padding: '10px 24px', 
+              backgroundColor: '#2aabab', 
+              color: '#fff', 
+              border: 'none', 
+              borderRadius: '8px', 
+              cursor: 'pointer',
+              fontWeight: 700,
+              boxShadow: '0 4px 12px rgba(42,171,171,0.2)'
+            }}
+          >
+            ✓ Tôi đã hiểu & Đồng ý
+          </button>
         </div>
       </div>
     </div>
   );
-}
-
-// ── VNPay waiting banner — tab mới đã mở, trang này chờ kết quả ────────────────
+} 
 function VNPayWaiting({ vnpayUrl }) {
   return (
     <div className="vnp-waiting">

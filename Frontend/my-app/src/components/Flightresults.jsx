@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import '../styles/Flightresult.css';
-import RefundPolicyModal from './Refundpolicymodal';
+
 
 const MOCK_FLIGHTS = [
   {
@@ -460,8 +460,7 @@ export default function FlightResults({
   const [detailFlight, setDetailFlight] = useState(null);
   // Panel chọn hạng vé
   const [classFlight, setClassFlight] = useState(null);
-  // Modal chính sách hoàn vé
-  const [refundFlight, setRefundFlight] = useState(null);
+  
 
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
@@ -637,14 +636,6 @@ export default function FlightResults({
         />
       )}
 
-      {/* Refund Policy Modal */}
-      {refundFlight && (
-        <RefundPolicyModal
-          onClose={() => setRefundFlight(null)}
-          onAgree={() => setRefundFlight(null)}
-        />
-      )}
-
       <div className="fr-root">
         <div className="fr-container">
 
@@ -769,14 +760,6 @@ export default function FlightResults({
                     onClick={e => { e.stopPropagation(); setDetailFlight(f); }}
                   >
                     Chi tiết
-                  </button>
-
-                  <button
-                    className="fr-btn-policy"
-                    onClick={RefundPolicyModal.open}
-                    title="Chính sách hoàn vé"
-                  >
-                    📋 Hoàn vé
                   </button>
 
                   {!isCheckin ? (

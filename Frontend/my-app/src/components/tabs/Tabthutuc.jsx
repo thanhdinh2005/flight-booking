@@ -249,23 +249,37 @@ function LookupScreen({ onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
 
-  async function handleSubmit() {
-    if (!pnr.trim() || !email.trim()) { setError('Vui lòng nhập đầy đủ mã đặt chỗ và email.'); return }
-    setLoading(true); setError('')
-    try {
-      // GET /api/bookings?pnr=&email= hoặc POST — tuỳ backend
-      const res  = await apiFetch('GET', `/bookings?pnr=${encodeURIComponent(pnr.trim().toUpperCase())}&email=${encodeURIComponent(email.trim())}`)
-      const data = res?.data ?? res
-      // Backend trả: booking object với tickets[]
-      const tickets = data?.tickets ?? []
-      if (!tickets.length) throw new Error('Không tìm thấy vé nào với thông tin này.')
-      onSuccess({ booking: data, tickets })
-    } catch (err) {
-      setError(err.message || 'Không tìm thấy đặt chỗ. Vui lòng kiểm tra lại.')
-    } finally {
-      setLoading(false)
-    }
+ async function handleSubmit() {
+  if (!pnr.trim() || !email.trim()) {
+    setError('Vui lòng nhập đầy đủ mã đặt chỗ và email.')
+    return
   }
+  setLoading(true)
+  setError('')
+  try {
+    const params = new URLSearchParams({
+      pnr:   pnr.trim().toUpperCase(),
+      email: email.trim().toLowerCase(),
+    })
+    const res  = await apiFetch('GET', `/bookings/search-tickets?${params}`)
+
+    // Response: { success: true, data: [ ticket, ticket, ... ] }
+    const list = Array.isArray(res?.data) ? res.data
+               : Array.isArray(res)       ? res
+               : []
+
+    if (!list.length) throw new Error('Không tìm thấy vé nào với thông tin này.')
+
+    // Nhóm các ticket cùng flight_instance_id → mỗi nhóm là 1 vé
+    const grouped = groupTicketsByFlight(list)
+
+    onSuccess({ tickets: grouped, raw: list })
+  } catch (err) {
+    setError(err.message || 'Không tìm thấy đặt chỗ. Vui lòng kiểm tra lại.')
+  } finally {
+    setLoading(false)
+  }
+}
 
   return (
     <div className="ci-root">
@@ -547,8 +561,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
   const [loading,    setLoading]    = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
-
-  useEffect(() => { fetchSeatMap() }, [])
+  
 
   async function fetchSeatMap() {
     setLoading(true); setError('')

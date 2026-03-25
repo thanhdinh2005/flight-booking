@@ -19,12 +19,14 @@ export default function Topbar({ currentUser, onLogout }) {
   const [avatarOpen,     setAvatarOpen]     = useState(false);
   const [searchVal,      setSearchVal]      = useState('');
   const [isExpanded,     setIsExpanded]     = useState(false);
-  const [profileOpen,    setProfileOpen]    = useState(false);   // ← new
+  const [profileOpen,    setProfileOpen]    = useState(false);
   const [advancedValues, setAdvancedValues] = useState({
     origin: '', destination: '', date: '', price: ''
   });
   const dropRef   = useRef(null);
   const searchRef = useRef(null);
+
+  const isLoggedIn = !!currentUser;
 
   // Đóng dropdown khi click ngoài
   useEffect(() => {
@@ -78,10 +80,11 @@ export default function Topbar({ currentUser, onLogout }) {
     setProfileOpen(true);
   }
 
-  const initials = currentUser
+  // Nếu chưa đăng nhập thì hiện avatar mặc định, không hiện initials
+  const initials = isLoggedIn
     ? (currentUser.name || currentUser.preferred_username || 'U')
         .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : 'KH';
+    : null;
 
   const hasAdvancedValues = Object.values(advancedValues).some(v => v.trim());
 
@@ -169,7 +172,8 @@ export default function Topbar({ currentUser, onLogout }) {
             onClick={() => setAvatarOpen(p => !p)}
             title="Tài khoản"
           >
-            {currentUser
+            {/* Luôn hiện avatar mặc định nếu chưa đăng nhập */}
+            {isLoggedIn
               ? <span className="topbar__avatar-initials">{initials}</span>
               : <img src={avata} alt="Tài khoản" className="topbar__avatar-img" />
             }
@@ -179,42 +183,61 @@ export default function Topbar({ currentUser, onLogout }) {
           {avatarOpen && (
             <div className="topbar__dropdown">
               <div className="topbar__dropdown-header">
-                <div className="topbar__dropdown-avatar">{initials}</div>
+                {/* Header dropdown: avatar mặc định nếu chưa đăng nhập */}
+                {isLoggedIn
+                  ? <div className="topbar__dropdown-avatar">{initials}</div>
+                  : <img src={avata} alt="Tài khoản" className="topbar__dropdown-avatar-img" />
+                }
                 <div>
                   <div className="topbar__dropdown-name">
-                    {currentUser?.name || currentUser?.preferred_username || 'Khách hàng'}
+                    {isLoggedIn
+                      ? (currentUser.name || currentUser.preferred_username)
+                      : 'Khách'}
                   </div>
                   <div className="topbar__dropdown-email">
-                    {currentUser?.email || 'Chưa đăng nhập'}
+                    {isLoggedIn ? currentUser.email : 'Chưa đăng nhập'}
                   </div>
                 </div>
               </div>
 
               <div className="topbar__dropdown-divider" />
 
-              {/* ↓ Mở ProfileModal thay vì navigate */}
-              <button className="topbar__dropdown-item" onClick={handleOpenProfile}>
-                <span>👤</span> Thông tin cá nhân
-              </button>
-              <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/my-tickets'); }}>
-                <span>🎫</span> Vé của tôi
-              </button>
-              <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/settings'); }}>
-                <span>⚙️</span> Cài đặt
-              </button>
+              {isLoggedIn ? (
+                <>
+                  <button className="topbar__dropdown-item" onClick={handleOpenProfile}>
+                    <span>👤</span> Thông tin cá nhân
+                  </button>
+                  <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/my-tickets'); }}>
+                    <span>🎫</span> Vé của tôi
+                  </button>
+                  <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/settings'); }}>
+                    <span>⚙️</span> Cài đặt
+                  </button>
 
-              <div className="topbar__dropdown-divider" />
+                  <div className="topbar__dropdown-divider" />
 
-              <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={handleLogout}>
-                <span>→</span> Đăng xuất
-              </button>
+                  <button className="topbar__dropdown-item topbar__dropdown-item--danger" onClick={handleLogout}>
+                    <span>→</span> Đăng xuất
+                  </button>
+                </>
+              ) : (
+                /* Chưa đăng nhập: chỉ hiện nút đăng nhập / đăng ký */
+                <>
+                  <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/login'); }}>
+                    <span>🔑</span> Đăng nhập
+                  </button>
+                  <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/login?register=true'); }}>
+                    <span>📝</span> Đăng ký
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
       </header>
-a
-      {/* Profile Modal */}
-      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
+
+      {/* Profile Modal - chỉ mở khi đã đăng nhập */}
+      {profileOpen && isLoggedIn && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </>
   );
 }
