@@ -706,8 +706,8 @@ function DatePickerField({ label, value, onChange }) {
   );
 }
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-const AIRPORTS = [
+// ── Airports ───────────────────────────────────────────────────────────────────
+const FALLBACK_AIRPORTS = [
   'Tp. Hồ Chí Minh (SGN)',
   'Hà Nội (HAN)',
   'Đà Nẵng (DAD)',
@@ -718,62 +718,141 @@ const AIRPORTS = [
   'Cần Thơ (VCA)',
 ];
 
-const MOCK_ROUTES = {
-  'SGN-DAD': [
-    {
-      id: 'f1', depTime: '08:05', arrTime: '09:20', duration: '1g 15p',
-      depCode: 'SGN', depTerminal: 'Nhà ga 3',
-      arrCode: 'DAD', arrTerminal: 'Nhà ga 1',
-      airline: 'Vietnam Airlines', logo: '🌸', flightNo: 'VN 134',
-      aircraft: 'Airbus A321', price: 890000, class: 'Phổ thông',
-      baggage: '7kg xách tay', checkin: '23kg (có phí)',
-      refund: 'Phí 30% trước 24h',
-      weeklyAvail: [false, false, false, true, true, true, true],
+// ── API ────────────────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
+
+function getToken() {
+  const RAW = ['access_token', 'token', 'kc_token', 'auth_token'];
+  for (const k of RAW) {
+    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k);
+    if (v && v.startsWith('ey')) return v;
+  }
+  return null;
+}
+
+async function apiFetch(path) {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Accept': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    {
-      id: 'f2', depTime: '10:45', arrTime: '12:00', duration: '1g 15p',
-      depCode: 'SGN', depTerminal: 'Nhà ga 1',
-      arrCode: 'DAD', arrTerminal: 'Nhà ga 1',
-      airline: 'VietJet Air', logo: '🔴', flightNo: 'VJ 578',
-      aircraft: 'Airbus A320', price: 650000, class: 'Phổ thông',
-      baggage: '7kg xách tay', checkin: 'Không có',
-      refund: 'Không hoàn',
-      weeklyAvail: [true, true, false, true, true, false, true],
-    },
-    {
-      id: 'f3', depTime: '14:30', arrTime: '15:45', duration: '1g 15p',
-      depCode: 'SGN', depTerminal: 'Nhà ga 3',
-      arrCode: 'DAD', arrTerminal: 'Nhà ga 1',
-      airline: 'Bamboo Airways', logo: '🎋', flightNo: 'QH 410',
-      aircraft: 'Boeing 737', price: 780000, class: 'Phổ thông',
-      baggage: '10kg xách tay', checkin: '20kg',
-      refund: 'Phí 25% trước 48h',
-      weeklyAvail: [false, true, true, false, true, true, true],
-    },
-  ],
-  'HAN-SGN': [
-    {
-      id: 'f4', depTime: '07:00', arrTime: '09:10', duration: '2g 10p',
-      depCode: 'HAN', depTerminal: 'Nhà ga 2',
-      arrCode: 'SGN', arrTerminal: 'Nhà ga 1',
-      airline: 'Vietnam Airlines', logo: '🌸', flightNo: 'VN 201',
-      aircraft: 'Airbus A321', price: 1250000, class: 'Phổ thông',
-      baggage: '7kg xách tay', checkin: '23kg (có phí)',
-      refund: 'Phí 30% trước 24h',
-      weeklyAvail: [true, true, true, true, true, true, true],
-    },
-    {
-      id: 'f5', depTime: '09:30', arrTime: '11:45', duration: '2g 15p',
-      depCode: 'HAN', depTerminal: 'Nhà ga 2',
-      arrCode: 'SGN', arrTerminal: 'Nhà ga 1',
-      airline: 'VietJet Air', logo: '🔴', flightNo: 'VJ 134',
-      aircraft: 'Airbus A320', price: 890000, class: 'Phổ thông',
-      baggage: '7kg xách tay', checkin: 'Không có',
-      refund: 'Không hoàn',
-      weeklyAvail: [true, false, true, true, false, true, true],
-    },
-  ],
-};
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message ?? data?.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+function normalizeAirportLabel(airport) {
+  if (!airport) return '';
+  const code = airport.iata_code ?? airport.code ?? airport.id ?? '';
+  const name = airport.name ?? airport.airport_name ?? '';
+  const city = airport.city ?? airport.city_name ?? airport.location ?? '';
+  if (!code && !name && !city) return '';
+
+  const primary = city || name || code;
+  return `${primary}${code ? ` (${code})` : ''}`;
+}
+
+async function fetchAirports() {
+  const data = await apiFetch('/airports');
+  const rawAirports = Array.isArray(data) ? data : (data.data ?? []);
+  return rawAirports.map(normalizeAirportLabel).filter(Boolean);
+}
+
+// Airline logo mapping
+function airlineLogo(name = '') {
+  const n = name.toLowerCase();
+  if (n.includes('vietnam')) return '🌸';
+  if (n.includes('vietjet') || n.includes('viet jet')) return '🔴';
+  if (n.includes('bamboo')) return '🎋';
+  if (n.includes('pacific')) return '🟡';
+  return '✈';
+}
+
+// Tính duration từ 2 time string "HH:mm"
+function calcDuration(depTime, arrTime) {
+  if (!depTime || !arrTime) return '';
+  const [dh, dm] = depTime.split(':').map(Number);
+  const [ah, am] = arrTime.split(':').map(Number);
+  let mins = (ah * 60 + am) - (dh * 60 + dm);
+  if (mins < 0) mins += 1440;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}g ${m}p` : `${h}g`;
+}
+
+// Map một flight-instance từ API sang format hiển thị
+function mapInstance(inst, weekBase) {
+  if (!inst) return null;
+  const route    = inst.route ?? {};
+  const flight   = inst.flight ?? {};
+  const aircraft = inst.aircraft ?? inst.airplane ?? {};
+
+  const std = inst.std ? inst.std.slice(11, 16) : (inst.departure_time ?? '');
+  const sta = inst.sta ? inst.sta.slice(11, 16) : (inst.arrival_time   ?? '');
+
+  // Tính weeklyAvail: xem ngày bay trong tuần (days_of_week hoặc schedule)
+  const daysOfWeek = inst.days_of_week ?? flight.days_of_week ?? null;
+  let weeklyAvail = Array(7).fill(true); // mặc định bay tất cả nếu không có data
+  if (Array.isArray(daysOfWeek) && daysOfWeek.length > 0) {
+    weeklyAvail = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekBase);
+      d.setDate(d.getDate() + i);
+      return daysOfWeek.includes(d.getDay()); // 0=CN, 1=T2 ...
+    });
+  }
+
+  const airlineName = route.airline ?? flight.airline ?? inst.airline ?? 'Hãng bay';
+
+  return {
+    id:          String(inst.id ?? inst.flight_instance_id ?? Math.random()),
+    instanceId:  inst.id,
+    depTime:     std,
+    arrTime:     sta,
+    duration:    calcDuration(std, sta),
+    depCode:     route.origin?.code       ?? route.from ?? inst.origin      ?? '',
+    depTerminal: route.origin?.terminal   ?? route.from_terminal ?? '',
+    arrCode:     route.destination?.code  ?? route.to   ?? inst.destination ?? '',
+    arrTerminal: route.destination?.terminal ?? route.to_terminal ?? '',
+    airline:     airlineName,
+    logo:        airlineLogo(airlineName),
+    flightNo:    flight.flight_number ?? inst.flight_number ?? '—',
+    aircraft:    aircraft.name ?? aircraft.model ?? inst.aircraft_type ?? 'N/A',
+    price:       Number(inst.base_price ?? inst.price ?? inst.min_price ?? 0),
+    class:       inst.cabin_class ?? inst.class ?? 'Phổ thông',
+    baggage:     inst.carry_on    ?? inst.hand_baggage ?? '7kg xách tay',
+    checkin:     inst.checked_baggage ?? inst.baggage  ?? 'Theo hạng vé',
+    refund:      inst.refund_policy  ?? inst.cancellation_policy ?? 'Theo điều kiện vé',
+    seatsLeft:   inst.available_seats ?? inst.seats_available ?? null,
+    weeklyAvail,
+    raw:         inst,
+  };
+}
+
+// Gọi API search chuyến bay
+async function fetchFlightSearch({ origin, destination, departureDate, returnDate, adults = 1 }) {
+  const params = new URLSearchParams({
+    origin,
+    destination,
+    departure_date: departureDate,
+    adults: String(adults),
+  });
+  if (returnDate) params.set('return_date', returnDate);
+
+  const data = await apiFetch(`/flights/search?${params}`);
+
+  // Response: { success, data: { outbound: [], return: [] } }
+  const outbound = data?.data?.outbound ?? data?.outbound ?? data?.data ?? [];
+  const ret      = data?.data?.return   ?? data?.return   ?? [];
+
+  return { outbound: Array.isArray(outbound) ? outbound : [], return: Array.isArray(ret) ? ret : [] };
+}
+
+// Gọi chi tiết 1 flight-instance
+async function fetchFlightInstance(id) {
+  return await apiFetch(`/admin/flight-instances/${id}`);
+}
 
 function getRouteKey(from, to) {
   const f = from.match(/\((\w+)\)/)?.[1] || from.slice(0, 3).toUpperCase();
@@ -858,8 +937,13 @@ function FlightDetailModal({ flight, date, onClose, onBuy }) {
 
         <div className="ttc-modal__footer">
           <div className="ttc-modal__price-block">
-            <div className="ttc-modal__price">{fmtPrice(flight.price)}</div>
-            <div className="ttc-modal__price-note">Giá mỗi người · đã bao gồm thuế</div>
+            <div className="ttc-modal__price">
+              {flight.price > 0 ? fmtPrice(flight.price) : 'Liên hệ'}
+            </div>
+            <div className="ttc-modal__price-note">
+              Giá mỗi người · đã bao gồm thuế
+              {flight.seatsLeft != null && ` · Còn ${flight.seatsLeft} ghế`}
+            </div>
           </div>
           <button className="ttc-modal__buy-btn" onClick={() => { onBuy(flight); onClose(); }}>
             Mua ngay →
@@ -882,23 +966,72 @@ export default function TabTraCuu({ onSelectFlight }) {
   const [expandedId, setExpandedId] = useState(null);
   const [modalFlight, setModalFlight] = useState(null);
   const [weekOffset, setWeekOffset]   = useState(0);
+  const [airports, setAirports]       = useState(FALLBACK_AIRPORTS);
 
   // base date for week display
   const baseDate = new Date(date);
   baseDate.setDate(baseDate.getDate() + weekOffset * 7);
   const weekDays = getWeekDays(baseDate);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAirports() {
+      try {
+        const airportList = await fetchAirports();
+        if (!ignore && airportList.length > 0) {
+          setAirports(airportList);
+        }
+      } catch {
+        // giữ fallback nếu API lỗi
+      }
+    }
+
+    loadAirports();
+    return () => { ignore = true; };
+  }, []);
+
   function swap() { const tmp = from; setFrom(to); setTo(tmp); }
 
-  function handleSearch() {
+  async function handleSearch() {
     if (!to) { setError('Vui lòng chọn điểm đến!'); return; }
+    const origin      = from.match(/\((\w+)\)/)?.[1] || from.slice(0, 3).toUpperCase();
+    const destination = to.match(/\((\w+)\)/)?.[1]   || to.slice(0, 3).toUpperCase();
+
     setError(''); setResults(null); setLoading(true); setExpandedId(null);
-    setTimeout(() => {
+    try {
+      const { outbound } = await fetchFlightSearch({
+        origin,
+        destination,
+        departureDate: date,
+        adults: 1,
+      });
+
+      if (!outbound.length) {
+        setError('Không tìm thấy chuyến bay phù hợp. Vui lòng thử ngày hoặc tuyến khác.');
+        setLoading(false);
+        return;
+      }
+
+      // Map từng flight-instance sang format hiển thị
+      // Thử fetch chi tiết instance đầu tiên để lấy thêm thông tin; các instance còn lại map trực tiếp
+      const baseDate = new Date(date);
+      const mapped = await Promise.all(outbound.map(async (inst) => {
+        try {
+          // Nếu inst đã là object đầy đủ thì dùng luôn, không cần fetch lại
+          const detail = inst.route ? inst : await fetchFlightInstance(inst.id ?? inst.flight_instance_id);
+          return mapInstance(detail, baseDate);
+        } catch {
+          return mapInstance(inst, baseDate);
+        }
+      }));
+
+      setResults({ flights: mapped.filter(Boolean), from, to, date });
+    } catch (err) {
+      setError(err.message || 'Không thể tải lịch bay. Vui lòng thử lại.');
+    } finally {
       setLoading(false);
-      const key = getRouteKey(from, to);
-      const data = MOCK_ROUTES[key] || MOCK_ROUTES['SGN-DAD']; // fallback to sample
-      setResults({ flights: data, from, to, date });
-    }, 900);
+    }
   }
 
   function handleKeyDown(e) { if (e.key === 'Enter') handleSearch(); }
@@ -948,34 +1081,27 @@ export default function TabTraCuu({ onSelectFlight }) {
           <div className="ttc-form-row">
             <div className="ttc-field">
               <label>Điểm đi</label>
-              <input
+              <select
                 className="ttc-input"
-                list="ttc-airports-from"
                 value={from}
                 onChange={e => { setFrom(e.target.value); setError(''); }}
-                placeholder="Chọn điểm khởi hành"
-                onKeyDown={handleKeyDown}
-              />
-              <datalist id="ttc-airports-from">
-                {AIRPORTS.map(a => <option key={a} value={a} />)}
-              </datalist>
+              >
+                {airports.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
 
             <button className="ttc-swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
             <div className="ttc-field">
               <label>Điểm đến</label>
-              <input
+              <select
                 className="ttc-input"
-                list="ttc-airports-to"
                 value={to}
                 onChange={e => { setTo(e.target.value); setError(''); }}
-                placeholder="Chọn điểm đến"
-                onKeyDown={handleKeyDown}
-              />
-              <datalist id="ttc-airports-to">
-                {AIRPORTS.filter(a => a !== from).map(a => <option key={a} value={a} />)}
-              </datalist>
+              >
+                <option value="">-- Chọn điểm đến --</option>
+                {airports.filter(a => a !== from).map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
 
             <DatePickerField
@@ -1149,7 +1275,7 @@ export default function TabTraCuu({ onSelectFlight }) {
                           ['Hành lý xách tay', f.baggage],
                           ['Ký gửi', f.checkin],
                           ['Hoàn vé', f.refund],
-                          ['Giá từ', fmtPrice(f.price) + '/người'],
+                          ['Giá từ', (f.price > 0 ? fmtPrice(f.price) : 'Liên hệ') + '/người'],
                         ].map(([k, v]) => (
                           <div className="ttc-detail-kv" key={k}>
                             <div className="ttc-detail-kv__k">{k}</div>

@@ -1,123 +1,173 @@
-/* Refundpolicy.css — Việt Jett teal palette */
-/* Note: RefundPolicyModal.jsx đã có inline CSS, file này dành cho dự án dùng external CSS */
+:root {
+  --teal-primary: #2aabab;
+  --teal-dark: #1e8888;
+  --teal-light: #f0fafa;
+  --text-dark: #1a2a2a;
+  --text-muted: #5a7a7a;
+  --border-color: rgba(42, 171, 171, 0.15);
+}
 
 .rpm-overlay {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(26,42,42,0.55);
-  backdrop-filter: blur(6px);
-  display: flex; align-items: center; justify-content: center;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
   padding: 20px;
 }
+
 .rpm-box {
-  background: #fff;
-  border-radius: 16px;
-  width: 100%; max-width: 560px;
-  max-height: 90vh;
-  display: flex; flex-direction: column;
+  background: #ffffff;
+  width: 100%;
+  max-width: 580px;
+  max-height: 85vh;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(42,171,171,0.18);
-  border: 1.5px solid rgba(42,171,171,0.2);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
+
 .rpm-topbar {
-  height: 3px;
-  background: linear-gradient(90deg, #2aabab, #4ecfcf, #2aabab);
+  height: 6px;
+  background: linear-gradient(90deg, var(--teal-primary), #4ecfcf, var(--teal-primary));
   background-size: 200% 100%;
-  animation: rpm-shimmer 2.5s linear infinite;
+  animation: shimmer 2s linear infinite;
 }
-@keyframes rpm-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+
 .rpm-header {
-  padding: 24px 28px 16px;
-  display: flex; align-items: flex-start; justify-content: space-between;
-  border-bottom: 1px solid rgba(42,171,171,0.12);
+  padding: 24px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
 }
-.rpm-header__eyebrow {
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: #2aabab; margin-bottom: 4px;
+
+.rpm-title-area { display: flex; align-items: center; gap: 12px; }
+.rpm-icon { font-size: 24px; }
+.rpm-header h3 { margin: 0; font-size: 20px; color: var(--text-dark); font-weight: 700; }
+
+.rpm-close-x {
+  background: var(--teal-light);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--teal-primary);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
 }
-.rpm-header__title {
-  font-size: 22px; font-weight: 700;
-  color: #1a2a2a; line-height: 1.2;
+.rpm-close-x:hover { background: var(--teal-primary); color: white; }
+
+.rpm-content {
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
 }
-.rpm-header__title em {
-  font-style: normal; color: #2aabab;
+
+.rpm-alert-box {
+  background: var(--teal-light);
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--teal-dark);
+  line-height: 1.5;
+  margin-bottom: 24px;
+  border-left: 4px solid var(--teal-primary);
 }
-.rpm-close {
-  background: none; border: none;
-  font-size: 16px; color: #5a7a7a;
-  cursor: pointer; padding: 4px 6px; border-radius: 6px;
-  transition: background .15s, color .15s; margin-top: 2px;
+
+.rpm-section { margin-bottom: 30px; }
+.rpm-section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.rpm-number {
+  background: var(--teal-primary);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
-.rpm-close:hover { background: rgba(42,171,171,0.1); color: #2aabab; }
-.rpm-body {
-  flex: 1; overflow-y: auto;
+.rpm-section-title { font-weight: 700; color: var(--text-dark); font-size: 16px; }
+
+.rpm-rule-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-left: 8px;
+}
+.rpm-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--teal-primary);
+  border-radius: 50%;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.rpm-rule-item p { margin: 0; font-size: 14.5px; color: var(--text-muted); line-height: 1.6; }
+
+/* Footer & Progress */
+.rpm-footer-area {
   padding: 20px 28px;
-  scroll-behavior: smooth;
+  background: #fafafa;
+  border-top: 1px solid var(--border-color);
 }
-.rpm-body::-webkit-scrollbar { width: 4px; }
-.rpm-body::-webkit-scrollbar-track { background: #f0fafa; }
-.rpm-body::-webkit-scrollbar-thumb { background: rgba(42,171,171,0.4); border-radius: 4px; }
-.rpm-section { margin-bottom: 22px; }
-.rpm-section__number {
-  font-size: 9px; font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: #2aabab; margin-bottom: 4px;
+
+.rpm-progress-container { margin-bottom: 20px; }
+.rpm-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
 }
-.rpm-section__title {
-  font-size: 14px; font-weight: 700;
-  color: #1a2a2a; margin-bottom: 10px;
-  padding-left: 10px; border-left: 3px solid #2aabab;
+.rpm-progress-bar { height: 6px; background: #eee; border-radius: 10px; overflow: hidden; }
+.rpm-progress-fill { height: 100%; background: var(--teal-primary); transition: width 0.3s ease; }
+
+.rpm-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.rpm-hint { font-size: 12px; color: var(--teal-dark); font-style: italic; margin-right: auto; }
+
+.rpm-btn-cancel {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
 }
-.rpm-rule {
-  display: flex; gap: 10px;
-  font-size: 13px; color: #3a5a5a;
-  margin-bottom: 7px; line-height: 1.5;
-  padding-left: 10px;
+
+.rpm-btn-confirm {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  background: #ccc;
+  color: white;
+  font-weight: 700;
+  cursor: not-allowed;
+  transition: 0.3s;
 }
-.rpm-rule__dash { color: #2aabab; font-weight: 700; flex-shrink: 0; }
-.rpm-progress-wrap {
-  padding: 12px 28px;
-  border-top: 1px solid rgba(42,171,171,0.12);
+.rpm-btn-confirm.active {
+  background: var(--teal-primary);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(42, 171, 171, 0.3);
 }
-.rpm-progress-label {
-  display: flex; justify-content: space-between;
-  font-size: 11px; color: #5a7a7a; margin-bottom: 6px;
-}
-.rpm-progress-track {
-  height: 4px; background: rgba(42,171,171,0.15);
-  border-radius: 4px; overflow: hidden;
-}
-.rpm-progress-fill {
-  height: 100%; background: #2aabab;
-  border-radius: 4px; transition: width .3s ease;
-}
-.rpm-footer {
-  padding: 16px 28px 20px;
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: 10px; border-top: 1px solid rgba(42,171,171,0.12); flex-wrap: wrap;
-}
-.rpm-must-scroll {
-  font-size: 11px; color: #5a7a7a;
-  font-style: italic; margin-right: auto;
-}
-.rpm-btn-ghost {
-  font-size: 13px; font-weight: 600;
-  padding: 9px 20px;
-  border: 1.5px solid rgba(42,171,171,0.3);
-  background: transparent; color: #5a7a7a;
-  cursor: pointer; border-radius: 8px; transition: all .15s;
-}
-.rpm-btn-ghost:hover { border-color: #2aabab; color: #2aabab; }
-.rpm-btn-agree {
-  font-size: 13px; font-weight: 700;
-  padding: 9px 22px;
-  background: #2aabab; color: #fff;
-  border: none; cursor: pointer; border-radius: 8px;
-  transition: background .15s, opacity .15s, transform .1s;
-}
-.rpm-btn-agree:hover:not(:disabled) { background: #1e8888; }
-.rpm-btn-agree:active:not(:disabled) { transform: scale(.97); }
-.rpm-btn-agree:disabled { opacity: .45; cursor: not-allowed; }
+.rpm-btn-confirm.active:hover { background: var(--teal-dark); transform: translateY(-1px); }
+
+/* Animations */
+.anim-fade-in { animation: fadeIn 0.3s ease-out; }
+.anim-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }

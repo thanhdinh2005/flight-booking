@@ -2,13 +2,38 @@
 // Trang kết quả tìm kiếm — điều hướng từ Topbar
 // URL ví dụ: /flights?origin=DAD&destination=HAN&departure_date=2026-03-17&return_date=2026-03-19&price=1000000
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import FlightResults from '../components/Flightresults';
 import { searchFlights, formatFlight, filterFlights } from '../services/flightAPI';
+
+function mapFlightResult(result, maxPrice) {
+  let outbound = (result?.data?.outbound ?? []).flatMap(day =>
+    (day.flights ?? []).map(f => formatFlight(f))
+  );
+  let returnFlights = (result?.data?.return ?? []).flatMap(day =>
+    (day.flights ?? []).map(f => formatFlight(f))
+  );
+
+  if (maxPrice) {
+    outbound      = filterFlights(outbound,      { maxPrice });
+    returnFlights = filterFlights(returnFlights, { maxPrice });
+  }
+
+  return { outbound, return: returnFlights };
+}
 
 export default function FlightsPage() {
   const [searchParams] = useSearchParams();
   const navigate        = useNavigate();
+  const location        = useLocation();
+
+  function goBackToSearch() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/home');
+  }
 
   const origin         = (searchParams.get('origin')         || '').toUpperCase();
   const destination    = (searchParams.get('destination')    || '').toUpperCase();
@@ -16,9 +41,12 @@ export default function FlightsPage() {
   const return_date    = searchParams.get('return_date')     || '';
   const maxPrice       = searchParams.get('price') ? parseInt(searchParams.get('price')) : undefined;
   const adults         = parseInt(searchParams.get('adults') || '1');
+  const currentQuery   = searchParams.toString();
+  const hasPrefetched  = location.state?.prefetchedResult && location.state?.prefetchedQuery === currentQuery;
+  const initialFlights = hasPrefetched ? mapFlightResult(location.state.prefetchedResult, maxPrice) : null;
 
-  const [flights,   setFlights]   = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [flights,   setFlights]   = useState(initialFlights);
+  const [isLoading, setIsLoading] = useState(!!(origin && destination && departure_date && !initialFlights));
   const [error,     setError]     = useState('');
 
   const searchData = {
@@ -31,22 +59,34 @@ export default function FlightsPage() {
   };
 
   useEffect(() => {
-    // Chỉ cần ít nhất 1 trong các param có giá trị là gọi API
-    const hasAnyParam = origin || destination || departure_date || searchParams.get('q');
-    if (hasAnyParam) fetchFlights();
+    if (hasPrefetched) {
+      applyFlightResult(location.state.prefetchedResult);
+      return;
+    }
+
+    if (origin && destination && departure_date) {
+      setIsLoading(true);
+      fetchFlights();
+      return;
+    }
+
+    setIsLoading(false);
+    setFlights({ outbound: [], return: [] });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin, destination, departure_date, return_date, adults]);
+  }, [origin, destination, departure_date, return_date, adults, hasPrefetched, currentQuery]);
+
+  function applyFlightResult(result) {
+    setFlights(mapFlightResult(result, maxPrice));
+    setError('');
+    setIsLoading(false);
+  }
 
   async function fetchFlights() {
     setIsLoading(true);
     setError('');
     try {
-      // Nếu thiếu origin/destination thì dùng wildcard hoặc bỏ qua
-      // API yêu cầu origin + destination + departure_date → nếu thiếu thì hiển thị mock/empty
       if (!origin || !destination || !departure_date) {
-        // Không đủ params để gọi API → trả về rỗng, FlightResults sẽ hiển thị mock data
         setFlights({ outbound: [], return: [] });
-        setIsLoading(false);
         return;
       }
 
@@ -57,20 +97,7 @@ export default function FlightsPage() {
         return_date: return_date || undefined,
         adults,
       });
-
-      let outbound = (result.data?.outbound ?? []).flatMap(day =>
-        (day.flights ?? []).map(f => formatFlight(f))
-      );
-      let returnFlights = (result.data?.return ?? []).flatMap(day =>
-        (day.flights ?? []).map(f => formatFlight(f))
-      );
-
-      if (maxPrice) {
-        outbound      = filterFlights(outbound,      { maxPrice });
-        returnFlights = filterFlights(returnFlights, { maxPrice });
-      }
-
-      setFlights({ outbound, return: returnFlights });
+      applyFlightResult(result);
     } catch (err) {
       setError(err.message || 'Lỗi tải chuyến bay');
     } finally {
@@ -88,7 +115,7 @@ export default function FlightsPage() {
         <div style={{ fontSize: 48 }}>✈️</div>
         <div style={{ fontSize: 16, fontWeight: 600 }}>Vui lòng nhập thông tin tìm kiếm</div>
         <div style={{ fontSize: 13, color: '#888' }}>Dùng thanh tìm kiếm ở trên để tìm chuyến bay</div>
-        <button onClick={() => navigate(-1)} style={{
+        <button onClick={goBackToSearch} style={{
           marginTop: 8, padding: '10px 24px', background: '#1a3c6e',
           color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14,
         }}>← Quay lại</button>
@@ -98,6 +125,22 @@ export default function FlightsPage() {
 
   return (
     <div>
+      {(origin || destination || departure_date) && (
+        <div style={{
+          maxWidth: 700,
+          margin: '16px auto 0',
+          padding: '12px 16px',
+          borderRadius: 10,
+          background: '#eff6ff',
+          color: '#1d4ed8',
+          fontSize: 14,
+          fontWeight: 500,
+        }}>
+          {return_date
+            ? `Đang hiển thị hành trình khứ hồi ${origin} → ${destination}, đi ngày ${departure_date}, về ngày ${return_date}.`
+            : `Đang hiển thị hành trình một chiều ${origin} → ${destination}, đi ngày ${departure_date}.`}
+        </div>
+      )}
       {error && (
         <div style={{
           padding: '12px 16px', background: '#fef2f2', color: '#dc2626',
@@ -115,7 +158,7 @@ export default function FlightsPage() {
         searchData={searchData}
         flights={flights}
         isLoading={isLoading}
-        onBack={() => navigate(-1)}
+        onBack={goBackToSearch}
       />
     </div>
   );

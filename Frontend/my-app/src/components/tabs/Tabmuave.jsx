@@ -1,16 +1,15 @@
 // src/components/tabs/TabMuaVe.jsx
-// Kết nối: SearchPanel → FlightResults → PassengerForm (+ RefundPolicyModal)
+// Kết nối: SearchPanel → FlightResults → PassengerForm → AddonsService
 import { useState, useEffect, useCallback } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
+import AddonsService from '../checkin/AddonsService'
 import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
-import '../../styles/SearchPanel.css'  
+import '../../styles/SearchPanel.css'
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
 // ─── Mini Calendar ──────────────────────────────────────────────────────────
-const calendarCss = `
- 
-`
-
 function MiniCalendar({ value, onChange, onClose }) {
   const today = new Date()
   const init = value ? new Date(value) : today
@@ -70,18 +69,15 @@ function MiniCalendar({ value, onChange, onClose }) {
   )
 }
 
-function DateField({ label, value, onChange, className }) {
+function DateField({ label, value, onChange }) {
   const [open, setOpen] = useState(false)
-  const display = value
-    ? value.split('-').reverse().join('/')
-    : 'Chọn ngày'
+  const display = value ? value.split('-').reverse().join('/') : 'Chọn ngày'
 
   return (
     <div className="form-field" style={{ position: 'relative' }}>
-      <style>{calendarCss}</style>
       <label className="form-field__label">{label}</label>
       <div
-        className={`form-field__input ${className || ''}`}
+        className="form-field__input"
         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
         onClick={() => setOpen(o => !o)}
       >
@@ -90,7 +86,6 @@ function DateField({ label, value, onChange, className }) {
       </div>
       {open && (
         <>
-          {/* click outside to close */}
           <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
           <MiniCalendar value={value} onChange={onChange} onClose={() => setOpen(false)} />
         </>
@@ -99,7 +94,7 @@ function DateField({ label, value, onChange, className }) {
   )
 }
 
-// ─── Airport Search Component with API ──────────────────────────────────────
+// ─── Airport Search ───────────────────────────────────────────────────────────
 function AirportSearch({ label, value, onChange, placeholder }) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
@@ -113,8 +108,8 @@ function AirportSearch({ label, value, onChange, placeholder }) {
         try {
           const results = await searchAirports(query)
           setSuggestions(results.map(a => `${a.display_name} - ${a.city}`))
-        } catch (err) {
-          console.error('Airport search failed:', err)
+        } catch {
+          // ignore
         } finally {
           setLoading(false)
         }
@@ -122,16 +117,8 @@ function AirportSearch({ label, value, onChange, placeholder }) {
         setSuggestions([])
       }
     }, 300)
-
     return () => clearTimeout(timer)
   }, [query])
-
-  const handleSelect = (airport) => {
-    onChange(airport)
-    setQuery('')
-    setSuggestions([])
-    setOpen(false)
-  }
 
   return (
     <div className="form-field" style={{ position: 'relative' }}>
@@ -141,46 +128,33 @@ function AirportSearch({ label, value, onChange, placeholder }) {
           className="form-field__input"
           placeholder={value || placeholder}
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setOpen(true)
-          }}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
         />
         {value && (
-          <button 
-            className="clear-btn" 
+          <button
+            className="clear-btn"
             onClick={() => onChange('')}
             style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}
-          >
-            ✕
-          </button>
+          >✕</button>
         )}
       </div>
       {open && (suggestions.length > 0 || loading) && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
-          <div className="suggestions-dropdown" style={{ 
-            position: 'absolute', 
-            top: '100%', 
-            left: 0, 
-            right: 0, 
-            zIndex: 200,
-            background: 'white',
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            maxHeight: 200,
-            overflowY: 'auto'
+          <div className="suggestions-dropdown" style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+            background: 'white', border: '1px solid #ddd', borderRadius: 4,
+            maxHeight: 200, overflowY: 'auto',
           }}>
             {loading && <div style={{ padding: 8 }}>⏳ Đang tìm...</div>}
             {suggestions.map((airport, i) => (
               <div
                 key={i}
-                className="suggestion-item"
                 style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
-                onClick={() => handleSelect(airport)}
-                onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
-                onMouseLeave={(e) => e.target.style.background = 'white'}
+                onClick={() => { onChange(airport); setQuery(''); setSuggestions([]); setOpen(false) }}
+                onMouseEnter={e => e.target.style.background = '#f5f5f5'}
+                onMouseLeave={e => e.target.style.background = 'white'}
               >
                 {airport}
               </div>
@@ -192,8 +166,8 @@ function AirportSearch({ label, value, onChange, placeholder }) {
   )
 }
 
-// ─── Search Panel ────────────────────────────────────────────────────────────
-const AIRPORTS = [
+// ─── Search Panel ─────────────────────────────────────────────────────────────
+const FALLBACK_AIRPORTS = [
   'Nội Bài (HAN) – Hà Nội',
   'Tân Sơn Nhất (SGN) – TP.HCM',
   'Đà Nẵng (DAD)',
@@ -206,12 +180,23 @@ const AIRPORTS = [
   'Đồng Hới (VDH)',
 ]
 
+function normalizeAirportLabel(airport) {
+  if (!airport) return ''
+  const code = airport.iata_code ?? airport.code ?? airport.id ?? ''
+  const name = airport.name ?? airport.airport_name ?? ''
+  const city = airport.city ?? airport.city_name ?? airport.location ?? ''
+  if (!code && !name && !city) return ''
+
+  const primary = name || city || code
+  return `${primary}${code ? ` (${code})` : ''}${city && city !== primary ? ` – ${city}` : ''}`
+}
+
 function extractCode(airport) {
   const m = airport.match(/\(([A-Z]{3})\)/)
   return m ? m[1] : airport.split(' ')[0]
 }
 
-function SearchPanel({ onSearch, initialDestination, isLoading }) {
+function SearchPanel({ onSearch, initialDestination, isLoading, airports, airportsLoading, airportsError }) {
   const [tripType,   setTripType]   = useState('one')
   const [fromCity,   setFromCity]   = useState(initialDestination?.from || 'Nội Bài (HAN) – Hà Nội')
   const [toCity,     setToCity]     = useState(initialDestination?.to || '')
@@ -227,69 +212,43 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
   }
 
   function handleSearch() {
-    if (!toCity)   { alert('⚠️ Vui lòng chọn điểm đến!'); return }
-    if (!depDate)  { alert('⚠️ Vui lòng chọn ngày đi!');  return }
+    if (!toCity)  { alert('⚠️ Vui lòng chọn điểm đến!'); return }
+    if (!depDate) { alert('⚠️ Vui lòng chọn ngày đi!');  return }
     onSearch({
-      from:       extractCode(fromCity),
-      to:         extractCode(toCity),
-      fromLabel:  fromCity,
-      toLabel:    toCity,
-      date:       depDate,
-      retDate:    retDate,
+      from:      extractCode(fromCity),
+      to:        extractCode(toCity),
+      fromLabel: fromCity,
+      toLabel:   toCity,
+      date:      depDate,
+      retDate:   retDate,
       passengers,
       tripType,
     })
   }
 
   const isValid = toCity && depDate
+  const airportOptions = airports.length > 0 ? airports : FALLBACK_AIRPORTS
 
   return (
     <div className="tab-content">
-      {/* Trip type */}
       <div className="radio-group">
         {[['one','Một chiều'],['round','Khứ hồi']].map(([v, l]) => (
           <label key={v} className="radio-label">
-            <input
-              type="radio" name="trip" value={v}
-              checked={tripType === v}
-              onChange={() => setTripType(v)}
-            />
+            <input type="radio" name="trip" value={v} checked={tripType === v} onChange={() => setTripType(v)} />
             {l}
           </label>
         ))}
       </div>
 
-      {/* Toggle live search */}
-      <div style={{ marginBottom: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-          <input
-            type="checkbox"
-            checked={useLiveSearch}
-            onChange={(e) => setUseLiveSearch(e.target.checked)}
-          />
-          🔍 Tìm kiếm sân bay trực tiếp (gõ để tìm)
-        </label>
-      </div>
 
-      {/* From / To */}
       <div className="form-row">
         {useLiveSearch ? (
-          <AirportSearch
-            label="✈️ Từ"
-            value={fromCity}
-            onChange={setFromCity}
-            placeholder="Gõ tên thành phố hoặc mã sân bay..."
-          />
+          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." />
         ) : (
           <div className="form-field">
             <label className="form-field__label">✈️ Từ</label>
-            <select
-              className="form-field__input"
-              value={fromCity}
-              onChange={e => setFromCity(e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
-              {AIRPORTS.map(a => <option key={a} value={a}>{a}</option>)}
+            <select className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
+              {airportOptions.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
@@ -297,60 +256,38 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
         <button className="swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
         {useLiveSearch ? (
-          <AirportSearch
-            label="🛬 Đến"
-            value={toCity}
-            onChange={setToCity}
-            placeholder="Gõ tên thành phố hoặc mã sân bay..."
-          />
+          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." />
         ) : (
           <div className="form-field">
             <label className="form-field__label">🛬 Đến</label>
-            <select
-              className="form-field__input"
-              value={toCity}
-              onChange={e => setToCity(e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
+            <select className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
               <option value="">-- Chọn điểm đến --</option>
-              {AIRPORTS.filter(a => a !== fromCity).map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
+              {airportOptions.filter(a => a !== fromCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
       </div>
 
-      {/* Dates + Passengers */}
+      {airportsError && (
+        <div style={{ color: '#dc2626', fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+          {airportsError}
+        </div>
+      )}
+
       <div className="form-row">
-        <DateField
-          label="📅 Ngày đi"
-          value={depDate}
-          onChange={setDepDate}
-        />
-
+        <DateField label="📅 Ngày đi" value={depDate} onChange={setDepDate} />
         {tripType === 'round' && (
-          <DateField
-            label="📅 Ngày về"
-            value={retDate}
-            onChange={setRetDate}
-          />
+          <DateField label="📅 Ngày về" value={retDate} onChange={setRetDate} />
         )}
-
         <div className="form-field">
           <label className="form-field__label">👥 Hành khách</label>
-          <select
-            className="form-field__select"
-            value={passengers}
-            onChange={e => setPassengers(e.target.value)}
-          >
+          <select className="form-field__select" value={passengers} onChange={e => setPassengers(e.target.value)}>
             <option value="1">1 Người lớn</option>
             <option value="2">2 Người lớn</option>
             <option value="3">3 Người lớn</option>
             <option value="4">4+ Người lớn</option>
           </select>
         </div>
-
         <button
           className="btn-primary"
           onClick={handleSearch}
@@ -364,88 +301,39 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
   )
 }
 
-// ─── Flight Filters Component ────────────────────────────────────────────────
+// ─── Flight Filters ───────────────────────────────────────────────────────────
 function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrder, resultCount }) {
   const [localFilters, setLocalFilters] = useState(filters || {})
   const [showFilters, setShowFilters] = useState(false)
 
-  const handleApply = () => {
-    onFilterChange(localFilters)
-  }
-
-  const handleReset = () => {
-    setLocalFilters({})
-    onFilterChange({})
-  }
-
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          style={{ 
-            padding: '8px 16px', 
-            border: '1px solid #ddd', 
-            borderRadius: 4, 
-            background: showFilters ? '#e0e7ff' : 'white',
-            cursor: 'pointer',
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
-          🔍 Bộ lọc {showFilters ? '▲' : '▼'}
-        </button>
         
-        <span style={{ fontSize: 14, color: '#666' }}>
-          {resultCount} chuyến bay
-        </span>
+       
       </div>
 
       {showFilters && (
-        <div style={{ 
-          padding: 16, 
-          background: '#f8fafc', 
-          borderRadius: 8, 
-          marginTop: 12,
-          border: '1px solid #e2e8f0'
-        }}>
+        <div style={{ padding: 16, background: '#f8fafc', borderRadius: 8, marginTop: 12, border: '1px solid #e2e8f0' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            {/* Price Range */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
-                💰 Khoảng giá (VNĐ)
-              </label>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>💰 Khoảng giá (VNĐ)</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="number"
-                  placeholder="Từ"
-                  value={localFilters.minPrice || ''}
-                  onChange={(e) => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(e.target.value) : undefined})}
-                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
-                />
+                <input type="number" placeholder="Từ" value={localFilters.minPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
                 <span style={{ color: '#999' }}>-</span>
-                <input
-                  type="number"
-                  placeholder="Đến"
-                  value={localFilters.maxPrice || ''}
-                  onChange={(e) => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(e.target.value) : undefined})}
-                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
-                />
+                <input type="number" placeholder="Đến" value={localFilters.maxPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                  style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
               </div>
             </div>
 
-            {/* Departure Time */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
-                🕐 Giờ khởi hành
-              </label>
-              <select
-                value={localFilters.timeRange || ''}
-                onChange={(e) => setLocalFilters({...localFilters, timeRange: e.target.value || undefined})}
-                style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
-              >
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>🕐 Giờ khởi hành</label>
+              <select value={localFilters.timeRange || ''}
+                onChange={e => setLocalFilters({...localFilters, timeRange: e.target.value || undefined})}
+                style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}>
                 <option value="">Tất cả</option>
                 <option value="0-6">Sáng sớm (00:00 - 06:00)</option>
                 <option value="6-12">Buổi sáng (06:00 - 12:00)</option>
@@ -454,59 +342,31 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
               </select>
             </div>
 
-            {/* Sort Options */}
             <div>
-              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>
-                📊 Sắp xếp theo
-              </label>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>📊 Sắp xếp theo</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <select
-                  value={sortBy}
-                  onChange={(e) => onSortChange(e.target.value, sortOrder)}
-                  style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}
-                >
+                <select value={sortBy} onChange={e => onSortChange(e.target.value, sortOrder)}
+                  style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }}>
                   <option value="price">Giá vé</option>
                   <option value="duration">Thời gian bay</option>
                   <option value="departure">Giờ khởi hành</option>
                   <option value="arrival">Giờ hạ cánh</option>
                 </select>
-                <button
-                  onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
-                  style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer' }}
-                >
+                <button onClick={() => onSortChange(sortBy, sortOrder === 'asc' ? 'desc' : 'asc')}
+                  style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer' }}>
                   {sortOrder === 'asc' ? '↑' : '↓'}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Filter Actions */}
           <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-            <button
-              onClick={handleReset}
-              style={{ 
-                padding: '8px 16px', 
-                border: '1px solid #ddd', 
-                borderRadius: 4, 
-                background: 'white',
-                cursor: 'pointer',
-                fontSize: 13
-              }}
-            >
+            <button onClick={() => { setLocalFilters({}); onFilterChange({}) }}
+              style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 13 }}>
               Đặt lại
             </button>
-            <button
-              onClick={handleApply}
-              style={{ 
-                padding: '8px 16px', 
-                border: 'none', 
-                borderRadius: 4, 
-                background: '#3b82f6',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: 13
-              }}
-            >
+            <button onClick={() => onFilterChange(localFilters)}
+              style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#3b82f6', color: 'white', cursor: 'pointer', fontSize: 13 }}>
               Áp dụng
             </button>
           </div>
@@ -516,47 +376,77 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
   )
 }
 
-// ─── Root: TabMuaVe ──────────────────────────────────────────────────────────
-// Luồng: 'search' → 'results' → 'passenger'
+// ─── Root: TabMuaVe ───────────────────────────────────────────────────────────
+// Luồng: 'search' → 'results' → 'passenger' → 'addons'
 export default function TabMuaVe({ onAction, initialDestination }) {
-  const [screen,     setScreen]     = useState('search')   // 'search' | 'results' | 'passenger'
-  const [searchData, setSearchData] = useState(null)
-  const [selFlight,  setSelFlight]  = useState(null)
-  const [isLoading,  setIsLoading]  = useState(false)
-  const [apiResults, setApiResults] = useState(null)
-  const [filters,    setFilters]    = useState({})
-  const [sortBy,     setSortBy]     = useState('price')
-  const [sortOrder,  setSortOrder]  = useState('asc')
-  const [error,      setError]      = useState(null)
 
-  // Bước 1 → 2: Call API
+  const [screen,    setScreen]    = useState('search')   // 'search' | 'outbound' | 'return' | 'passenger' | 'addons'
+  const [searchData, setSearchData] = useState(null)
+  const [outboundSel, setOutboundSel] = useState(null)
+  const [returnSel, setReturnSel] = useState(null)
+  const [booking, setBooking] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [apiResults, setApiResults] = useState(null)
+  const [filters,   setFilters]   = useState({})
+  const [sortBy,    setSortBy]    = useState('price')
+  const [sortOrder, setSortOrder] = useState('asc')
+  const [error,     setError]     = useState(null)
+  const [airports, setAirports] = useState(FALLBACK_AIRPORTS)
+  const [airportsLoading, setAirportsLoading] = useState(false)
+  const [airportsError, setAirportsError] = useState('')
+
+  const fetchAirports = useCallback(async () => {
+    setAirportsLoading(true)
+    setAirportsError('')
+    try {
+      const res = await fetch(`${API_BASE}/airports`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const rawAirports = Array.isArray(data) ? data : (data.data ?? [])
+      const normalizedAirports = rawAirports
+        .map(normalizeAirportLabel)
+        .filter(Boolean)
+
+      if (normalizedAirports.length > 0) {
+        setAirports(normalizedAirports)
+      }
+    } catch (err) {
+      setAirportsError('Không tải được danh sách sân bay, đang dùng dữ liệu mặc định.')
+    } finally {
+      setAirportsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchAirports()
+  }, [fetchAirports])
+
+  // Bước 1 → 2: tìm kiếm
   async function handleSearch(data) {
     setIsLoading(true)
     setError(null)
     setSearchData(data)
-    
+    setOutboundSel(null)
+    setReturnSel(null)
+    setBooking(null)
     try {
       const result = await searchFlights({
-        origin: data.from,
-        destination: data.to,
+        origin:         data.from,
+        destination:    data.to,
         departure_date: data.date,
-        return_date: data.retDate || undefined,
-        adults: parseInt(data.passengers) || 1,
+        return_date:    data.retDate || undefined,
+        adults:         parseInt(data.passengers) || 1,
       })
-      
-      // Format flights from API
       const formattedResults = {
-        outbound: result.data?.outbound?.flatMap(day => 
+        outbound: result.data?.outbound?.flatMap(day =>
           day.flights.map(f => formatFlight(f))
         ) || [],
-        return: result.data?.return?.flatMap(day => 
+        return: result.data?.return?.flatMap(day =>
           day.flights.map(f => formatFlight(f))
         ) || [],
       }
-      
       setApiResults(formattedResults)
       setScreen('results')
-      onAction?.(`🔍 Tìm thấy ${formattedResults.outbound.length} chuyến bay`)
     } catch (err) {
       setError(err.message || 'Lỗi tìm kiếm chuyến bay')
       onAction?.('❌ ' + (err.message || 'Lỗi tìm kiếm'))
@@ -565,85 +455,121 @@ export default function TabMuaVe({ onAction, initialDestination }) {
     }
   }
 
-  // Apply filters and sorting
   const getFilteredFlights = () => {
     if (!apiResults) return { outbound: [], return: [] }
-    
     const filterConfig = {
       ...filters,
-      depTimeRange: filters.timeRange 
-        ? filters.timeRange.split('-').map(Number) 
-        : undefined,
+      depTimeRange: filters.timeRange ? filters.timeRange.split('-').map(Number) : undefined,
     }
-    
     return {
-      outbound: sortFlights(
-        filterFlights(apiResults.outbound, filterConfig),
-        sortBy,
-        sortOrder
-      ),
-      return: sortFlights(
-        filterFlights(apiResults.return, filterConfig),
-        sortBy,
-        sortOrder
-      ),
+      outbound: sortFlights(filterFlights(apiResults.outbound, filterConfig), sortBy, sortOrder),
+      return:   sortFlights(filterFlights(apiResults.return,   filterConfig), sortBy, sortOrder),
     }
   }
 
-  // Bước 2 → 3: chuyển sang màn hình nhập thông tin hành khách
+  // ── Bước 2 → 3: FlightResults gọi callback này sau khi user chọn hạng vé ──
+  // flight đã chứa { seat_class: "ECONOMY" | "BUSINESS", class: "Phổ thông" | "Thương gia", price, ... }
   const handleSelectFlight = useCallback((flight) => {
-    setSelFlight(flight)
-    setScreen('passenger')
-    const dep = flight.dep || flight.dep_time || ''
-    const arr = flight.arr || flight.arr_time || ''
-    onAction?.(`✅ Đã chọn ${flight.airline} ${dep}→${arr}`)
-  }, [onAction])
+    const seatLabel = flight.class || flight.seat_class || ''
 
-  // Bước 3 hoàn tất
-  function handleDone() {
+    if (searchData?.tripType === 'round') {
+      if (screen === 'return') {
+        setReturnSel(flight)
+        setScreen('passenger')
+        onAction?.(`✅ Đã chọn lượt về ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}`)
+        return
+      }
+
+      setOutboundSel(flight)
+      setScreen('return')
+      onAction?.(`✅ Đã chọn lượt đi ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}. Mời chọn chuyến về.`)
+      return
+    }
+
+    setOutboundSel(flight)
+    setScreen('passenger')
+    onAction?.(`✅ Đã chọn ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}`)
+  }, [onAction, screen, searchData?.tripType])
+
+  // Bước 3 (PassengerForm) → bước 4 (AddonsService)
+  // PassengerForm nên gọi onDone({ ticket_id }) để truyền ticket_id
+  function handlePassengerDone(result) {
+    setBooking(result?.booking ?? null)
+    setScreen('addons')
+    onAction?.('🎫 Đã điền thông tin hành khách — chọn dịch vụ bổ sung')
+  }
+
+  // Bước 4 hoàn tất
+  function handleAddonsDone() {
     onAction?.('🎉 Đặt vé thành công! Vui lòng kiểm tra email.')
     setTimeout(() => {
       setScreen('search')
       setSearchData(null)
-      setSelFlight(null)
+      setOutboundSel(null)
+      setReturnSel(null)
+      setBooking(null)
       setApiResults(null)
       setFilters({})
     }, 4000)
   }
 
-  // ── Render theo screen ──
-  if (screen === 'results') {
+  // ── Render ──
+  if (screen === 'results' || screen === 'return') {
     const filteredFlights = getFilteredFlights()
-    
+    const choosingReturn = searchData?.tripType === 'round' && outboundSel
+    const activeFlights = choosingReturn ? filteredFlights.return : filteredFlights.outbound
+    const activeSearchData = choosingReturn
+      ? {
+          ...searchData,
+          from: searchData?.to,
+          to: searchData?.from,
+          fromLabel: searchData?.toLabel,
+          toLabel: searchData?.fromLabel,
+          date: searchData?.retDate || searchData?.date,
+          tripType: 'one',
+        }
+      : searchData
+
     return (
       <div>
+        {choosingReturn && (
+          <div style={{ padding: 12, background: '#eff6ff', color: '#1d4ed8', borderRadius: 4, marginBottom: 16 }}>
+            Đã chọn lượt đi {outboundSel?.depCode} → {outboundSel?.arrCode}. Hãy chọn chuyến bay về và hạng ghế.
+          </div>
+        )}
         <FlightFilters
           filters={filters}
           onFilterChange={setFilters}
-          onSortChange={(by, order) => { setSortBy(by); setSortOrder(order); }}
+          onSortChange={(by, order) => { setSortBy(by); setSortOrder(order) }}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          resultCount={filteredFlights.outbound.length}
+          resultCount={activeFlights.length}
         />
-        
         {error && (
-          <div style={{ 
-            padding: 12, 
-            background: '#fef2f2', 
-            color: '#dc2626',
-            borderRadius: 4,
-            marginBottom: 16 
-          }}>
+          <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 16 }}>
             ⚠️ {error}
           </div>
         )}
-        
+        {/*
+          FlightResults sẽ:
+          1. Hiện 2 giá (Economy / Business) trên mỗi card
+          2. Khi click card hoặc "Chọn chỗ" → mở SeatClassPanel
+          3. Sau khi user chọn hạng → gọi onSelect(flight) với flight.seat_class đã có
+        */}
         <FlightResults
-          searchData={searchData}
-          flights={filteredFlights}
+          searchData={activeSearchData}
+          flights={{ outbound: activeFlights }}
           isLoading={isLoading}
-          onSelect={(flight) => handleSelectFlight(flight)}
+          onSelect={handleSelectFlight}
+          navigateOnSelect={false}
           onBack={() => {
+            if (choosingReturn) {
+              setOutboundSel(null)
+              setScreen('results')
+              onAction?.('↩ Quay lại chọn chuyến đi')
+              return
+            }
+
             setScreen('search')
             setError(null)
             setFilters({})
@@ -656,15 +582,54 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   }
 
   if (screen === 'passenger') {
+    const selectedFlights = [outboundSel, returnSel].filter(Boolean)
     return (
       <PassengerForm
-        flight={selFlight}
+        flight={outboundSel}
+        selectedFlights={selectedFlights}
         searchData={searchData}
         onBack={() => {
+          if (searchData?.tripType === 'round' && returnSel) {
+            setScreen('return')
+            onAction?.('↩ Quay lại chọn chuyến về')
+            return
+          }
+
           setScreen('results')
           onAction?.('↩ Quay lại danh sách chuyến bay')
         }}
-        onDone={handleDone}
+        onDone={handlePassengerDone}
+      />
+    )
+  }
+
+  if (screen === 'addons') {
+    const bookings = (booking?.tickets || []).map((ticket, index) => ({
+      id:      ticket.id,
+      depCode: ticket.flight_instance?.route?.origin?.code      || (index === 0 ? searchData?.from : searchData?.to),
+      arrCode: ticket.flight_instance?.route?.destination?.code || (index === 0 ? searchData?.to : searchData?.from),
+      date:    ticket.flight_instance?.std?.slice(0, 10) || (index === 0 ? searchData?.date : searchData?.retDate) || '',
+    }))
+
+    if (bookings.length === 0) {
+      ;[outboundSel, returnSel].filter(Boolean).forEach((item, index) => {
+        bookings.push({
+          id:      item.id ?? index + 1,
+          depCode: item.depCode ?? (index === 0 ? searchData?.from : searchData?.to),
+          arrCode: item.arrCode ?? (index === 0 ? searchData?.to : searchData?.from),
+          date:    index === 0 ? searchData?.date ?? '' : searchData?.retDate ?? '',
+        })
+      })
+    }
+
+    return (
+      <AddonsService
+        bookings={bookings}
+        onBack={() => {
+          setScreen('passenger')
+          onAction?.('↩ Quay lại thông tin hành khách')
+        }}
+        onNext={handleAddonsDone}
       />
     )
   }
@@ -672,19 +637,16 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   // Default: search
   return (
     <div>
-      <SearchPanel 
-        onSearch={handleSearch} 
+      <SearchPanel
+        onSearch={handleSearch}
         initialDestination={initialDestination}
         isLoading={isLoading}
+        airports={airports}
+        airportsLoading={airportsLoading}
+        airportsError={airportsError}
       />
       {error && (
-        <div style={{ 
-          padding: 12, 
-          background: '#fef2f2', 
-          color: '#dc2626',
-          borderRadius: 4,
-          marginTop: 16 
-        }}>
+        <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginTop: 16 }}>
           ⚠️ {error}
         </div>
       )}
