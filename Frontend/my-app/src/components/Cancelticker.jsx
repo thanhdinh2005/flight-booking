@@ -1,5 +1,5 @@
 // src/pages/CancelTicket.jsx
-// Luồng: nhập PNR + Email → tìm vé → GET /api/refund/preview/{id} → nhập lý do → POST /api/refund/confirm
+// Luồng: nhập PNR + Email → tìm vé → chọn vé → nhập lý do → POST /api/refund/confirm → chờ xử lý
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -107,6 +107,35 @@ const CANCEL_REASONS = [
 
 function fmt(n) { return Number(n).toLocaleString('vi-VN') + '₫' }
 
+function validatePnr(value) {
+  const pnr = String(value ?? '').trim().toUpperCase()
+  if (!pnr) return 'Vui lòng nhập mã đặt chỗ.'
+  if (!/^[A-Z0-9-]{6,20}$/.test(pnr)) return 'Mã đặt chỗ chỉ gồm chữ in hoa, số hoặc dấu gạch ngang và dài 6-20 ký tự.'
+  return ''
+}
+
+function validateEmail(value) {
+  const email = String(value ?? '').trim().toLowerCase()
+  if (!email) return 'Vui lòng nhập email đặt vé.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Email không đúng định dạng.'
+  return ''
+}
+
+function validateRefundReason(reason, custom) {
+  const selectedReason = String(reason ?? '').trim()
+  const customReason = String(custom ?? '').trim()
+  const finalReason = selectedReason === 'Lý do khác' ? customReason : selectedReason
+
+  if (!selectedReason) return 'Vui lòng chọn lý do hoàn vé.'
+  if (selectedReason === 'Lý do khác') {
+    if (!customReason) return 'Vui lòng nhập lý do hoàn vé.'
+    if (customReason.length < 10) return 'Lý do hoàn vé cần tối thiểu 10 ký tự.'
+    if (customReason.length > 500) return 'Lý do hoàn vé không được vượt quá 500 ký tự.'
+  }
+  if (finalReason.length > 500) return 'Lý do hoàn vé không được vượt quá 500 ký tự.'
+  return ''
+}
+
 // ── Step 0: Nhập PNR + Email ──────────────────────────────────────────────────
 function StepSearch({ initialPnr, initialEmail, onFound }) {
   const [pnr,     setPnr]     = useState(initialPnr ?? '')
@@ -125,7 +154,10 @@ function StepSearch({ initialPnr, initialEmail, onFound }) {
   async function handleSearch(pnrVal, emailVal) {
     const p = (pnrVal ?? pnr).trim()
     const e = (emailVal ?? email).trim()
-    if (!p || !e) { setError('Vui lòng nhập đầy đủ mã đặt chỗ và email.'); return }
+    const pnrError = validatePnr(p)
+    if (pnrError) { setError(pnrError); return }
+    const emailError = validateEmail(e)
+    if (emailError) { setError(emailError); return }
     setLoading(true)
     setError('')
     try {
@@ -165,7 +197,7 @@ function StepSearch({ initialPnr, initialEmail, onFound }) {
             type="text"
             placeholder="VD: VB-4X9K2"
             value={pnr}
-            onChange={e => { setPnr(e.target.value.toUpperCase()); setError('') }}
+            onChange={e => { setPnr(e.target.value.toUpperCase().replace(/\s+/g, '')); setError('') }}
             disabled={loading}
             maxLength={20}
             autoComplete="off"
@@ -182,7 +214,7 @@ function StepSearch({ initialPnr, initialEmail, onFound }) {
             type="email"
             placeholder="VD: ten@email.com"
             value={email}
-            onChange={e => { setEmail(e.target.value); setError('') }}
+            onChange={e => { setEmail(e.target.value.trimStart()); setError('') }}
             disabled={loading}
             autoComplete="email"
           />
@@ -204,7 +236,7 @@ function StepSearch({ initialPnr, initialEmail, onFound }) {
           <button
             className="ct-btn ct-btn--primary"
             type="submit"
-            disabled={loading || !pnr.trim() || !email.trim()}
+            disabled={loading || !!validatePnr(pnr) || !!validateEmail(email)}
           >
             {loading ? '⏳ Đang tìm...' : '🔍 Tìm vé'}
           </button>
@@ -362,7 +394,7 @@ function StepRefundCheck({ ticket, onContinue, onBack }) {
 }
 
 // ── Step 3: Nhập lý do → POST /api/refund/confirm ────────────────────────────
-function StepReason({ ticket, preview, onSubmit, onBack }) {
+function StepReason({ ticket, onSubmit, onBack }) {
   const [reason,  setReason]  = useState('')
   const [custom,  setCustom]  = useState('')
   const [loading, setLoading] = useState(false)
@@ -370,12 +402,13 @@ function StepReason({ ticket, preview, onSubmit, onBack }) {
 
   async function handleSubmit() {
     const finalReason = reason === 'Lý do khác' ? custom.trim() : reason
-    if (!finalReason) return
+    const reasonError = validateRefundReason(reason, custom)
+    if (reasonError) { setError(reasonError); return }
     setLoading(true); setError('')
     try {
       await apiFetch('POST', '/refund/confirm', {
-        ticket_ids: [ticket.id],
-        reason:     finalReason,
+        ticket_id: Number(ticket.id),
+        reason:    finalReason,
       })
       onSubmit(finalReason)
     } catch (err) {
@@ -398,7 +431,7 @@ function StepReason({ ticket, preview, onSubmit, onBack }) {
 
       <div className="ct-summary-bar">
         <span>{ticket.depCode}→{ticket.arrCode} · {ticket.date}</span>
-        <span>Hoàn tiền: <strong>{fmt(preview?.refund_amount ?? 0)}</strong></span>
+        <span>Vé #{ticket.id} · {ticket.flightNo}</span>
       </div>
 
       {error && (
@@ -427,6 +460,7 @@ function StepReason({ ticket, preview, onSubmit, onBack }) {
           value={custom}
           onChange={e => setCustom(e.target.value)}
           rows={3}
+          maxLength={500}
           disabled={loading}
         />
       )}
@@ -445,6 +479,46 @@ function StepReason({ ticket, preview, onSubmit, onBack }) {
   )
 }
 
+function StepPending({ ticket, reason, onDone, onBackToList }) {
+  return (
+    <div className="ct-step">
+      <div className="ct-step__header">
+        <div className="ct-step__num">04</div>
+        <div>
+          <div className="ct-step__title">Yêu cầu đang chờ xử lý</div>
+          <div className="ct-step__sub">Hệ thống đã ghi nhận yêu cầu hoàn vé của bạn</div>
+        </div>
+      </div>
+
+      <div className="ct-refund-card ct-refund-card--ok">
+        <div className="ct-refund-card__icon">⏳</div>
+        <div className="ct-refund-card__body">
+          <div className="ct-refund-card__verdict">Đã gửi yêu cầu hoàn vé thành công</div>
+          <div className="ct-refund-card__detail">
+            Vé <strong>{ticket.flightNo}</strong> · {ticket.depCode} → {ticket.arrCode} · {ticket.date}
+          </div>
+          <div className="ct-refund-card__detail">
+            Trạng thái hiện tại: <strong>Đang chờ xét duyệt</strong>
+          </div>
+          <div className="ct-refund-card__detail">
+            Lý do: {reason}
+          </div>
+        </div>
+      </div>
+
+      <div className="ct-search-hint" style={{ marginTop: 16 }}>
+        <span>ℹ️</span>
+        <span>Yêu cầu của bạn sẽ được kiểm tra và cập nhật trong danh sách vé sau khi hệ thống xử lý.</span>
+      </div>
+
+      <div className="ct-actions">
+        <button className="ct-btn ct-btn--ghost" onClick={onBackToList}>← Hoàn vé khác</button>
+        <button className="ct-btn ct-btn--primary" onClick={onDone}>Xem vé của tôi →</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Root ─────────────────────────────────────────────────────────────────────
 export default function CancelTicket() {
   const navigate = useNavigate()
@@ -455,20 +529,32 @@ export default function CancelTicket() {
   const passedPnr    = location.state?.pnr    ?? ''
   const passedEmail  = location.state?.email  ?? ''
 
-  // step: 0=search, 1=select, 2=refund-check, 3=reason
+  // step: 0=search, 1=select, 2=reason, 3=pending
   const [step,    setStep]    = useState(passedTicket ? 2 : 0)
   const [tickets, setTickets] = useState(passedTicket ? [passedTicket] : [])
   const [ticket,  setTicket]  = useState(passedTicket)
-  const [preview, setPreview] = useState(null)
   const [searchCtx, setSearchCtx] = useState({ pnr: passedPnr, email: passedEmail })
+  const [submittedReason, setSubmittedReason] = useState('')
 
   // Progress labels tương ứng từng bước
-  const STEPS = ['Tra cứu', 'Chọn vé', 'Điều kiện', 'Lý do hoàn']
+  const STEPS = ['Tra cứu', 'Chọn vé', 'Lý do hoàn', 'Chờ xử lý']
 
   function handleFound(foundTickets, pnr, email) {
+    if (!getToken()) {
+      alert('Vui lòng đăng nhập để tiếp tục hoàn vé.')
+      navigate('/login', {
+        state: {
+          redirectTo: '/cancel-ticket',
+          pnr,
+          email,
+        }
+      })
+      return
+    }
+
     setTickets(foundTickets)
     setSearchCtx({ pnr, email })
-    // Nếu chỉ 1 vé → thẳng bước 2
+    // Nếu chỉ 1 vé → thẳng bước nhập lý do
     if (foundTickets.length === 1) {
       setTicket(foundTickets[0])
       setStep(2)
@@ -478,13 +564,8 @@ export default function CancelTicket() {
   }
 
   function handleSubmit(reason) {
-    navigate('/my-tickets', {
-      state: {
-        notification: `Yêu cầu hoàn vé ${ticket.flightNo} đã được gửi. Lý do: ${reason}. Đang chờ xét duyệt.`,
-        highlightId:  ticket.id,
-        newStatus:    'cancel_pending',
-      }
-    })
+    setSubmittedReason(reason)
+    setStep(3)
   }
 
   return (
@@ -514,18 +595,30 @@ export default function CancelTicket() {
         />
       )}
       {step === 2 && ticket && (
-        <StepRefundCheck
+        <StepReason
           ticket={ticket}
-          onContinue={p => { setPreview(p); setStep(3) }}
+          onSubmit={handleSubmit}
           onBack={() => setStep(tickets.length > 1 ? 1 : 0)}
         />
       )}
       {step === 3 && ticket && (
-        <StepReason
+        <StepPending
           ticket={ticket}
-          preview={preview}
-          onSubmit={handleSubmit}
-          onBack={() => setStep(2)}
+          reason={submittedReason}
+          onBackToList={() => {
+            setSubmittedReason('')
+            setTicket(null)
+            setStep(0)
+          }}
+          onDone={() => {
+            navigate('/my-tickets', {
+              state: {
+                notification: `Yêu cầu hoàn vé ${ticket.flightNo} đã được gửi. Lý do: ${submittedReason}. Đang chờ xét duyệt.`,
+                highlightId:  ticket.id,
+                newStatus:    'cancel_pending',
+              }
+            })
+          }}
         />
       )}
     </div>

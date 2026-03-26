@@ -707,7 +707,7 @@ function DatePickerField({ label, value, onChange }) {
 }
 
 // ── Airports ───────────────────────────────────────────────────────────────────
-const AIRPORTS = [
+const FALLBACK_AIRPORTS = [
   'Tp. Hồ Chí Minh (SGN)',
   'Hà Nội (HAN)',
   'Đà Nẵng (DAD)',
@@ -741,6 +741,23 @@ async function apiFetch(path) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message ?? data?.error ?? `HTTP ${res.status}`);
   return data;
+}
+
+function normalizeAirportLabel(airport) {
+  if (!airport) return '';
+  const code = airport.iata_code ?? airport.code ?? airport.id ?? '';
+  const name = airport.name ?? airport.airport_name ?? '';
+  const city = airport.city ?? airport.city_name ?? airport.location ?? '';
+  if (!code && !name && !city) return '';
+
+  const primary = city || name || code;
+  return `${primary}${code ? ` (${code})` : ''}`;
+}
+
+async function fetchAirports() {
+  const data = await apiFetch('/airports');
+  const rawAirports = Array.isArray(data) ? data : (data.data ?? []);
+  return rawAirports.map(normalizeAirportLabel).filter(Boolean);
 }
 
 // Airline logo mapping
@@ -949,11 +966,30 @@ export default function TabTraCuu({ onSelectFlight }) {
   const [expandedId, setExpandedId] = useState(null);
   const [modalFlight, setModalFlight] = useState(null);
   const [weekOffset, setWeekOffset]   = useState(0);
+  const [airports, setAirports]       = useState(FALLBACK_AIRPORTS);
 
   // base date for week display
   const baseDate = new Date(date);
   baseDate.setDate(baseDate.getDate() + weekOffset * 7);
   const weekDays = getWeekDays(baseDate);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAirports() {
+      try {
+        const airportList = await fetchAirports();
+        if (!ignore && airportList.length > 0) {
+          setAirports(airportList);
+        }
+      } catch {
+        // giữ fallback nếu API lỗi
+      }
+    }
+
+    loadAirports();
+    return () => { ignore = true; };
+  }, []);
 
   function swap() { const tmp = from; setFrom(to); setTo(tmp); }
 
@@ -1045,34 +1081,27 @@ export default function TabTraCuu({ onSelectFlight }) {
           <div className="ttc-form-row">
             <div className="ttc-field">
               <label>Điểm đi</label>
-              <input
+              <select
                 className="ttc-input"
-                list="ttc-airports-from"
                 value={from}
                 onChange={e => { setFrom(e.target.value); setError(''); }}
-                placeholder="Chọn điểm khởi hành"
-                onKeyDown={handleKeyDown}
-              />
-              <datalist id="ttc-airports-from">
-                {AIRPORTS.map(a => <option key={a} value={a} />)}
-              </datalist>
+              >
+                {airports.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
 
             <button className="ttc-swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
             <div className="ttc-field">
               <label>Điểm đến</label>
-              <input
+              <select
                 className="ttc-input"
-                list="ttc-airports-to"
                 value={to}
                 onChange={e => { setTo(e.target.value); setError(''); }}
-                placeholder="Chọn điểm đến"
-                onKeyDown={handleKeyDown}
-              />
-              <datalist id="ttc-airports-to">
-                {AIRPORTS.filter(a => a !== from).map(a => <option key={a} value={a} />)}
-              </datalist>
+              >
+                <option value="">-- Chọn điểm đến --</option>
+                {airports.filter(a => a !== from).map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
 
             <DatePickerField

@@ -583,8 +583,8 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
     if (!selected) return
     setSubmitting(true); setError('')
     try {
-      // POST /api/checkin/submit
-      const res  = await apiFetch('POST', '/checkin/submit', {
+      // POST /api/submit
+      const res  = await apiFetch('POST', '/submit', {
         ticket_id:     ticketId,
         seat_number:   selected,
         checkin_token: checkinToken,

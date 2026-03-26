@@ -242,7 +242,8 @@ body {
 ═══════════════════════════════════════════ */
 .rg-card {
   width: 560px;           /* wider than login for comfort */
-  min-height: 680px;
+  height: auto;          /* thêm */
+  min-height: unset;     /* bỏ chiều cao cố định */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -358,7 +359,7 @@ body {
 
 .rg-req { color: var(--danger); margin-left: 2px; }
 
-.rg-row { display: flex; gap: 12px; }
+.rg-row { display: flex; gap: 12px; margin-bottom: 10px;}
 .rg-row .rg-field        { flex: 1; margin-bottom: 0; }
 .rg-row .rg-field-short  { flex: 0 0 138px; margin-bottom: 0; }
 
@@ -516,7 +517,7 @@ body {
   .signup-card { width: 100%; max-width: 460px; 
   margin-top: 500px
   }
-  .rg-card     { width: 100%; min-height: unset; }
+  .rg-card{ width: 100%; min-height: unset; }
 }
 
 @media (max-width: 600px) {

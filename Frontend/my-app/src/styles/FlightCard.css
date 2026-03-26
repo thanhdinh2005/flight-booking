@@ -7,8 +7,8 @@
 
 .flights-section {
   padding: 20px 24px 40px;
-   margin-top: -60px;
-  background-color: #e8f7fd; /* Màu nền app */
+  margin-top: -40px;
+  /* background-color: #e8f7fd; */
 }
 
 /* Container màu trắng bao quanh title và card */
@@ -31,6 +31,8 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+  max-height: 500px;   /* 👉 chiều cao giới hạn */
+  overflow-y: auto;   
 }
 
 .flight-card {

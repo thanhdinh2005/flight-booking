@@ -1,11 +1,13 @@
 // src/components/tabs/TabMuaVe.jsx
-// Kết nối: SearchPanel → FlightResults (chọn hạng vé) → PassengerForm
-// THAY ĐỔI: handleSelectFlight nhận cả seat_class từ FlightResults
-import { useState, useCallback } from 'react'
+// Kết nối: SearchPanel → FlightResults → PassengerForm → AddonsService
+import { useState, useEffect, useCallback } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
+import AddonsService from '../checkin/AddonsService'
 import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
 import '../../styles/SearchPanel.css'
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
 // ─── Mini Calendar ──────────────────────────────────────────────────────────
 function MiniCalendar({ value, onChange, onClose }) {
@@ -99,7 +101,7 @@ function AirportSearch({ label, value, onChange, placeholder }) {
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     const timer = setTimeout(async () => {
       if (query.length >= 1) {
         setLoading(true)
@@ -165,7 +167,7 @@ function AirportSearch({ label, value, onChange, placeholder }) {
 }
 
 // ─── Search Panel ─────────────────────────────────────────────────────────────
-const AIRPORTS = [
+const FALLBACK_AIRPORTS = [
   'Nội Bài (HAN) – Hà Nội',
   'Tân Sơn Nhất (SGN) – TP.HCM',
   'Đà Nẵng (DAD)',
@@ -178,12 +180,23 @@ const AIRPORTS = [
   'Đồng Hới (VDH)',
 ]
 
+function normalizeAirportLabel(airport) {
+  if (!airport) return ''
+  const code = airport.iata_code ?? airport.code ?? airport.id ?? ''
+  const name = airport.name ?? airport.airport_name ?? ''
+  const city = airport.city ?? airport.city_name ?? airport.location ?? ''
+  if (!code && !name && !city) return ''
+
+  const primary = name || city || code
+  return `${primary}${code ? ` (${code})` : ''}${city && city !== primary ? ` – ${city}` : ''}`
+}
+
 function extractCode(airport) {
   const m = airport.match(/\(([A-Z]{3})\)/)
   return m ? m[1] : airport.split(' ')[0]
 }
 
-function SearchPanel({ onSearch, initialDestination, isLoading }) {
+function SearchPanel({ onSearch, initialDestination, isLoading, airports, airportsLoading, airportsError }) {
   const [tripType,   setTripType]   = useState('one')
   const [fromCity,   setFromCity]   = useState(initialDestination?.from || 'Nội Bài (HAN) – Hà Nội')
   const [toCity,     setToCity]     = useState(initialDestination?.to || '')
@@ -214,6 +227,7 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
   }
 
   const isValid = toCity && depDate
+  const airportOptions = airports.length > 0 ? airports : FALLBACK_AIRPORTS
 
   return (
     <div className="tab-content">
@@ -233,8 +247,8 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
         ) : (
           <div className="form-field">
             <label className="form-field__label">✈️ Từ</label>
-            <select className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)}>
-              {AIRPORTS.map(a => <option key={a} value={a}>{a}</option>)}
+            <select className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
+              {airportOptions.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
@@ -246,13 +260,19 @@ function SearchPanel({ onSearch, initialDestination, isLoading }) {
         ) : (
           <div className="form-field">
             <label className="form-field__label">🛬 Đến</label>
-            <select className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)}>
+            <select className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
               <option value="">-- Chọn điểm đến --</option>
-              {AIRPORTS.filter(a => a !== fromCity).map(a => <option key={a} value={a}>{a}</option>)}
+              {airportOptions.filter(a => a !== fromCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
       </div>
+
+      {airportsError && (
+        <div style={{ color: '#dc2626', fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+          {airportsError}
+        </div>
+      )}
 
       <div className="form-row">
         <DateField label="📅 Ngày đi" value={depDate} onChange={setDepDate} />
@@ -357,23 +377,58 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
 }
 
 // ─── Root: TabMuaVe ───────────────────────────────────────────────────────────
-// Luồng: 'search' → 'results' (chọn hạng vé) → 'passenger'
+// Luồng: 'search' → 'results' → 'passenger' → 'addons'
 export default function TabMuaVe({ onAction, initialDestination }) {
-  const [screen,    setScreen]    = useState('search')   // 'search' | 'results' | 'passenger'
+
+  const [screen,    setScreen]    = useState('search')   // 'search' | 'outbound' | 'return' | 'passenger' | 'addons'
   const [searchData, setSearchData] = useState(null)
-  const [selFlight, setSelFlight] = useState(null)       // bao gồm seat_class
+  const [outboundSel, setOutboundSel] = useState(null)
+  const [returnSel, setReturnSel] = useState(null)
+  const [booking, setBooking] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [apiResults, setApiResults] = useState(null)
   const [filters,   setFilters]   = useState({})
   const [sortBy,    setSortBy]    = useState('price')
   const [sortOrder, setSortOrder] = useState('asc')
   const [error,     setError]     = useState(null)
+  const [airports, setAirports] = useState(FALLBACK_AIRPORTS)
+  const [airportsLoading, setAirportsLoading] = useState(false)
+  const [airportsError, setAirportsError] = useState('')
+
+  const fetchAirports = useCallback(async () => {
+    setAirportsLoading(true)
+    setAirportsError('')
+    try {
+      const res = await fetch(`${API_BASE}/airports`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const rawAirports = Array.isArray(data) ? data : (data.data ?? [])
+      const normalizedAirports = rawAirports
+        .map(normalizeAirportLabel)
+        .filter(Boolean)
+
+      if (normalizedAirports.length > 0) {
+        setAirports(normalizedAirports)
+      }
+    } catch (err) {
+      setAirportsError('Không tải được danh sách sân bay, đang dùng dữ liệu mặc định.')
+    } finally {
+      setAirportsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchAirports()
+  }, [fetchAirports])
 
   // Bước 1 → 2: tìm kiếm
   async function handleSearch(data) {
     setIsLoading(true)
     setError(null)
     setSearchData(data)
+    setOutboundSel(null)
+    setReturnSel(null)
+    setBooking(null)
     try {
       const result = await searchFlights({
         origin:         data.from,
@@ -415,36 +470,80 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   // ── Bước 2 → 3: FlightResults gọi callback này sau khi user chọn hạng vé ──
   // flight đã chứa { seat_class: "ECONOMY" | "BUSINESS", class: "Phổ thông" | "Thương gia", price, ... }
   const handleSelectFlight = useCallback((flight) => {
-    setSelFlight(flight)
-    setScreen('passenger')
     const seatLabel = flight.class || flight.seat_class || ''
-    onAction?.(`✅ Đã chọn ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}`)
-  }, [onAction])
 
-  // Bước 3 hoàn tất
-  function handleDone() {
+    if (searchData?.tripType === 'round') {
+      if (screen === 'return') {
+        setReturnSel(flight)
+        setScreen('passenger')
+        onAction?.(`✅ Đã chọn lượt về ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}`)
+        return
+      }
+
+      setOutboundSel(flight)
+      setScreen('return')
+      onAction?.(`✅ Đã chọn lượt đi ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}. Mời chọn chuyến về.`)
+      return
+    }
+
+    setOutboundSel(flight)
+    setScreen('passenger')
+    onAction?.(`✅ Đã chọn ${flight.airline} ${flight.dep}→${flight.arr} · ${seatLabel}`)
+  }, [onAction, screen, searchData?.tripType])
+
+  // Bước 3 (PassengerForm) → bước 4 (AddonsService)
+  // PassengerForm nên gọi onDone({ ticket_id }) để truyền ticket_id
+  function handlePassengerDone(result) {
+    setBooking(result?.booking ?? null)
+    setScreen('addons')
+    onAction?.('🎫 Đã điền thông tin hành khách — chọn dịch vụ bổ sung')
+  }
+
+  // Bước 4 hoàn tất
+  function handleAddonsDone() {
     onAction?.('🎉 Đặt vé thành công! Vui lòng kiểm tra email.')
     setTimeout(() => {
       setScreen('search')
       setSearchData(null)
-      setSelFlight(null)
+      setOutboundSel(null)
+      setReturnSel(null)
+      setBooking(null)
       setApiResults(null)
       setFilters({})
     }, 4000)
   }
 
   // ── Render ──
-  if (screen === 'results') {
+  if (screen === 'results' || screen === 'return') {
     const filteredFlights = getFilteredFlights()
+    const choosingReturn = searchData?.tripType === 'round' && outboundSel
+    const activeFlights = choosingReturn ? filteredFlights.return : filteredFlights.outbound
+    const activeSearchData = choosingReturn
+      ? {
+          ...searchData,
+          from: searchData?.to,
+          to: searchData?.from,
+          fromLabel: searchData?.toLabel,
+          toLabel: searchData?.fromLabel,
+          date: searchData?.retDate || searchData?.date,
+          tripType: 'one',
+        }
+      : searchData
+
     return (
       <div>
+        {choosingReturn && (
+          <div style={{ padding: 12, background: '#eff6ff', color: '#1d4ed8', borderRadius: 4, marginBottom: 16 }}>
+            Đã chọn lượt đi {outboundSel?.depCode} → {outboundSel?.arrCode}. Hãy chọn chuyến bay về và hạng ghế.
+          </div>
+        )}
         <FlightFilters
           filters={filters}
           onFilterChange={setFilters}
           onSortChange={(by, order) => { setSortBy(by); setSortOrder(order) }}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          resultCount={filteredFlights.outbound.length}
+          resultCount={activeFlights.length}
         />
         {error && (
           <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 16 }}>
@@ -458,11 +557,19 @@ export default function TabMuaVe({ onAction, initialDestination }) {
           3. Sau khi user chọn hạng → gọi onSelect(flight) với flight.seat_class đã có
         */}
         <FlightResults
-          searchData={searchData}
-          flights={filteredFlights}
+          searchData={activeSearchData}
+          flights={{ outbound: activeFlights }}
           isLoading={isLoading}
           onSelect={handleSelectFlight}
+          navigateOnSelect={false}
           onBack={() => {
+            if (choosingReturn) {
+              setOutboundSel(null)
+              setScreen('results')
+              onAction?.('↩ Quay lại chọn chuyến đi')
+              return
+            }
+
             setScreen('search')
             setError(null)
             setFilters({})
@@ -475,15 +582,54 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   }
 
   if (screen === 'passenger') {
+    const selectedFlights = [outboundSel, returnSel].filter(Boolean)
     return (
       <PassengerForm
-        flight={selFlight}          // đã có seat_class, price đúng hạng
+        flight={outboundSel}
+        selectedFlights={selectedFlights}
         searchData={searchData}
         onBack={() => {
+          if (searchData?.tripType === 'round' && returnSel) {
+            setScreen('return')
+            onAction?.('↩ Quay lại chọn chuyến về')
+            return
+          }
+
           setScreen('results')
           onAction?.('↩ Quay lại danh sách chuyến bay')
         }}
-        onDone={handleDone}
+        onDone={handlePassengerDone}
+      />
+    )
+  }
+
+  if (screen === 'addons') {
+    const bookings = (booking?.tickets || []).map((ticket, index) => ({
+      id:      ticket.id,
+      depCode: ticket.flight_instance?.route?.origin?.code      || (index === 0 ? searchData?.from : searchData?.to),
+      arrCode: ticket.flight_instance?.route?.destination?.code || (index === 0 ? searchData?.to : searchData?.from),
+      date:    ticket.flight_instance?.std?.slice(0, 10) || (index === 0 ? searchData?.date : searchData?.retDate) || '',
+    }))
+
+    if (bookings.length === 0) {
+      ;[outboundSel, returnSel].filter(Boolean).forEach((item, index) => {
+        bookings.push({
+          id:      item.id ?? index + 1,
+          depCode: item.depCode ?? (index === 0 ? searchData?.from : searchData?.to),
+          arrCode: item.arrCode ?? (index === 0 ? searchData?.to : searchData?.from),
+          date:    index === 0 ? searchData?.date ?? '' : searchData?.retDate ?? '',
+        })
+      })
+    }
+
+    return (
+      <AddonsService
+        bookings={bookings}
+        onBack={() => {
+          setScreen('passenger')
+          onAction?.('↩ Quay lại thông tin hành khách')
+        }}
+        onNext={handleAddonsDone}
       />
     )
   }
@@ -495,6 +641,9 @@ export default function TabMuaVe({ onAction, initialDestination }) {
         onSearch={handleSearch}
         initialDestination={initialDestination}
         isLoading={isLoading}
+        airports={airports}
+        airportsLoading={airportsLoading}
+        airportsError={airportsError}
       />
       {error && (
         <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginTop: 16 }}>

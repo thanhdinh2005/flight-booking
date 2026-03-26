@@ -310,6 +310,146 @@
   color: var(--sky-400);
 }
 
+.advanced-error {
+  font-size: 12px;
+  color: #dc2626;
+  margin-top: -4px;
+}
+
+.topbar-date-field {
+  position: relative;
+}
+
+.topbar-date-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.topbar-date-trigger--open {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-dim);
+}
+
+.topbar-date-trigger__icon {
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.topbar-cal {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 220;
+  width: 280px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--sky-200);
+  background: var(--white);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.14);
+  box-sizing: border-box;
+}
+
+.topbar-cal__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.topbar-cal__nav-btn {
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--sky-200);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--sky-700);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  appearance: none;
+}
+
+.topbar-cal__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sky-700);
+}
+
+.topbar-cal__dow,
+.topbar-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.topbar-cal__dow {
+  margin-bottom: 6px;
+}
+
+.topbar-cal__dow div {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--sky-600);
+}
+
+.topbar-cal__cell {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+.topbar-cal__cell:hover:not(.topbar-cal__cell--empty):not(.topbar-cal__cell--past) {
+  background: var(--sky-50);
+  border-color: var(--sky-200);
+}
+
+.topbar-cal__cell--empty {
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+  pointer-events: none;
+}
+
+.topbar-cal__cell--past {
+  color: var(--sky-300);
+  cursor: not-allowed;
+  background: #f8fbfd;
+}
+
+.topbar-cal__cell--today {
+  border-color: var(--amber);
+  color: var(--sky-800);
+}
+
+.topbar-cal__cell--selected {
+  background: var(--amber);
+  color: var(--white);
+  border-color: var(--amber);
+  box-shadow: 0 4px 10px rgba(245, 166, 35, 0.24);
+}
+
 .advanced-footer {
   display: flex;
   gap: 10px;

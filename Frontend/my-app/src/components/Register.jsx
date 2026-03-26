@@ -116,13 +116,29 @@ export default function RegisterForm({ onNavigate, onRegister }) {
 
           /* ────── STEP 1 ────── */
           <form onSubmit={submitStep1}>
-            <div className="rg-section">Thông tin liên hệ</div>
-
+              <div className="rg-row">
+                <div className="rg-field">
+                  <label className="rg-label">Họ <span className="rg-req">*</span></label>
+                  <input
+                    name="lastName" className="rg-input"
+                    placeholder="Vd: Nguyễn"
+                    value={form.lastName} onChange={handleForm} required
+                  />
+                </div>
+                <div className="rg-field">
+                  <label className="rg-label">Tên <span className="rg-req">*</span></label>
+                  <input
+                    name="firstName" className="rg-input"
+                    placeholder="Vd: Văn A"
+                    value={form.firstName} onChange={handleForm} required
+                  />
+                </div>
+              </div>
             <div className="rg-field">
               <label className="rg-label">Email <span className="rg-req">*</span></label>
               <input
                 name="email" type="email" className="rg-input"
-                placeholder="example@email.com"
+                placeholder="Vd: example@email.com"
                 value={info.email} onChange={handleInfo} required
               />
             </div>
@@ -130,31 +146,14 @@ export default function RegisterForm({ onNavigate, onRegister }) {
             <div className="rg-field">
               <label className="rg-label">Số điện thoại <span className="rg-req">*</span></label>
               <div className="rg-row">
-                <div className="rg-field-short">
-                  <select name="region" className="rg-select"
-                    value={info.region} onChange={handleInfo}>
-                    <option value="VN">🇻🇳 +84</option>
-                    <option value="US">🇺🇸 +1</option>
-                    <option value="JP">🇯🇵 +81</option>
-                  </select>
-                </div>
                 <div className="rg-field">
                   <input
                     name="phone" type="tel" className="rg-input"
-                    placeholder="9x xxx xxxx"
+                    placeholder="Vd: 0x xxx xxxx"
                     value={info.phone} onChange={handleInfo} required
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="rg-field">
-              <label className="rg-label">Username <span className="rg-req">*</span></label>
-              <input
-                name="username" type="text" className="rg-input"
-                placeholder="Tên đăng nhập"
-                value={info.username} onChange={handleInfo} required
-              />
             </div>
 
             {error && <div className="rg-error">⚠️ {error}</div>}
@@ -173,29 +172,14 @@ export default function RegisterForm({ onNavigate, onRegister }) {
 
           /* ────── STEP 2 ────── */
           <form onSubmit={submitStep2}>
-            <div className="rg-section">Họ &amp; tên</div>
-
-            <div className="rg-row">
-              <div className="rg-field">
-                <label className="rg-label">Họ <span className="rg-req">*</span></label>
-                <input
-                  name="lastName" className="rg-input"
-                  placeholder="Nguyễn"
-                  value={form.lastName} onChange={handleForm} required
-                />
-              </div>
-              <div className="rg-field">
-                <label className="rg-label">Tên <span className="rg-req">*</span></label>
-                <input
-                  name="firstName" className="rg-input"
-                  placeholder="Văn A"
-                  value={form.firstName} onChange={handleForm} required
-                />
-              </div>
+            <div className="rg-field">
+              <label className="rg-label">Username <span className="rg-req">*</span></label>
+              <input
+                name="username" type="text" className="rg-input"
+                placeholder="Tên đăng nhập"
+                value={info.username} onChange={handleInfo} required
+              />
             </div>
-
-            <hr className="rg-divider" />
-            <div className="rg-section">Mật khẩu</div>
 
             <div className="rg-field">
               <label className="rg-label">Mật khẩu <span className="rg-req">*</span></label>

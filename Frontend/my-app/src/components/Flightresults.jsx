@@ -450,11 +450,12 @@ function FlightDetailModal({ flight, pax, mode, onClose, onBuy }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function FlightResults({
   mode       = "buy",
-  searchData = { from: "HAN", to: "SGN", date: "2026-04-01", passengers: "2" },
+  searchData = { from: "HAN", to: "SGN", date: "", retDate: "", passengers: "1", tripType: "one" },
   flights,
   isLoading,
   onSelect   = () => {},
   onBack     = () => {},
+  navigateOnSelect = true,
 }) {
   const [sort, setSort]               = useState("price");
   const [detailFlight, setDetailFlight] = useState(null);
@@ -512,21 +513,23 @@ export default function FlightResults({
     }
 
     // Luồng độc lập → navigate sang BuyTicketPage
-    navigate("/buy-ticket", {
-      state: {
-        flight,
-        searchData: {
-          from:       searchData.from,
-          to:         searchData.to,
-          fromLabel:  searchData.fromLabel || searchData.from,
-          toLabel:    searchData.toLabel   || searchData.to,
-          date:       searchData.date,
-          retDate:    searchData.retDate,
-          passengers: searchData.passengers || "1",
-          tripType:   searchData.tripType   || "one",
+    if (navigateOnSelect) {
+      navigate("/buy-ticket", {
+        state: {
+          flight,
+          searchData: {
+            from:       searchData.from,
+            to:         searchData.to,
+            fromLabel:  searchData.fromLabel || searchData.from,
+            toLabel:    searchData.toLabel   || searchData.to,
+            date:       searchData.date,
+            retDate:    searchData.retDate,
+            passengers: searchData.passengers || "1",
+            tripType:   searchData.tripType   || "one",
+          },
         },
-      },
-    });
+      });
+    }
   }
 
   // ── URL params ──
@@ -543,7 +546,9 @@ export default function FlightResults({
     passengers: urlPax    || searchData.passengers || "1",
   };
 
-  const rawList  = flights?.outbound || (isCheckin ? MOCK_BOOKED : MOCK_FLIGHTS);
+  const rawList  = isCheckin
+    ? (flights?.outbound || MOCK_BOOKED)
+    : (flights?.outbound || []);
   const dataList = isCheckin && searchData.bookingCode
     ? rawList.filter(f =>
         f.bookingCode?.toUpperCase().includes(searchData.bookingCode.toUpperCase()) &&
@@ -580,6 +585,19 @@ export default function FlightResults({
       BUSINESS: (f.price || 0) * 3,
     },
   }));
+
+  if (!isCheckin && flights == null) {
+    return (
+      <div className="fr-root">
+        <div className="fr-container">
+          <div className="fr-loading">
+            <div className="fr-loading-spinner">⟳</div>
+            <div>Đang tải kết quả chuyến bay...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

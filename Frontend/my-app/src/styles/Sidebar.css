@@ -5,7 +5,7 @@
 @import './Tokens.css';
 
 .sidebar {
-  margin-top: -20px;
+  /* margin-top: -20px; */
   position: fixed;
   top: 58px;
   left: 0;

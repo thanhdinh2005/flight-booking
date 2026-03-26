@@ -128,21 +128,114 @@ function RefundPolicyModal({ flight, onClose, onAgree }) {
     </div>
   );
 } 
-function VNPayWaiting({ vnpayUrl }) {
+function MiniCalendar({ value, onChange, onClose }) {
+  const today = new Date()
+  const init = value ? new Date(value) : today
+  const [yr, setYr] = useState(init.getFullYear())
+  const [mo, setMo] = useState(init.getMonth())
+
+  const firstDay = new Date(yr, mo, 1).getDay()
+  const daysInMonth = new Date(yr, mo + 1, 0).getDate()
+  const cells = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+  const pad = cells.length % 7 ? 7 - (cells.length % 7) : 0
+  for (let i = 0; i < pad; i++) cells.push(null)
+
+  const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+                  'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12']
+  const DOWS   = ['CN','T2','T3','T4','T5','T6','T7']
+
+  function prev() { mo === 0 ? (setYr(y => y-1), setMo(11)) : setMo(m => m-1) }
+  function next() { mo === 11 ? (setYr(y => y+1), setMo(0)) : setMo(m => m+1) }
+
+function pick(d) {
+  if (!d) return
+  const iso = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+  onChange(iso)
+  onClose()
+}
+
+  const selD = value ? new Date(value) : null
+
+  function cls(d) {
+    if (!d) return 'cal-day cal-day--empty'
+    const date = new Date(yr, mo, d)
+    const isPast = date < new Date(today.toDateString())
+    const isSel  = selD && selD.getFullYear()===yr && selD.getMonth()===mo && selD.getDate()===d
+    const isToday= today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d
+    return ['cal-day', isPast&&'cal-day--past', isSel&&'cal-day--selected', (!isSel&&isToday)&&'cal-day--today'].filter(Boolean).join(' ')
+  }
+
+  return (
+    <div className="cal-wrap" onClick={e => e.stopPropagation()}>
+      <div className="cal-nav">
+        <button className="cal-nav__btn" onClick={prev}>‹</button>
+        <span className="cal-nav__label">{MONTHS[mo]} {yr}</span>
+        <button className="cal-nav__btn" onClick={next}>›</button>
+      </div>
+      <div className="cal-grid">
+        {DOWS.map(d => <div key={d} className="cal-dow">{d}</div>)}
+        {cells.map((d, i) => (
+          <div key={i} className={cls(d)} onClick={() => pick(d)}>{d || ''}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DateField({ label, value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const display = value ? value.split('-').reverse().join('/') : 'Chọn ngày'
+
+  return (
+    <div className="form-field" style={{ position: 'relative' }}>
+      <label className="form-field__label">{label}</label>
+      <div
+        className="form-field__input"
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span>📅</span>
+        <span style={{ color: value ? 'inherit' : '#9ca3af' }}>{display}</span>
+      </div>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
+          <MiniCalendar value={value} onChange={onChange} onClose={() => setOpen(false)} />
+        </>
+      )}
+    </div>
+  )
+}
+
+ function VNPayWaiting({ vnpayUrl }) {
   return (
     <div className="vnp-waiting">
       <div className="vnp-waiting__icon-wrap">
         <svg viewBox="0 0 56 56" fill="none" width="56" height="56">
-          <rect width="56" height="56" rx="14" fill="url(#vnpw-g)"/>
-          <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle"
-            fill="#fff" fontSize="14" fontWeight="800" fontFamily="sans-serif">VNP</text>
+          <rect width="56" height="56" rx="14" fill="url(#vnpw-g)" />
+          <text
+            x="50%"
+            y="54%"
+            dominantBaseline="middle"
+            textAnchor="middle"
+            fill="#fff"
+            fontSize="14"
+            fontWeight="800"
+            fontFamily="sans-serif"
+          >
+            VNP
+          </text>
           <defs>
-            <linearGradient id="vnpw-g" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#00bfa8"/>
-              <stop offset="1" stopColor="#007869"/>
+            <linearGradient id="vnpw-g" x1="0" y1="0" x2="56" y2="56">
+              <stop stopColor="#00bfa8" />
+              <stop offset="1" stopColor="#007869" />
             </linearGradient>
           </defs>
         </svg>
+
         {/* Pulse ring */}
         <div className="vnp-waiting__pulse" />
       </div>
@@ -150,7 +243,8 @@ function VNPayWaiting({ vnpayUrl }) {
       <div className="vnp-waiting__content">
         <div className="vnp-waiting__title">Đang chờ thanh toán...</div>
         <div className="vnp-waiting__sub">
-          Trang thanh toán VNPay đã được mở trong tab mới.<br/>
+          Trang thanh toán VNPay đã được mở trong tab mới.
+          <br />
           Trang này sẽ tự cập nhật sau khi bạn hoàn tất.
         </div>
       </div>
@@ -160,10 +254,14 @@ function VNPayWaiting({ vnpayUrl }) {
           <span className="vnp-waiting__step-dot">✓</span>
           Giữ chỗ thành công
         </div>
+
         <div className="vnp-waiting__step vnp-waiting__step--active">
-          <span className="vnp-waiting__step-dot vnp-waiting__step-dot--spin">⟳</span>
+          <span className="vnp-waiting__step-dot vnp-waiting__step-dot--spin">
+            ⟳
+          </span>
           Chờ xác nhận thanh toán
         </div>
+
         <div className="vnp-waiting__step vnp-waiting__step--idle">
           <span className="vnp-waiting__step-dot">○</span>
           Xác nhận vé
@@ -172,15 +270,23 @@ function VNPayWaiting({ vnpayUrl }) {
 
       <button
         className="vnp-waiting__reopen"
-        onClick={() => window.open(vnpayUrl, '_blank')}
+        onClick={() => {
+          if (vnpayUrl) {
+            window.open(vnpayUrl, "_blank");
+          } else {
+            alert("Không có link thanh toán");
+          }
+        }}
       >
         Mở lại trang thanh toán →
       </button>
-      <div className="vnp-sandbox-badge">🧪 Môi trường Sandbox</div>
+
+      <div className="vnp-sandbox-badge">
+        🧪 Môi trường Sandbox
+      </div>
     </div>
   );
 }
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PassengerForm({
   flight = {
@@ -193,11 +299,16 @@ export default function PassengerForm({
     flightNo: "VJ-134", depCode: "HAN", arrCode: "SGN",
     logoColor: "#e5002b", logoText: "#fff",
   },
+  selectedFlights = [],
   searchData = { from: "HAN", to: "SGN", date: "2026-04-01", passengers: "2" },
   onBack = () => {},
   onDone = () => {},
 }) {
   const pax = parseInt(searchData.passengers) || 1;
+  const itineraryFlights = selectedFlights.length > 0
+    ? selectedFlights.filter(Boolean)
+    : [flight].filter(Boolean)
+  const totalFlightPrice = itineraryFlights.reduce((sum, item) => sum + (Number(item?.price) || 0), 0)
 
   const [subStep, setSubStep]       = useState(0);
   const [forms, setForms]           = useState(() =>
@@ -212,7 +323,7 @@ export default function PassengerForm({
   const [submitting, setSubmitting] = useState(false);
   const [paying, setPaying]         = useState(false);
   const [vnpayUrl, setVnpayUrl]     = useState(null);
-
+const [openCalIndex, setOpenCalIndex] = useState(null);
   function updForm(i, field, val) {
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
@@ -233,11 +344,11 @@ export default function PassengerForm({
         body: JSON.stringify({
           contact_email: contact.email.trim(),
           contact_phone: contact.phone.trim(),
-          itinerary: [{
-            flight_instance_id: flight.id,
-            description: `${flight.depCode} - ${flight.arrCode}`,
-            seat_class: flight.seat_class || 'ECONOMY',
-          }],
+          itinerary: itineraryFlights.map(item => ({
+            flight_instance_id: item.id,
+            description: `${item.depCode} - ${item.arrCode}`,
+            seat_class: item.seat_class || 'ECONOMY',
+          })),
           passengers: forms.map(f => ({
             first_name: f.first_name.trim(),
             last_name:  f.last_name.trim(),
@@ -249,7 +360,12 @@ export default function PassengerForm({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || `Lỗi ${res.status}`);
       setBooking(json.data);
-      setSubStep(1);
+      // Gọi onDone để component cha chuyển sang màn AddonsService
+      // Truyền booking để sau khi chọn addon xong biết booking_id để thanh toán
+      onDone?.({
+        booking: json.data,
+        ticket_id: json.data?.tickets?.[0]?.id ?? json.data?.id ?? null,
+      });
     } catch (err) {
       setApiError(
         err.message === 'TOKEN_MISSING'
@@ -291,10 +407,36 @@ export default function PassengerForm({
     // Không setPaying(false) khi success — overlay giữ đến khi redirect
   }
 
+// ─── Step indicator — 3 bước: Thông tin (active) → Dịch vụ → Thanh toán ───
+const STEPS = ['Thông tin', 'Dịch vụ', 'Thanh toán']
+
+function StepBar({ active }) {
+  return (
+    <div className="pf-steps">
+      {STEPS.map((label, i) => {
+        const state = i < active ? 'done' : i === active ? 'active' : 'idle'
+        return (
+          <>
+            <div className="pf-step" key={i}>
+              <div className={`pf-step__circle pf-step__circle--${state}`}>
+                {state === 'done' ? '✓' : i + 1}
+              </div>
+              <span className={`pf-step__label${state === 'active' ? ' pf-step__label--active' : ''}`}>
+                {label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={`pf-step-line${state === 'done' ? ' pf-step-line--done' : ''}`} key={`line-${i}`} />
+            )}
+          </>
+        )
+      })}
+    </div>
+  )
+}
+
   // ── Redirect overlay ──────────────────────────────────────────────────────
   // Không replace toàn trang — hiện banner chờ ngay trong layout
-
-  const stepLabels = ["Thông tin", "Thanh toán"];
 
   return (
     <>
@@ -309,36 +451,51 @@ export default function PassengerForm({
       <div className="pf-root">
         <div className="pf-container">
 
-          {/* Steps */}
-          <div className="pf-steps">
-            {stepLabels.map((label, i) => (
-              <>
-                <div className="pf-step" key={i}>
-                  <div className={`pf-step__circle pf-step__circle--${subStep > i ? "done" : subStep === i ? "active" : "idle"}`}>
-                    {subStep > i ? "✓" : i + 1}
-                  </div>
-                  <span className={`pf-step__label${subStep === i ? " pf-step__label--active" : ""}`}>{label}</span>
-                </div>
-                {i < stepLabels.length - 1 && (
-                  <div className={`pf-step-line${subStep > i ? " pf-step-line--done" : ""}`} key={`line-${i}`} />
-                )}
-              </>
-            ))}
-          </div>
+          <StepBar active={0} />
 
           {/* Flight pill */}
           <div className="pf-flight-pill">
-            <span>✈️ {flight.airline}</span>
+            <span>✈️ {itineraryFlights[0]?.airline || flight.airline}</span>
             <span className="pf-flight-pill__sep">·</span>
             <span>{searchData.from} → {searchData.to}</span>
             <span className="pf-flight-pill__sep">·</span>
             <span>{fmtDate(searchData.date)}</span>
-            <span className="pf-flight-pill__sep">·</span>
-            <span>{flight.dep} – {flight.arr}</span>
+            {searchData.tripType === 'round' && searchData.retDate && (
+              <>
+                <span className="pf-flight-pill__sep">·</span>
+                <span>Về {fmtDate(searchData.retDate)}</span>
+              </>
+            )}
             <span className="pf-flight-pill__sep">·</span>
             <span>{pax} khách</span>
-            <span className="pf-flight-pill__price">{fmt(flight.price * pax)}</span>
+            <span className="pf-flight-pill__price">{fmt(totalFlightPrice * pax)}</span>
           </div>
+
+          {itineraryFlights.length > 1 && (
+            <div className="pf-card" style={{ marginBottom: 16 }}>
+              <div className="pf-card__title">
+                <span className="pf-card__title-icon">🛫</span>
+                Hành trình đã chọn
+              </div>
+              {itineraryFlights.map((item, index) => (
+                <div key={`${item.id}-${index}`} className="pf-ticket-row">
+                  <div className="pf-ticket-row__pax">
+                    {index === 0 ? 'Lượt đi' : 'Lượt về'}
+                  </div>
+                  <div className="pf-ticket-row__flight">
+                    {item.depCode} → {item.arrCode}
+                    {' · '}
+                    {item.dep} - {item.arr}
+                    {' · '}
+                    <span className={`pf-class-tag pf-class-tag--${(item.seat_class || '').toLowerCase()}`}>
+                      {item.seat_class === 'BUSINESS' ? '👑 Thương gia' : '💺 Phổ thông'}
+                    </span>
+                  </div>
+                  <div className="pf-ticket-row__price">{fmt(item.price * pax)}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── BƯỚC 0: Nhập thông tin ── */}
           {subStep === 0 && (
@@ -388,11 +545,49 @@ export default function PassengerForm({
                       <input placeholder="VD: Văn A" value={f.first_name}
                         onChange={e => updForm(i, 'first_name', e.target.value)} />
                     </div>
-                    <div className="pf-field">
-                      <label>Ngày sinh</label>
-                      <input type="date" value={f.birthday}
-                        onChange={e => updForm(i, 'birthday', e.target.value)} />
-                    </div>
+                   <div className="pf-field" style={{ position: 'relative' }}>
+                <label>Ngày sinh</label>
+
+                <div
+                  className="form-field__input"
+                  style={{
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  onClick={() => setOpenCalIndex(i)}
+                >
+                  <span>📅</span>
+                  <span style={{ color: f.birthday ? 'inherit' : '#9ca3af' }}>
+                    {f.birthday
+                      ? f.birthday.split('-').reverse().join('/')
+                      : 'Chọn ngày'}
+                  </span>
+                </div>
+
+                {openCalIndex === i && (
+                  <>
+                    {/* overlay click ra ngoài để đóng */}
+                    <div
+                      style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 100
+                      }}
+                      onClick={() => setOpenCalIndex(null)}
+                    />
+
+                    <MiniCalendar
+                      value={f.birthday}
+                      onChange={(date) => {
+                        updForm(i, 'birthday', date)
+                      }}
+                      onClose={() => setOpenCalIndex(null)}
+                    />
+                  </>
+                )}
+              </div>
                     <div className="pf-field">
                       <label>Giới tính <span className="pf-req">*</span></label>
                       <select value={f.gender}
