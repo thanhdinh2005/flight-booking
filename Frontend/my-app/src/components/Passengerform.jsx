@@ -1,6 +1,6 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
 // Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { getToken, isTokenExpired } from '../services/keycloakService';
 import '../styles/Passenger.css';
 import '../styles/Refundpolicy.css';
@@ -133,6 +133,8 @@ function MiniCalendar({ value, onChange, onClose }) {
   const init = value ? new Date(value) : today
   const [yr, setYr] = useState(init.getFullYear())
   const [mo, setMo] = useState(init.getMonth())
+  const currentYear = today.getFullYear()
+  const years = Array.from({ length: 101 }, (_, idx) => currentYear - idx)
 
   const firstDay = new Date(yr, mo, 1).getDay()
   const daysInMonth = new Date(yr, mo + 1, 0).getDate()
@@ -150,29 +152,52 @@ function MiniCalendar({ value, onChange, onClose }) {
   function prev() { mo === 0 ? (setYr(y => y-1), setMo(11)) : setMo(m => m-1) }
   function next() { mo === 11 ? (setYr(y => y+1), setMo(0)) : setMo(m => m+1) }
 
-function pick(d) {
-  if (!d) return
-  const iso = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  onChange(iso)
-  onClose()
-}
+  function pick(d) {
+    if (!d) return
+    const date = new Date(yr, mo, d)
+    if (date > today) return
+    const iso = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    onChange(iso)
+    onClose()
+  }
 
   const selD = value ? new Date(value) : null
 
   function cls(d) {
     if (!d) return 'cal-day cal-day--empty'
     const date = new Date(yr, mo, d)
-    const isPast = date < new Date(today.toDateString())
+    const isFuture = date > new Date(today.toDateString())
     const isSel  = selD && selD.getFullYear()===yr && selD.getMonth()===mo && selD.getDate()===d
     const isToday= today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d
-    return ['cal-day', isPast&&'cal-day--past', isSel&&'cal-day--selected', (!isSel&&isToday)&&'cal-day--today'].filter(Boolean).join(' ')
+    return ['cal-day', isFuture&&'cal-day--past', isSel&&'cal-day--selected', (!isSel&&isToday)&&'cal-day--today'].filter(Boolean).join(' ')
   }
 
   return (
     <div className="cal-wrap" onClick={e => e.stopPropagation()}>
       <div className="cal-nav">
         <button className="cal-nav__btn" onClick={prev}>‹</button>
-        <span className="cal-nav__label">{MONTHS[mo]} {yr}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <select
+            className="form-field__select"
+            value={mo}
+            onChange={e => setMo(Number(e.target.value))}
+            style={{ minWidth: 112, padding: '6px 10px' }}
+          >
+            {MONTHS.map((month, index) => (
+              <option key={month} value={index}>{month}</option>
+            ))}
+          </select>
+          <select
+            className="form-field__select"
+            value={yr}
+            onChange={e => setYr(Number(e.target.value))}
+            style={{ minWidth: 96, padding: '6px 10px' }}
+          >
+            {years.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
         <button className="cal-nav__btn" onClick={next}>›</button>
       </div>
       <div className="cal-grid">
@@ -181,31 +206,6 @@ function pick(d) {
           <div key={i} className={cls(d)} onClick={() => pick(d)}>{d || ''}</div>
         ))}
       </div>
-    </div>
-  )
-}
-
-function DateField({ label, value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const display = value ? value.split('-').reverse().join('/') : 'Chọn ngày'
-
-  return (
-    <div className="form-field" style={{ position: 'relative' }}>
-      <label className="form-field__label">{label}</label>
-      <div
-        className="form-field__input"
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span>📅</span>
-        <span style={{ color: value ? 'inherit' : '#9ca3af' }}>{display}</span>
-      </div>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
-          <MiniCalendar value={value} onChange={onChange} onClose={() => setOpen(false)} />
-        </>
-      )}
     </div>
   )
 }
@@ -328,13 +328,17 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
 
-  const infoValid =
+  const formFieldsValid =
     forms.every(f => f.first_name.trim() && f.last_name.trim() && f.gender) &&
-    contact.email.trim() && contact.phone.trim() && policyRead;
+    contact.email.trim() && contact.phone.trim();
 
   // ── BƯỚC 0 → 1: POST /api/createBooking ──────────────────────────────────
   async function handleCreateBooking() {
-    if (!infoValid) return;
+    if (!formFieldsValid) return;
+    if (!policyRead) {
+      setApiError('Vui lòng đọc và đồng ý với chính sách hoàn vé trước khi tiếp tục.');
+      return;
+    }
     setSubmitting(true);
     setApiError('');
     try {
@@ -512,7 +516,10 @@ function StepBar({ active }) {
                     <input
                       type="email" placeholder="email@example.com"
                       value={contact.email}
-                      onChange={e => setContact(c => ({ ...c, email: e.target.value }))}
+                      onChange={e => {
+                        setContact(c => ({ ...c, email: e.target.value }))
+                        if (apiError) setApiError('')
+                      }}
                     />
                   </div>
                   <div className="pf-field">
@@ -520,7 +527,10 @@ function StepBar({ active }) {
                     <input
                       type="tel" placeholder="09xxxxxxxx"
                       value={contact.phone}
-                      onChange={e => setContact(c => ({ ...c, phone: e.target.value }))}
+                      onChange={e => {
+                        setContact(c => ({ ...c, phone: e.target.value }))
+                        if (apiError) setApiError('')
+                      }}
                     />
                   </div>
                 </div>
@@ -538,12 +548,18 @@ function StepBar({ active }) {
                     <div className="pf-field">
                       <label>Họ <span className="pf-req">*</span></label>
                       <input placeholder="VD: Nguyễn" value={f.last_name}
-                        onChange={e => updForm(i, 'last_name', e.target.value)} />
+                        onChange={e => {
+                          updForm(i, 'last_name', e.target.value)
+                          if (apiError) setApiError('')
+                        }} />
                     </div>
                     <div className="pf-field">
                       <label>Tên <span className="pf-req">*</span></label>
                       <input placeholder="VD: Văn A" value={f.first_name}
-                        onChange={e => updForm(i, 'first_name', e.target.value)} />
+                        onChange={e => {
+                          updForm(i, 'first_name', e.target.value)
+                          if (apiError) setApiError('')
+                        }} />
                     </div>
                    <div className="pf-field" style={{ position: 'relative' }}>
                 <label>Ngày sinh</label>
@@ -582,6 +598,7 @@ function StepBar({ active }) {
                       value={f.birthday}
                       onChange={(date) => {
                         updForm(i, 'birthday', date)
+                        if (apiError) setApiError('')
                       }}
                       onClose={() => setOpenCalIndex(null)}
                     />
@@ -591,7 +608,10 @@ function StepBar({ active }) {
                     <div className="pf-field">
                       <label>Giới tính <span className="pf-req">*</span></label>
                       <select value={f.gender}
-                        onChange={e => updForm(i, 'gender', e.target.value)}>
+                        onChange={e => {
+                          updForm(i, 'gender', e.target.value)
+                          if (apiError) setApiError('')
+                        }}>
                         <option value="MALE">Nam</option>
                         <option value="FEMALE">Nữ</option>
                       </select>
@@ -603,7 +623,10 @@ function StepBar({ active }) {
               {/* Chính sách */}
               <div className="pf-policy-row">
                 <button className={`pf-policy-btn${policyRead ? " read" : ""}`}
-                  onClick={() => setShowPolicy(true)}>
+                  onClick={() => {
+                    if (apiError) setApiError('')
+                    setShowPolicy(true)
+                  }}>
                   {policyRead ? "✓ Đã xem" : "📋 Chính sách hoàn vé"}
                 </button>
                 <div className="pf-policy-note">
@@ -617,7 +640,7 @@ function StepBar({ active }) {
 
               <div className="pf-btn-row">
                 <button className="pf-btn-back" onClick={onBack}>← Quay lại</button>
-                <button className="pf-btn-next" disabled={!infoValid || submitting}
+                <button className="pf-btn-next" disabled={!formFieldsValid || submitting}
                   onClick={handleCreateBooking}>
                   {submitting
                     ? <><span className="pf-spinner-sm" /> Đang giữ chỗ...</>

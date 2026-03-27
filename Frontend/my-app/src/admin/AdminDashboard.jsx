@@ -24,10 +24,10 @@ const NAV = [
   {
     group: 'Quản lý',
     items: [
-      { key: 'customers', label: 'Khách hàng',     icon: '👤' },
-      { key: 'flights',   label: 'Chuyến bay',     icon: '✈️' },
-      { key: 'schedules', label: 'Lịch bay',       icon: '🗓️' },
-      { key: 'bookings',  label: 'Yêu cầu đặt vé', icon: '📋' },
+      { key: 'customers', label: 'Quản lý tài khoản', icon: '👤' },
+      { key: 'flights',   label: 'Chuyến bay',        icon: '✈️' },
+      { key: 'schedules', label: 'Lịch bay',          icon: '🗓️' },
+      { key: 'bookings',  label: 'Yêu cầu hoàn vé',   icon: '↩️' },
       // { key: 'tickets',   label: 'Vé máy bay',     icon: '🎫' },
     ],
   },
@@ -40,15 +40,15 @@ const NAV = [
   },
 ]
 
-const PAGE_TITLE = {
-  dashboard: 'Dashboard Admin',
-  customers: 'Quản lý khách hàng',
-  flights:   'Quản lý chuyến bay',
-  schedules: 'Quản lý lịch bay',
-  bookings:  'Yêu cầu đặt vé',
-  tickets:   'Quản lý vé máy bay',
-  stats:     'Thống kê báo cáo',
-  logs:      'Audit Logs',
+const PAGE_META = {
+  dashboard: { eyebrow: 'Tổng quan hệ thống', sub: 'Theo dõi nhanh số liệu và hoạt động vận hành' },
+  customers: { eyebrow: 'Quản lý người dùng', sub: 'Xem, cập nhật và kiểm soát trạng thái tài khoản' },
+  flights:   { eyebrow: 'Điều phối khai thác', sub: 'Theo dõi và cập nhật thông tin chuyến bay' },
+  schedules: { eyebrow: 'Lịch vận hành', sub: 'Quản lý lịch bay theo từng chặng và giai đoạn khai thác' },
+  bookings:  { eyebrow: 'Xử lý yêu cầu', sub: 'Duyệt và theo dõi các yêu cầu hoàn vé từ khách hàng' },
+  tickets:   { eyebrow: 'Quản lý vé', sub: 'Tra cứu và xử lý các vé đã phát hành' },
+  stats:     { eyebrow: 'Báo cáo kinh doanh', sub: 'Tổng hợp doanh thu, tỷ lệ lấp đầy và biến động' },
+  logs:      { eyebrow: 'Nhật ký hệ thống', sub: 'Theo dõi truy vết thay đổi trong hệ thống' },
 }
 
 const SECTIONS = {
@@ -78,6 +78,8 @@ export default function AdminDashboard() {
   }
 
   const ActiveSection = SECTIONS[tab] || SectionDashboard
+  const currentGroup = NAV.find(group => group.items.some(item => item.key === tab))?.group || 'Quản trị'
+  const currentMeta = PAGE_META[tab] || PAGE_META.dashboard
 
   return (
     <div className="adm-root">
@@ -85,8 +87,8 @@ export default function AdminDashboard() {
         <div className="adm-logo">
           <div className="adm-logo-icon">✈</div>
           <div>
-            <div className="adm-logo-name">VietJext</div>
-            <div className="adm-logo-tag">Admin Portal</div>
+            <div className="adm-logo-name">VietJett</div>
+            <div className="adm-logo-tag">Admin Dashboard</div>
           </div>
         </div>
 
@@ -122,7 +124,11 @@ export default function AdminDashboard() {
 
       <main className="adm-main">
         <div className="adm-topbar">
-          <div className="adm-topbar-title">{PAGE_TITLE[tab]}</div>
+          <div className="adm-topbar-context">
+            <div className="adm-topbar-eyebrow">{currentMeta.eyebrow}</div>
+            <div className="adm-topbar-sub">{currentMeta.sub}</div>
+          </div>
+          <div className="adm-topbar-badge">{currentGroup}</div>
           <div className="adm-topbar-time">🕐 {time}</div>
         </div>
         <div className="adm-content">

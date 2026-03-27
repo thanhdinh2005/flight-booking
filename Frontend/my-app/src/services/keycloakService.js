@@ -1,33 +1,63 @@
 const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080'
 const REALM        = import.meta.env.VITE_KEYCLOAK_REALM || 'flight-booking-realm'
 const CLIENT_ID    = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend-client'
-const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000/api'
+const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE || 'https://backend.test/api'
 
 // ─── Token Storage ────────────────────────────────────────────────────────────
 export function saveToken(tokenData) {
-  sessionStorage.setItem('access_token',  tokenData.access_token)
-  sessionStorage.setItem('refresh_token', tokenData.refresh_token || '')
-  sessionStorage.setItem('token_expiry',  Date.now() + tokenData.expires_in * 1000)
+  const expiry = tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : ''
+  console.groupCollapsed('[Auth] saveToken')
+  console.log('has access_token:', !!tokenData.access_token)
+  console.log('token_type:', tokenData.token_type || 'unknown')
+  console.log('expires_in:', tokenData.expires_in || 'missing')
+  console.log('access token preview:', tokenData.access_token ? `${tokenData.access_token.slice(0, 20)}...${tokenData.access_token.slice(-12)}` : 'missing')
+  console.groupEnd()
+  ;[
+    sessionStorage,
+    localStorage,
+  ].forEach((storage) => {
+    storage.setItem('access_token', tokenData.access_token || '')
+    storage.setItem('refresh_token', tokenData.refresh_token || '')
+    if (expiry) {
+      storage.setItem('token_expiry', expiry)
+    } else {
+      storage.removeItem('token_expiry')
+    }
+  })
 }
 
 export function getToken() {
-  return sessionStorage.getItem('access_token')
+  const sessionToken = sessionStorage.getItem('access_token')
+  const localToken = localStorage.getItem('access_token')
+  const token = sessionToken || localToken
+  console.log('[Auth] getToken ->', {
+    source: sessionToken ? 'sessionStorage' : localToken ? 'localStorage' : 'none',
+    hasToken: !!token,
+    preview: token ? `${token.slice(0, 16)}...${token.slice(-10)}` : 'missing',
+  })
+  return token
 }
 
 export function getAccessToken() {
-  return sessionStorage.getItem('access_token')
+  return getToken()
 }
 
 
 export function clearToken() {
-  sessionStorage.removeItem('access_token')
-  sessionStorage.removeItem('refresh_token')
-  sessionStorage.removeItem('token_expiry')
+  ;[
+    sessionStorage,
+    localStorage,
+  ].forEach((storage) => {
+    storage.removeItem('access_token')
+    storage.removeItem('refresh_token')
+    storage.removeItem('token_expiry')
+  })
 }
 
 export function isTokenExpired() {
-  const expiry = sessionStorage.getItem('token_expiry')
-  return !expiry || Date.now() > parseInt(expiry)
+  const expiry = sessionStorage.getItem('token_expiry') || localStorage.getItem('token_expiry')
+  if (!expiry) return false
+  return Date.now() > parseInt(expiry, 10)
 }
 
 export function isAuthenticated() {
@@ -97,6 +127,13 @@ export function redirectByRole(roles, navigate) {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 export async function loginKeycloak(email, password) {
+  console.groupCollapsed('[Auth] loginKeycloak request')
+  console.log('KEYCLOAK_URL:', KEYCLOAK_URL)
+  console.log('REALM:', REALM)
+  console.log('CLIENT_ID:', CLIENT_ID)
+  console.log('username:', email)
+  console.groupEnd()
+
   const res = await fetch(
     `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`,
     {
@@ -112,6 +149,16 @@ export async function loginKeycloak(email, password) {
   )
 
   const data = await res.json()
+
+  console.groupCollapsed('[Auth] loginKeycloak response')
+  console.log('status:', res.status)
+  console.log('ok:', res.ok)
+  console.log('has access_token:', !!data?.access_token)
+  console.log('token_type:', data?.token_type || 'missing')
+  console.log('expires_in:', data?.expires_in || 'missing')
+  console.log('access token preview:', data?.access_token ? `${data.access_token.slice(0, 20)}...${data.access_token.slice(-12)}` : 'missing')
+  console.log('raw response:', data)
+  console.groupEnd()
 
   if (!res.ok) {
     const msg = data.error_description || data.error || 'Đăng nhập thất bại'
@@ -169,6 +216,7 @@ export async function logoutKeycloak() {
 function getAuthHeaders() {
   const token = getToken()
   return {
+    'Accept': 'application/json',
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : '',
   }

@@ -143,7 +143,7 @@ const SEAT_CLASSES = {
   },
 };
 
-// ── Seat Class Selector Panel (Drawer từ dưới / slide-in) ────────────────────
+// ── Seat Class Selector Modal ────────────────────────────────────────────────
 function SeatClassPanel({ flight, pax, onSelect, onClose }) {
   const [chosen, setChosen] = useState(null);
 
@@ -786,7 +786,7 @@ export default function FlightResults({
                       type="button"
                       onClick={e => { e.stopPropagation(); openClassPanel(f); }}
                     >
-                      Chọn chỗ →
+                      Chọn hạng ghế →
                     </button>
                   ) : isPending ? (
                     <button className="fr-btn-buy fr-btn-disabled" disabled>
