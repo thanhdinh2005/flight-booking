@@ -1,6 +1,6 @@
 // src/components/checkin/AddonsService.jsx
 // Kết nối API: GET /api/getAddon  |  POST /api/updateAddon
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 const BASE_URL = 'https://backend.test/api'
 import { getAccessToken } from '../../services/keycloakService'
@@ -411,6 +411,10 @@ export default function AddonsService({ bookings, onNext, onBack }) {
   // updating: Set of `${bookingId}:${addonId}` keys being saved
   const [updating,     setUpdating]     = useState(new Set())
   const [toast,        setToast]        = useState(null)
+  const addonsById = useMemo(
+    () => Object.fromEntries(apiAddons.map(addon => [addon.id, addon])),
+    [apiAddons]
+  )
 
   // ── Load addons on mount ──
   useEffect(() => {
@@ -430,39 +434,68 @@ export default function AddonsService({ bookings, onNext, onBack }) {
     setTimeout(() => setToast(null), 2500)
   }, [])
 
-  // ── Toggle addon: optimistic UI + API call ──
+  // ── Toggle addon: only one choice per addon type for each ticket ──
   const toggle = useCallback(async (bookingId, addonId) => {
-    const key = `${bookingId}:${addonId}`
-    const wasSelected = selected[bookingId]?.has(addonId)
-    const newQty = wasSelected ? 0 : 1
+    const currentSet = selected[bookingId] ?? new Set()
+    const addon = addonsById[addonId]
+    if (!addon) return
 
-    // Optimistic update
-    setSelected(prev => {
-      const s = new Set(prev[bookingId])
-      wasSelected ? s.delete(addonId) : s.add(addonId)
-      return { ...prev, [bookingId]: s }
+    const sameTypeIds = apiAddons
+      .filter(item => item.type === addon.type)
+      .map(item => item.id)
+    const replacedIds = sameTypeIds.filter(id => id !== addonId && currentSet.has(id))
+    const wasSelected = currentSet.has(addonId)
+    const nextSet = new Set(currentSet)
+
+    if (wasSelected) {
+      nextSet.delete(addonId)
+    } else {
+      replacedIds.forEach(id => nextSet.delete(id))
+      nextSet.add(addonId)
+    }
+
+    const previousSet = new Set(currentSet)
+    const updatingKeys = [addonId, ...replacedIds].map(id => `${bookingId}:${id}`)
+
+    setSelected(prev => ({ ...prev, [bookingId]: nextSet }))
+    setUpdating(prev => {
+      const next = new Set(prev)
+      updatingKeys.forEach(key => next.add(key))
+      return next
     })
-    setUpdating(prev => new Set(prev).add(key))
 
     try {
-      await updateAddon({ ticket_id: bookingId, addon_id: addonId, quantity: newQty })
-      showToast(wasSelected ? '🗑 Đã bỏ dịch vụ' : '✅ Đã thêm dịch vụ', 'success')
+      if (wasSelected) {
+        await updateAddon({ ticket_id: bookingId, addon_id: addonId, quantity: 0 })
+        showToast('🗑 Đã bỏ dịch vụ', 'success')
+      } else {
+        for (const replacedId of replacedIds) {
+          await updateAddon({ ticket_id: bookingId, addon_id: replacedId, quantity: 0 })
+        }
+        await updateAddon({ ticket_id: bookingId, addon_id: addonId, quantity: 1 })
+        showToast(replacedIds.length > 0 ? '✅ Đã đổi sang dịch vụ mới' : '✅ Đã thêm dịch vụ', 'success')
+      }
     } catch (err) {
-      // Rollback on error
-      setSelected(prev => {
-        const s = new Set(prev[bookingId])
-        wasSelected ? s.add(addonId) : s.delete(addonId)
-        return { ...prev, [bookingId]: s }
-      })
+      setSelected(prev => ({ ...prev, [bookingId]: previousSet }))
+
+      if (!wasSelected && replacedIds.length > 0) {
+        await Promise.allSettled([
+          updateAddon({ ticket_id: bookingId, addon_id: addonId, quantity: 0 }),
+          ...replacedIds.map(replacedId =>
+            updateAddon({ ticket_id: bookingId, addon_id: replacedId, quantity: 1 })
+          ),
+        ])
+      }
+
       showToast('⚠️ ' + err.message, 'error')
     } finally {
       setUpdating(prev => {
-        const s = new Set(prev)
-        s.delete(key)
-        return s
+        const next = new Set(prev)
+        updatingKeys.forEach(key => next.delete(key))
+        return next
       })
     }
-  }, [selected, showToast])
+  }, [addonsById, apiAddons, selected, showToast])
 
   // ── Derived data ──
   const flight   = bookings[flightIdx]

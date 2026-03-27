@@ -24,6 +24,8 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
   const [paying,   setPaying]   = useState(false);
   const [vnpayUrl, setVnpayUrl] = useState(null);
   const [apiError, setApiError] = useState('');
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState('');
 
   const grandTotal = (booking.total_amount || 0) + addonTotal;
 
@@ -49,6 +51,47 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
           : err.message || 'Không lấy được link thanh toán. Vui lòng thử lại.'
       );
       setPaying(false);
+    }
+  }
+
+  async function handleRefreshPaymentStatus() {
+    if (!booking?.pnr || !booking?.contact_email) {
+      setApiError('Không đủ thông tin để tải lại tình trạng thanh toán.');
+      return;
+    }
+
+    setCheckingStatus(true);
+    setApiError('');
+    setPaymentStatusMessage('');
+
+    try {
+      const res = await fetch(`${API_BASE}/bookings/search-tickets`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pnr: booking.pnr,
+          email: booking.contact_email,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || `Lỗi ${res.status}`);
+      }
+
+      const tickets = Array.isArray(json?.data) ? json.data : [];
+      if (tickets.length > 0) {
+        setPaymentStatusMessage('Đã ghi nhận thanh toán thành công. Vé của bạn đã khả dụng.');
+      } else {
+        setPaymentStatusMessage('Chưa ghi nhận thay đổi trạng thái thanh toán. Vui lòng thử lại sau ít phút.');
+      }
+    } catch (err) {
+      setApiError(err.message || 'Chưa thể tải lại tình trạng thanh toán.');
+    } finally {
+      setCheckingStatus(false);
     }
   }
 
@@ -118,16 +161,34 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
           <div style={{ fontSize: 13, color: '#047857', marginBottom: 14 }}>
             Trang thanh toán VNPay đã được mở trong tab mới.
           </div>
-          <button
-            onClick={() => window.open(vnpayUrl, '_blank')}
-            style={{
-              background: '#009B8D', color: '#fff', border: 'none',
-              borderRadius: 8, padding: '10px 20px', fontSize: 13,
-              fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            Mở lại trang thanh toán →
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => window.open(vnpayUrl, '_blank')}
+              style={{
+                background: '#009B8D', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '10px 20px', fontSize: 13,
+                fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Mở lại trang thanh toán →
+            </button>
+            <button
+              onClick={handleRefreshPaymentStatus}
+              disabled={checkingStatus}
+              style={{
+                background: checkingStatus ? '#cbd5e1' : '#ffffff', color: '#0f766e',
+                border: '1.5px solid #0f766e', borderRadius: 8, padding: '10px 20px', fontSize: 13,
+                fontWeight: 700, cursor: checkingStatus ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {checkingStatus ? 'Đang tải lại...' : 'Tải lại tình trạng thanh toán'}
+            </button>
+          </div>
+          {paymentStatusMessage && (
+            <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: '#0f766e' }}>
+              {paymentStatusMessage}
+            </div>
+          )}
         </div>
       )}
 
