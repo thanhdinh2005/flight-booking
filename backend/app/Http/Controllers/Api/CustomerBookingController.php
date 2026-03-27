@@ -37,7 +37,7 @@ class CustomerBookingController extends Controller
         }
 
         // 3. Lấy danh sách vé thỏa mãn (Chưa bay, đã thanh toán)
-        $tickets = \App\Models\Ticket::with(['flight_instance.flightSchedule', 'passenger'])
+        $tickets = \App\Models\Ticket::with(['flight_instance.flightSchedule', 'passenger', 'flight_instance.route.origin','flight_instance.route.destination'])
             ->where('booking_id', $booking->id)
             ->where('status', TicketStatus::ACTIVE->value) // Tùy theo status bạn quy định
             ->whereHas('flight_instance', function ($query) {
@@ -46,14 +46,70 @@ class CustomerBookingController extends Controller
             })
             ->get();
 
+        $data = $tickets->map(function ($ticket) {
+    return [
+        // Giữ nguyên các field chính của Ticket
+        "id"                 => $ticket->id,
+        "booking_id"         => $ticket->booking_id,
+        "seat_class"         => $ticket->seat_class,
+        "seat_number"        => $ticket->seat_number,
+        "ticket_price"       => $ticket->ticket_price,
+
+        // Map lại Flight Instance
+        "flight_instance" => [
+            "id"                 => $ticket->flight_instance->id,
+            "flight_schedule_id" => $ticket->flight_instance->flight_schedule_id,
+            "route_id"           => $ticket->flight_instance->route_id,
+            "aircraft_id"        => $ticket->flight_instance->aircraft_id,
+            "departure_date"     => Carbon::parse($ticket->flight_instance->departure_date)->format('d/m/Y H:i'),
+            "std"                => Carbon::parse($ticket->flight_instance->std)->format('d/m/Y H:i'),
+            "sta"                => Carbon::parse($ticket->flight_instance->sta)->format('d/m/Y H:i'),
+
+
+            // Map lại Flight Schedule bên trong Instance
+            "flight_schedule" => [
+                "id"             => $ticket->flight_instance->flightSchedule->id,
+                "route_id"       => $ticket->flight_instance->flightSchedule->route_id,
+                "flight_number"  => $ticket->flight_instance->flightSchedule->flight_number,
+                "departure_time" => $ticket->flight_instance->flightSchedule->departure_time,
+            ],
+
+            // Map lại Route và Airport (Giữ đúng cấu trúc origin/destination)
+            "route" => [
+                "id"                      => $ticket->flight_instance->route->id,
+                "flight_duration_minutes" => $ticket->flight_instance->route->flight_duration_minutes,
+                "origin" => [
+                    "id"   => $ticket->flight_instance->route->origin->id,
+                    "code" => $ticket->flight_instance->route->origin->code,
+                    "name" => $ticket->flight_instance->route->origin->name,
+                    "city" => $ticket->flight_instance->route->origin->city,
+                ],
+                "destination" => [
+                    "id"   => $ticket->flight_instance->route->destination->id,
+                    "code" => $ticket->flight_instance->route->destination->code,
+                    "name" => $ticket->flight_instance->route->destination->name,
+                    "city" => $ticket->flight_instance->route->destination->city,
+                ]
+            ]
+        ],
+
+        // Map lại Passenger (Ẩn các thông tin nhạy cảm như id_number nếu cần)
+        "passenger" => [
+            "id"            => $ticket->passenger->id,
+            "first_name"    => $ticket->passenger->first_name,
+            "last_name"     => $ticket->passenger->last_name,
+            "gender"        => $ticket->passenger->gender,
+            "type"          => $ticket->passenger->type,
+        ]
+    ];
+});
+
+
         if ($tickets->isEmpty()) {
             return ApiResponse::error('Mã PNR hợp lệ nhưng không có vé nào khả dụng (đã bay hoặc đã hoàn).', 404);
         }
 
-        return ApiResponse::success(
-            $tickets->values(), 
-            'Danh sách vé khả dụng cho PNR: ' . $pnr
-        );
+        return ApiResponse::success($data, 'Danh sách vé khả dụng cho PNR: ' . $pnr);
 
     } catch (\Exception $e) {
         return ApiResponse::error('Lỗi hệ thống: ' . $e->getMessage(), 500);
