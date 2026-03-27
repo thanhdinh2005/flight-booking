@@ -27,6 +27,7 @@ class SearchFlightRequest extends FormRequest
             'departure_date' => 'required|date',
             'return_date'    => 'nullable|date|after_or_equal:departure_date', // Ngày về phải sau ngày đi
             'cabin_class'    => 'nullable|string|in:ECONOMY,BUSINESS',
+            'passengers'     => 'nullable|integer|min:1',
             'adults'         => 'nullable|integer|min:1',
             'children'       => 'nullable|integer|min:0',
         ];

@@ -27,6 +27,7 @@ class SearchFlightResponse
     {
         if($this->outboundFlights->isEmpty() && $this->returnFlights->isEmpty()) {
             return [
+                'message' => 'Không có chuyến bay',
                 'outbound' => [],
                 'return' => []
             ];
@@ -48,26 +49,13 @@ class SearchFlightResponse
     private function mapFlights($flights) {
     return $flights->map(fn($f) => [
         'id' => $f->id,
-        'flight_number' => $f->flight_number,
+        'flight_number' => $f->flightSchedule?->flight_number ?? 'N/A',
         // tra ve obj thay vi tra ve chuoi code
-        'origin' => [
-            'code' =>$f->route->origin->code,
-            'name' => $f->route->origin->name,
-            'city' => $f->route->origin->city,
-        ],
-        'destination' => [
-            'code' =>$f->route->destination->code,
-            'name' => $f->route->destination->name,
-            'city' => $f->route->destination->city,
-        ],
-        'std' => $f->std,
-        'sta' => $f->sta,
-        'status' => $f->status,
-        'aircraft' => [
-                // 2. Dùng toán tử ?-> để không bị crash nếu aircraft bị null
-                'model' => $f->aircraft?->model ?? 'N/A',
-                'registration' => $f->aircraft?->registration_number ?? 'N/A',
-            ]
+        'origin' => $f->route->origin->code,
+        'destination' => $f->route->destination->code,
+        'std' => \Carbon\Carbon::parse($f->std)->format('Y-m-d H:i:s'),
+        'sta' => \Carbon\Carbon::parse($f->sta)->format('Y-m-d H:i:s'),
+        'aircraft' => $f->aircraft?->registration_number ?? 'N/A',
     ]);
 }
 }

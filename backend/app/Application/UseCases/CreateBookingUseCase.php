@@ -61,7 +61,7 @@ class CreateBookingUseCase
                 }
             }
 
-            return $booking->load(['tickets.passenger', 'tickets.flight_instance']);
+            return $booking->load(['tickets.passenger', 'tickets.flight_instance', 'tickets.flight_instance.flightSchedule']);
         });
     }
 }

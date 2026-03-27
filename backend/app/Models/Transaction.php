@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-    protected $table="transactions";
+    protected $table = "transactions";
     
-    public $timestamps = false;
+    // BẬT LÊN vì DB của bạn có cột created_at
+    public $timestamps = true; 
     
+    // Nếu bạn không có cột updated_at trong DB, hãy chỉ định rõ:
+    const UPDATED_AT = null; 
+
     protected $fillable = [
         'booking_id', 
         'amount', 
@@ -19,5 +23,7 @@ class Transaction extends Model
         'status'
     ];
 
-    protected $casts = ['amount' => 'decimal:2'];
+    protected $casts = [
+        'amount' => 'decimal:2',
+    ];
 }
