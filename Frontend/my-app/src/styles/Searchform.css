@@ -1,0 +1,202 @@
+/* ─── Thêm vào cuối Myticker.css ─────────────────────────────────────────────
+   Search form styles cho MyTickets
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.mt-search-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px 48px;
+}
+
+.mt-search-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+  padding: 40px 36px 36px;
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+}
+
+.mt-search-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.mt-search-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a3c6e;
+  margin: 0 0 8px;
+}
+
+.mt-search-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 28px;
+  line-height: 1.6;
+}
+
+.mt-search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.mt-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mt-search-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.mt-search-required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.mt-search-input {
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #111;
+  background: #f9fafb;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.mt-search-input:focus {
+  border-color: #1a3c6e;
+  box-shadow: 0 0 0 3px rgba(26,60,110,0.10);
+  background: #fff;
+}
+
+.mt-search-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mt-search-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.07);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.mt-search-btn {
+  padding: 13px;
+  background: #1a3c6e;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  margin-top: 4px;
+}
+
+.mt-search-btn:hover:not(:disabled) {
+  background: #14305a;
+}
+
+.mt-search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mt-search-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: left;
+  margin-top: 4px;
+}
+
+
+/* ─── Thêm vào cuối CancelTicket.css ─────────────────────────────────────────
+   Search form styles cho CancelTicket
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.ct-search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.ct-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ct-search-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.ct-required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.ct-search-input {
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #111;
+  background: #f9fafb;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.ct-search-input:focus {
+  border-color: #1a3c6e;
+  box-shadow: 0 0 0 3px rgba(26,60,110,0.10);
+  background: #fff;
+}
+
+.ct-search-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ct-search-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.07);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.ct-search-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+  padding: 10px 14px;
+  background: rgba(26,60,110,0.04);
+  border-radius: 8px;
+}

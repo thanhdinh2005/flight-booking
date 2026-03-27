@@ -3,7 +3,9 @@
 .home-root{
   display:flex;
   flex-direction:column;
-  height:100vh;
+  min-height:100vh;
+  background:
+    linear-gradient(180deg, #ffd54f 0, #ffe89a 150px, #f8fcfd 420px, #f4fafc 100%);
 }
 
 /* BODY */
@@ -11,18 +13,23 @@
 .home-body{
   display:flex;
   flex:1;
+  min-height: calc(100vh - 58px);
 }
 
 /* MAIN CONTENT */
 
 .home-main{
   flex:1;
-
   margin-left:75px; /* đúng bằng width sidebar */
-
-  padding:20px;
-
+  padding:20px 20px 40px;
+  background: transparent;
   transition:margin-left 0.3s ease;
+}
+
+.home-content{
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-bottom: 48px;
 }
 
 /* khi sidebar mở */

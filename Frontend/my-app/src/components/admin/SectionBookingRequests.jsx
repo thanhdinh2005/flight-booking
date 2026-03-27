@@ -120,7 +120,7 @@ export function SectionBookingRequests() {
       {/* Header */}
       <div className="adm-sec-header">
         <div>
-          <div className="adm-sec-title">Yêu cầu đặt vé</div>
+          <div className="adm-sec-title">Yêu cầu hoàn vé</div>
           <div className="adm-sec-sub">
             {meta.total} yêu cầu · Trang {page}/{totalPages}
           </div>

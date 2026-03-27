@@ -1,6 +1,9 @@
 // src/components/ProfileModal.jsx
 import { useState, useEffect } from 'react';
 import '../styles/ProfileModal.css';
+import { getToken, isTokenExpired } from '../services/keycloakService';
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
 
 const ROLE_LABELS = {
   admin:    { label: 'Quản trị viên', color: '#ef4444' },
@@ -22,11 +25,26 @@ export default function ProfileModal({ onClose }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  function formatDateTime(raw) {
+    if (!raw) return '—';
+    const normalized = typeof raw === 'string' ? raw.replace(' ', 'T') : raw;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? String(raw) : date.toLocaleString('vi-VN');
+  }
+
   const fetchMe = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://backend.test/api/me');
+      const token = getToken();
+      if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+
+      const res = await fetch(`${API_BASE}/me`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.message || 'Lỗi không xác định');
@@ -86,9 +104,9 @@ export default function ProfileModal({ onClose }) {
               <Row icon="📞" label="Số điện thoại"      value={user.phone_number || '—'} />
               <Row icon="🆔" label="ID tài khoản"       value={`#${user.id}`} mono />
               <Row icon="📅" label="Ngày tạo"
-                value={new Date(user.created_at).toLocaleString('vi-VN')} />
+                value={formatDateTime(user.created_at)} />
               <Row icon="🔄" label="Cập nhật lần cuối"
-                value={new Date(user.updated_at).toLocaleString('vi-VN')} />
+                value={formatDateTime(user.updated_at)} />
             </div>
           </>
         )}

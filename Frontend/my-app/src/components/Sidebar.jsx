@@ -2,70 +2,72 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Sidebar.css';
-import MyTicket from './Myticker';
-import CancelTicket from './Cancelticker';
-import ChangeFlight from './Changeflight';
-import khamPhaIcon   from '../assets/khám phá.png';
-import muaVeIcon     from '../assets/mua vé.png';
-import diaDiemIcon   from '../assets/địa điểm.png';
-import hoaDonIcon    from '../assets/hóa đơn.png';
-import troGiupIcon   from '../assets/trợ giúp.png';
+
+import khamPhaIcon from '../assets/khám phá.png';
+import muaVeIcon   from '../assets/mua vé.png';
+import hoaDonIcon  from '../assets/hóa đơn.png';
+import troGiupIcon from '../assets/trợ giúp.png';
 
 const NAV_ITEMS = [
-  { id: 'khampha',    icon: khamPhaIcon,   label: 'Khám phá',           route: '/home' },
-  { id: 'muave',      icon: muaVeIcon,     label: 'Mua vé & Dịch vụ',  route: null },  // mở modal
-  { id: 'trainghiem', icon: hoaDonIcon,    label: 'Trải nghiệm bay',    route: '/experience' },
-  { id: 'trogiup',    icon: troGiupIcon,   label: 'Trợ giúp',           route: '/help' },
+  { id: 'khampha',    icon: khamPhaIcon, label: 'Khám phá',          route: '/home' },
+  { id: 'muave',      icon: muaVeIcon,   label: 'Mua vé & Dịch vụ', route: null },   // mở modal
+  { id: 'trainghiem', icon: hoaDonIcon,  label: 'Trải nghiệm bay',   route: '/experience' },
+  { id: 'trogiup',    icon: troGiupIcon, label: 'Trợ giúp',          route: '/help' },
 ];
 
-// Các chức năng trong modal "Mua vé & Dịch vụ"
 const SERVICE_OPTIONS = [
   {
-    id: 'buy',
-    icon: '🛫',
-    title: 'Lịch sử Mua vé',
-    desc: 'Xem lại lịch sử mua vé và dịch vụ của bạn',
-    route: '/buy-ticket',
+    id: 'my-tickets',
+    icon: '🎫',
+    title: 'Lịch sử mua hàng',
+    desc: 'Xem lại toàn bộ vé đã đặt và trạng thái chuyến bay',
+    route: '/my-tickets',
     color: '#f5a623',
   },
   {
-    id: 'cancel',
+    id: 'cancel-ticket',
     icon: '🚫',
-    title: 'Hủy vé',
-    desc: 'Kiểm tra điều kiện hoàn tiền và hủy vé',
+    title: 'Hoàn vé',
+    desc: 'Kiểm tra điều kiện hoàn tiền và hoàn vé',
     route: '/cancel-ticket',
     color: '#ef4444',
   },
-  {
-    id: 'change',
-    icon: '🔄',
-    title: 'Đổi chuyến bay',
-    desc: 'Đổi sang chuyến bay khác trong 1 tuần tới',
-    route: '/change-flight',
-    color: '#3b82f6',
-  },
 ];
 
-// Routes that should keep 'muave' tab active
-const MUAVE_CHILD_ROUTES = ['/buy-ticket', '/cancel-ticket', '/change-flight'];
+// Routes con thuộc nhóm "Mua vé & Dịch vụ"
+const MUAVE_ROUTES = ['/my-tickets', '/cancel-ticket'];
 
-export default function Sidebar({ activeId = 'khampha', onSelect }) {
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const [expanded,      setExpanded]      = useState(false);
-  const [serviceModal,  setServiceModal]  = useState(false);
+export default function Sidebar({ onSelect }) {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Check if current route is a child of muave
+  const [expanded,     setExpanded]     = useState(false);
+  const [serviceModal, setServiceModal] = useState(false);
+
   const currentPath = location.pathname;
-  const isMuaveActive = MUAVE_CHILD_ROUTES.some(route => currentPath.startsWith(route)) || activeId === 'muave';
+
+  // Xác định item đang active dựa theo pathname thực tế
+  function getActiveId() {
+    if (MUAVE_ROUTES.some(r => currentPath.startsWith(r))) return 'muave';
+    if (currentPath.startsWith('/home'))       return 'khampha';
+    if (currentPath.startsWith('/experience')) return 'trainghiem';
+    if (currentPath.startsWith('/help'))       return 'trogiup';
+    return '';
+  }
+
+  const activeId = getActiveId();
+
+  // Service option đang active (để highlight trong modal)
+  function getActiveServiceId() {
+    const matched = SERVICE_OPTIONS.find(s => currentPath.startsWith(s.route));
+    return matched?.id ?? null;
+  }
+  const activeServiceId = getActiveServiceId();
 
   function handleItemClick(item) {
     if (item.id === 'muave') {
       setServiceModal(true);
       return;
-    }
-    if(item.id ==='khampha')
-    {      navigate(`/home`);
     }
     onSelect?.(item.id);
     if (item.route) navigate(item.route);
@@ -73,6 +75,7 @@ export default function Sidebar({ activeId = 'khampha', onSelect }) {
 
   function handleServiceSelect(svc) {
     setServiceModal(false);
+    onSelect?.(svc.id);
     navigate(svc.route);
   }
 
@@ -88,7 +91,7 @@ export default function Sidebar({ activeId = 'khampha', onSelect }) {
         </button>
 
         {NAV_ITEMS.map(item => {
-          const isActive = item.id === 'muave' ? isMuaveActive : activeId === item.id;
+          const isActive = activeId === item.id;
           return (
             <div
               key={item.id}
@@ -113,11 +116,11 @@ export default function Sidebar({ activeId = 'khampha', onSelect }) {
               <button className="svc-modal__close" onClick={() => setServiceModal(false)}>✕</button>
             </div>
 
-            <div className="svc-modal__grid"> 
+            <div className="svc-modal__grid">
               {SERVICE_OPTIONS.map(svc => (
                 <button
                   key={svc.id}
-                  className="svc-card"
+                  className={`svc-card${activeServiceId === svc.id ? ' svc-card--active' : ''}`}
                   onClick={() => handleServiceSelect(svc)}
                   style={{ '--accent': svc.color }}
                 >

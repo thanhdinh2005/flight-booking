@@ -5,7 +5,7 @@
 @import './Tokens.css';
 
 .sidebar {
-  margin-top: -20px;
+  /* margin-top: -20px; */
   position: fixed;
   top: 58px;
   left: 0;
@@ -141,4 +141,8 @@
   background: var(--sky-100);
   border-color: var(--sky-500);
   transform: translateX(3px);
+}
+.svc-card--active {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, white);
 }

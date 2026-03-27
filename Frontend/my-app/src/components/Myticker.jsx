@@ -1,7 +1,10 @@
 // src/pages/MyTickets.jsx
-import { useState, useEffect, useCallback } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+// Luồng: nhập PNR + Email → GET /api/bookings/search-tickets → hiển thị vé
+
+import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import '../styles/Myticker.css'
+import '../styles/Searchform.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,56 +32,40 @@ function getToken() {
   return null
 }
 
-async function apiFetch(path) {
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
+
+async function apiFetch(path, options = {}) {
   const token = getToken()
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    ...options,
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data?.message ?? data?.error ?? `HTTP ${res.status}`)
   return data
 }
 
-// ─── API: lấy vé của user hiện tại ───────────────────────────────────────────
-// GET /api/my-tickets  hoặc  /api/bookings/my
-async function getMyTickets() {
-  try {
-    const d = await apiFetch('/my-tickets')
-    const list = Array.isArray(d) ? d : (d?.data ?? d?.tickets ?? d?.bookings ?? [])
-    return list.map(mapTicket)
-  } catch {
-    // Fallback thử endpoint khác
-    const d = await apiFetch('/bookings/my')
-    const list = Array.isArray(d) ? d : (d?.data ?? [])
-    return list.map(mapTicket)
-  }
+// ─── API: tìm vé theo PNR + Email ─────────────────────────────────────────────
+async function searchTickets(pnr, email) {
+  const params = new URLSearchParams({ pnr: pnr.trim().toUpperCase(), email: email.trim().toLowerCase() })
+  const d = await apiFetch(`/bookings/search-tickets?${params}`)
+  const list = Array.isArray(d) ? d : (d?.data ?? d?.tickets ?? d?.bookings ?? [])
+  return list.map(mapTicket)
 }
 
-// ─── API: lọc flight instances (dùng cho check-in / đổi chuyến) ──────────────
-// GET /api/admin/flight-instances/filter?status=SCHEDULED&from_date=&to_date=&page=
-export async function getScheduledFlights({ status = 'SCHEDULED', from_date = '', to_date = '', page = 1, per_page = 20 } = {}) {
-  const p = new URLSearchParams({ status, page: String(page), per_page: String(per_page) })
-  if (from_date) p.set('from_date', from_date)
-  if (to_date)   p.set('to_date',   to_date)
-  const d    = await apiFetch(`/admin/flight-instances/filter?${p.toString()}`)
-  const list = Array.isArray(d) ? d : (d?.data ?? [])
-  const meta = d?.meta ?? d?.pagination ?? { total: list.length, last_page: 1, current_page: page }
-  return { data: list, meta }
-}
-
-// ─── Mapper: backend booking → frontend ticket ────────────────────────────────
+// ─── Mapper ───────────────────────────────────────────────────────────────────
 function mapTicket(b) {
   if (!b) return {}
   const fi      = b.flight_instance ?? b.flightInstance ?? {}
   const route   = fi.route ?? {}
-  const std     = fi.std  ? new Date(fi.std)  : null
-  const sta     = fi.sta  ? new Date(fi.sta)  : null
+  const std     = fi.std ? new Date(fi.std) : null
+  const sta     = fi.sta ? new Date(fi.sta) : null
   const depDate = fi.departure_date ?? fi.date ?? b.departure_date ?? ''
 
-  // Format date dd/mm/yyyy
   const fmtDate = (raw) => {
     if (!raw) return ''
     const d = new Date(raw)
@@ -94,18 +81,18 @@ function mapTicket(b) {
 
   return {
     id:          String(b.id ?? ''),
-    bookingCode: b.booking_code ?? b.code ?? `BK-${b.id}`,
-    airline:     route.airline  ?? fi.airline ?? 'VietJext',
+    bookingCode: b.booking_code ?? b.pnr ?? b.code ?? `BK-${b.id}`,
+    airline:     route.airline  ?? fi.airline ?? 'VietJett',
     flightNo:    fi.flight_number ?? b.flight_number ?? '—',
     dep:         std ? std.toTimeString().slice(0,5) : (b.dep ?? ''),
     arr:         sta ? sta.toTimeString().slice(0,5) : (b.arr ?? ''),
     date:        fmtDate(depDate),
-    depCode:     route.from   ?? b.dep_code ?? '',
-    arrCode:     route.to     ?? b.arr_code ?? '',
-    depAirport:  route.from_name ?? b.dep_airport ?? '',
-    arrAirport:  route.to_name   ?? b.arr_airport  ?? '',
+    depCode:     route.from      ?? route.origin?.code ?? b.dep_code ?? '',
+    arrCode:     route.to        ?? route.destination?.code ?? b.arr_code ?? '',
+    depAirport:  route.from_name ?? route.origin?.name ?? b.dep_airport ?? '',
+    arrAirport:  route.to_name   ?? route.destination?.name ?? b.arr_airport ?? '',
     price:       Number(b.total_price ?? b.amount ?? b.price ?? 0),
-    class:       b.cabin_class ?? b.class ?? 'Phổ thông',
+    class:       b.cabin_class  ?? b.class ?? 'Phổ thông',
     logoColor:   '#1a3c6e',
     passengers:  passengerNames.length ? passengerNames : (b.passenger_names ?? []),
     seat:        seats,
@@ -117,49 +104,16 @@ function mapTicket(b) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const INITIAL_TICKETS = [
-  {
-    id: 'BK001', bookingCode: 'VB-4X9K2',
-    airline: 'Vietnam Airlines', flightNo: 'VN-201',
-    dep: '07:00', arr: '09:10', date: '20/04/2026',
-    depCode: 'HAN', arrCode: 'SGN',
-    depAirport: 'Nội Bài', arrAirport: 'Tân Sơn Nhất',
-    price: 2500000, class: 'Phổ thông', logoColor: '#1a3c6e',
-    passengers: ['NGUYEN VAN AN', 'TRAN THI BINH'], seat: ['14A', '14B'],
-    status: 'confirmed', purchasedAt: '10/03/2026',
-  },
-  {
-    id: 'BK002', bookingCode: 'VB-4X9K2',
-    airline: 'VietJet Air', flightNo: 'VJ-156',
-    dep: '20:00', arr: '22:10', date: '28/04/2026',
-    depCode: 'SGN', arrCode: 'HAN',
-    depAirport: 'Tân Sơn Nhất', arrAirport: 'Nội Bài',
-    price: 1780000, class: 'Phổ thông', logoColor: '#e5002b',
-    passengers: ['NGUYEN VAN AN', 'TRAN THI BINH'], seat: ['7C', '7D'],
-    status: 'confirmed', purchasedAt: '10/03/2026',
-  },
-  {
-    id: 'BK003', bookingCode: 'VB-7M2P1',
-    airline: 'Bamboo Airways', flightNo: 'QH-401',
-    dep: '13:15', arr: '15:25', date: '15/05/2026',
-    depCode: 'HAN', arrCode: 'DAD',
-    depAirport: 'Nội Bài', arrAirport: 'Đà Nẵng',
-    price: 1050000, class: 'Phổ thông', logoColor: '#00863d',
-    passengers: ['NGUYEN VAN AN'], seat: ['22F'],
-    status: 'confirmed', purchasedAt: '12/03/2026',
-  },
-]
-
 const STATUS_CONFIG = {
   confirmed:      { label: 'Đã xác nhận',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
   cancel_pending: { label: 'Chờ duyệt hủy',    color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
   change_pending: { label: 'Chờ xác nhận đổi', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', icon: '🔄' },
   cancelled:      { label: 'Đã hủy',            color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
   changed:        { label: 'Đã đổi chuyến',     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: '↗' },
-  // Alias từ backend
   approved:       { label: 'Đã xác nhận',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
   pending:        { label: 'Chờ xác nhận',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
   rejected:       { label: 'Bị từ chối',       color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
+  used:           { label: 'Đã sử dụng',       color: '#6b7280', bg: 'rgba(107,114,128,0.12)', icon: '✈' },
 }
 
 const FILTER_TABS = [
@@ -170,59 +124,143 @@ const FILTER_TABS = [
   { id: 'cancelled',      label: 'Đã hủy' },
 ]
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Search Form ──────────────────────────────────────────────────────────────
 
-export default function MyTickets() {
-  const location = useLocation()
-  const navigate = useNavigate()
+function SearchForm({ onSearch }) {
+  const [pnr,     setPnr]     = useState('')
+  const [email,   setEmail]   = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
 
-  const [tickets,   setTickets]   = useState(INITIAL_TICKETS)
-  const [filter,    setFilter]    = useState('all')
-  const [notif,     setNotif]     = useState(null)
-  const [expandId,  setExpandId]  = useState(null)
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState('')
-
-  // ── Fetch vé của user ───────────────────────────────────────────────────
-  const fetchTickets = useCallback(async () => {
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!pnr.trim() || !email.trim()) {
+      setError('Vui lòng nhập đầy đủ mã đặt chỗ và email.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      const data = await getMyTickets()
-      // Nếu API trả về dữ liệu hợp lệ thì dùng, ngược lại giữ mock
-      if (Array.isArray(data) && data.length > 0) {
-        setTickets(data)
-      }
+      const tickets = await searchTickets(pnr, email)
+      onSearch(tickets, pnr.trim().toUpperCase(), email.trim().toLowerCase())
     } catch (err) {
-      console.error('[MyTickets] fetchTickets lỗi:', err.message)
-      // Không hiển thị lỗi cho user — fallback sang mock data
-      // setError('Không tải được danh sách vé: ' + err.message)
+      setError(err.message || 'Không tìm thấy vé. Vui lòng kiểm tra lại thông tin.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
-  useEffect(() => { fetchTickets() }, [])
+  return (
+    <div className="mt-search-wrap">
+      <div className="mt-search-card">
+        {/* Icon */}
+        <div className="mt-search-icon">🎫</div>
 
-  // ── Nhận state từ CancelTicket / ChangeFlight ───────────────────────────
-  useEffect(() => {
-    const state = location.state
-    if (!state) return
+        <h2 className="mt-search-title">Tra cứu vé của bạn</h2>
+        <p className="mt-search-desc">
+          Nhập mã đặt chỗ (PNR) và địa chỉ email để xem tình trạng vé hoặc thực hiện hoàn vé.
+        </p>
 
-    if (state.notification) {
-      setNotif(state.notification)
-      setTimeout(() => setNotif(null), 5000)
+        <form onSubmit={handleSubmit} className="mt-search-form" noValidate>
+          <div className="mt-search-field">
+            <label className="mt-search-label">
+              Mã đặt chỗ (PNR)
+              <span className="mt-search-required">*</span>
+            </label>
+            <input
+              className="mt-search-input"
+              type="text"
+              placeholder="VD: VB-4X9K2"
+              value={pnr}
+              onChange={e => { setPnr(e.target.value.toUpperCase()); setError('') }}
+              disabled={loading}
+              maxLength={20}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="mt-search-field">
+            <label className="mt-search-label">
+              Email đặt vé
+              <span className="mt-search-required">*</span>
+            </label>
+            <input
+              className="mt-search-input"
+              type="email"
+              placeholder="VD: ten@email.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError('') }}
+              disabled={loading}
+              autoComplete="email"
+            />
+          </div>
+
+          {error && (
+            <div className="mt-search-error">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button
+            className="mt-search-btn"
+            type="submit"
+            disabled={loading || !pnr.trim() || !email.trim()}
+          >
+            {loading ? '⏳ Đang tìm kiếm...' : '🔍 Tìm vé'}
+          </button>
+        </form>
+
+        <div className="mt-search-hint">
+          <span>💡</span>
+          <span>Mã đặt chỗ có trong email xác nhận hoặc tin nhắn khi đặt vé thành công.</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Component chính ──────────────────────────────────────────────────────────
+
+export default function MyTickets() {
+  const navigate = useNavigate()
+
+  const [phase,    setPhase]    = useState('search')   // 'search' | 'result'
+  const [tickets,  setTickets]  = useState([])
+  const [filter,   setFilter]   = useState('all')
+  const [notif,    setNotif]    = useState(null)
+  const [expandId, setExpandId] = useState(null)
+  const [searchCtx, setSearchCtx] = useState({ pnr: '', email: '' })
+
+  // ── Nhận kết quả tìm kiếm ────────────────────────────────────────────
+  function handleSearch(data, pnr, email) {
+    setTickets(data)
+    setSearchCtx({ pnr, email })
+    setFilter('all')
+    setPhase('result')
+  }
+
+  // ── Tìm lại ──────────────────────────────────────────────────────────
+  function handleReset() {
+    setPhase('search')
+    setTickets([])
+    setNotif(null)
+    setExpandId(null)
+  }
+
+  // ── Làm mới (search lại với cùng PNR+email) ───────────────────────────
+  const handleRefresh = useCallback(async () => {
+    if (!searchCtx.pnr || !searchCtx.email) return
+    try {
+      const data = await searchTickets(searchCtx.pnr, searchCtx.email)
+      setTickets(data)
+    } catch (err) {
+      setNotif('Không thể làm mới: ' + err.message)
     }
-    if (state.highlightId && state.newStatus) {
-      setTickets(prev => prev.map(t =>
-        t.id === state.highlightId ? { ...t, status: state.newStatus } : t
-      ))
-      setExpandId(state.highlightId)
-    }
-    window.history.replaceState({}, '')
-  }, [location.state])
+  }, [searchCtx])
 
-  // ── Filter ──────────────────────────────────────────────────────────────
+  // ── Filter ──────────────────────────────────────────────────────────
   const normalizeStatus = (s) => {
     if (s === 'approved') return 'confirmed'
     if (s === 'pending')  return 'cancel_pending'
@@ -233,7 +271,27 @@ export default function MyTickets() {
     ? tickets
     : tickets.filter(t => normalizeStatus(t.status) === filter)
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Render: Search Phase ──────────────────────────────────────────────
+  if (phase === 'search') {
+    return (
+      <div className="mt-root">
+        <div className="mt-header">
+          <div>
+            <div className="mt-header__eyebrow">Quản lý đặt chỗ</div>
+            <div className="mt-header__title">Vé của tôi</div>
+            <div className="mt-header__sub">Tra cứu và quản lý vé máy bay</div>
+          </div>
+          <button className="mt-buy-btn1" onClick={() => navigate('/home', { state: { tab: 'muave' } })}>
+            + Mua vé mới
+          </button>
+        </div>
+
+        <SearchForm onSearch={handleSearch} />
+      </div>
+    )
+  }
+
+  // ── Render: Result Phase ──────────────────────────────────────────────
   return (
     <div className="mt-root">
 
@@ -246,36 +304,31 @@ export default function MyTickets() {
         </div>
       )}
 
-      {/* Error */}
-      {error && (
-        <div style={{ margin: '0 0 16px', padding: '12px 16px', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 8, fontSize: 14, color: '#ef4444', display: 'flex', justifyContent: 'space-between' }}>
-          <span>⚠️ {error}</span>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }} onClick={() => setError('')}>✕</button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="mt-header">
         <div>
-          <div className="mt-header__eyebrow">Tài khoản của tôi</div>
+          <div className="mt-header__eyebrow">Mã đặt chỗ: {searchCtx.pnr}</div>
           <div className="mt-header__title">Vé đã đặt</div>
           <div className="mt-header__sub">
-            {loading
-              ? '⏳ Đang tải...'
-              : `${tickets.length} chuyến bay · cập nhật realtime`
-            }
+            {tickets.length} chuyến bay · {searchCtx.email}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <button
             className="mt-buy-btn"
-            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)' }}
-            onClick={fetchTickets}
-            disabled={loading}
+            style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)' }}
+            onClick={handleReset}
           >
-            {loading ? '⏳' : '🔄'} Làm mới
+            🔍 Tìm lại
           </button>
-          <button className="mt-buy-btn" onClick={() => navigate('/buy-ticket')}>
+          <button
+            className="mt-buy-btn"
+            style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)' }}
+            onClick={handleRefresh}
+          >
+            🔄 Làm mới
+          </button>
+          <button className="mt-buy-btn1" onClick={() => navigate('/home', { state: { tab: 'muave' } })}>
             + Mua vé mới
           </button>
         </div>
@@ -300,15 +353,8 @@ export default function MyTickets() {
         ))}
       </div>
 
-      {/* Loading skeleton */}
-      {loading && tickets.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#888', fontSize: 15 }}>
-          ✈️ Đang tải danh sách vé...
-        </div>
-      )}
-
       {/* Empty state */}
-      {!loading && filtered.length === 0 && (
+      {filtered.length === 0 && (
         <div className="mt-empty">
           <span>🎫</span>
           <p>Không có vé nào trong danh mục này</p>
@@ -326,7 +372,6 @@ export default function MyTickets() {
               <div
                 key={t.id}
                 className={`mt-card${isExpanded ? ' mt-card--highlight' : ''}`}
-                style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}
               >
                 {/* Status bar */}
                 <div className="mt-card__status-bar" style={{ background: sc.color }} />
@@ -356,7 +401,7 @@ export default function MyTickets() {
                         ? t.passengers.map((p, i) => (
                             <span key={i}>{p}{t.seat?.[i] ? ` (${t.seat[i]})` : ''}</span>
                           )).reduce((a, b, i) => [a, <span key={`sep-${i}`}> · </span>, b])
-                        : <span style={{ color: '#aaa' }}>—</span>
+                        : <span style={{ color:'#aaa' }}>—</span>
                       }
                     </div>
                   </div>
@@ -397,21 +442,34 @@ export default function MyTickets() {
                   <div className="mt-card__actions">
                     <button
                       className="mt-action-btn"
-                      onClick={() => navigate('/cancel-ticket', { state: { ticketId: t.id, ticket: t } })}
+                      onClick={() => navigate('/cancel-ticket', {
+                        state: {
+                          ticketId: t.id,
+                          ticket:   t,
+                          pnr:      searchCtx.pnr,
+                          email:    searchCtx.email,
+                        }
+                      })}
                     >
                       🚫 Hủy vé
-                    </button>
-                    <button
-                      className="mt-action-btn"
-                      onClick={() => navigate('/change-flight', { state: { ticketId: t.id, ticket: t } })}
-                    >
-                      🔄 Đổi chuyến
                     </button>
                     <button
                       className="mt-action-btn mt-action-btn--primary"
                       onClick={() => navigate('/thu-tuc', { state: { ticketId: t.id, ticket: t } })}
                     >
                       ✅ Check-in
+                    </button>
+                  </div>
+                )}
+
+                {/* Xem chi tiết nếu cancel_pending / change_pending */}
+                {(normalizeStatus(t.status) === 'cancel_pending' || normalizeStatus(t.status) === 'change_pending') && (
+                  <div className="mt-card__actions">
+                    <button
+                      className="mt-action-btn"
+                      onClick={() => setExpandId(isExpanded ? null : t.id)}
+                    >
+                      {isExpanded ? '▲ Thu gọn' : '▼ Xem trạng thái'}
                     </button>
                   </div>
                 )}

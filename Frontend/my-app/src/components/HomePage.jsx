@@ -21,13 +21,13 @@ export default function HomePage() {
       <Hero />
       <div className="home-content">
         <SearchPanel 
-          notify={notify} 
+          onAction={notify} 
           activeTab={activeTab}
           onTabChange={setActiveTab}
           initialDestination={initialDestination}
         />
         <PopularFlights 
-          notify={notify} 
+          onAction={notify} 
           onSelectDestination={handleSelectDestination}
         />
       </div>

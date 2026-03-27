@@ -412,4 +412,667 @@
 @media (max-width: 600px) {
   .fr-card { flex-direction: column; align-items: flex-start; }
   .fdm-grid2 { grid-template-columns: 1fr; }
+}/* ============================================================
+   SEAT CLASS PANEL — thêm vào cuối Flightresult.css
+   ============================================================ */
+
+/* Card có thể click */
+.fr-card--clickable {
+  cursor: pointer;
+  transition: box-shadow 0.18s, transform 0.15s;
+}
+.fr-card--clickable:hover {
+  box-shadow: 0 4px 20px rgba(26,60,110,0.13);
+  transform: translateY(-2px);
+}
+
+/* Giá 2 hạng trong card */
+.fr-card__prices {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+.fr-card__price-divider {
+  width: 1px;
+  background: #e5e7eb;
+  margin: 4px 12px;
+  flex-shrink: 0;
+}
+.fr-card__price-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fr-card__price-class {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.fr-card__price-item--eco .fr-card__price-class  { color: #1a3c6e; }
+.fr-card__price-item--biz .fr-card__price-class  { color: #92400e; }
+.fr-card__price-amt {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.fr-card__price-item--eco .fr-card__price-amt    { color: #1a3c6e; }
+.fr-card__price-item--biz .fr-card__price-amt    { color: #b45309; }
+.fr-card__price-per {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+.fr-card__airline-no {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* ── Seat Class Panel (Drawer) ── */
+.scp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: scp-fade-in 0.2s ease;
+}
+@keyframes scp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.scp-drawer {
+  background: #fff;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.22);
+  animation: scp-slide-up 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+  max-height: min(92vh, 760px);
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@keyframes scp-slide-up {
+  from { transform: translateY(24px) scale(0.98); opacity: 0.4; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Header */
+.scp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+}
+.scp-header__flight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scp-header__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.scp-header__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+.scp-header__route {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.scp-close {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #374151;
+  transition: background 0.15s;
+}
+.scp-close:hover { background: #e5e7eb; }
+
+/* Eyebrow */
+.scp-eyebrow {
+  padding: 16px 20px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+/* Cards */
+.scp-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 20px 12px;
+}
+@media (max-width: 500px) {
+  .scp-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scp-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.scp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.scp-card--chosen {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.scp-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.scp-card__price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+.scp-card__price-amt {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.scp-card__price-per {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.scp-card__features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scp-card__features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.4;
+}
+.scp-card__check {
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.scp-card__selected-mark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+/* Footer */
+.scp-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 2;
+}
+.scp-cancel {
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.scp-cancel:hover { background: #f9fafb; }
+.scp-confirm {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.scp-confirm:not(:disabled):hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.scp-confirm:disabled {
+  opacity: 0.7;
+}
+
+/* Giá 2 hạng trong Flight Detail Modal */
+.fdm-price-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.fdm-price-item {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fdm-price-item__label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.fdm-price-item__amt {
+  font-size: 16px;
+  font-weight: 800;
+}
+.fdm-price-item__per {
+  font-size: 11px;
+  color: #9ca3af;
+}/* ============================================================
+   SEAT CLASS PANEL — thêm vào cuối Flightresult.css
+   ============================================================ */
+
+/* Card có thể click */
+.fr-card--clickable {
+  cursor: pointer;
+  transition: box-shadow 0.18s, transform 0.15s;
+}
+.fr-card--clickable:hover {
+  box-shadow: 0 4px 20px rgba(26,60,110,0.13);
+  transform: translateY(-2px);
+}
+
+/* Giá 2 hạng trong card */
+.fr-card__prices {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+.fr-card__price-divider {
+  width: 1px;
+  background: #e5e7eb;
+  margin: 4px 12px;
+  flex-shrink: 0;
+}
+.fr-card__price-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fr-card__price-class {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.fr-card__price-item--eco .fr-card__price-class  { color: #1a3c6e; }
+.fr-card__price-item--biz .fr-card__price-class  { color: #92400e; }
+.fr-card__price-amt {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.fr-card__price-item--eco .fr-card__price-amt    { color: #1a3c6e; }
+.fr-card__price-item--biz .fr-card__price-amt    { color: #b45309; }
+.fr-card__price-per {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+.fr-card__airline-no {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* Nút "📋 Hoàn vé" trong card */
+.fr-btn-policy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2aabab;
+  background: rgba(42, 171, 171, 0.08);
+  border: 1.5px solid rgba(42, 171, 171, 0.35);
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  letter-spacing: 0.2px;
+}
+.fr-btn-policy:hover {
+  background: rgba(42, 171, 171, 0.15);
+  border-color: #2aabab;
+  color: #1e8888;
+  transform: translateY(-1px);
+}
+.fr-btn-policy:active {
+  transform: translateY(0);
+}
+
+/* ── Seat Class Panel (Drawer) ── */
+.scp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: scp-fade-in 0.2s ease;
+}
+@keyframes scp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.scp-drawer {
+  background: #fff;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.22);
+  animation: scp-slide-up 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+  max-height: min(92vh, 760px);
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@keyframes scp-slide-up {
+  from { transform: translateY(24px) scale(0.98); opacity: 0.4; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Header */
+.scp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+}
+.scp-header__flight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scp-header__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.scp-header__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+.scp-header__route {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.scp-close {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #374151;
+  transition: background 0.15s;
+}
+.scp-close:hover { background: #e5e7eb; }
+
+/* Eyebrow */
+.scp-eyebrow {
+  padding: 16px 20px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+/* Cards */
+.scp-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 20px 12px;
+}
+@media (max-width: 500px) {
+  .scp-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scp-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.scp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.scp-card--chosen {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.scp-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.scp-card__price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+.scp-card__price-amt {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.scp-card__price-per {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.scp-card__features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scp-card__features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.4;
+}
+.scp-card__check {
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.scp-card__selected-mark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+/* Footer */
+.scp-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 2;
+}
+.scp-cancel {
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.scp-cancel:hover { background: #f9fafb; }
+.scp-confirm {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.scp-confirm:not(:disabled):hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.scp-confirm:disabled {
+  opacity: 0.7;
+}
+
+/* Giá 2 hạng trong Flight Detail Modal */
+.fdm-price-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.fdm-price-item {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fdm-price-item__label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.fdm-price-item__amt {
+  font-size: 16px;
+  font-weight: 800;
+}
+.fdm-price-item__per {
+  font-size: 11px;
+  color: #9ca3af;
 }
