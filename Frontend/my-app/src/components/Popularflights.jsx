@@ -1,16 +1,19 @@
 // src/components/PopularFlights.jsx
 import '../styles/FlightCard.css';
 import FlightCard from './Flightcard';
+import daNangImg from '../assets/đà nẵng.png'
+import khanhHoaImg from '../assets/khánh hòa.jpg'
+import nhaTrangImg from '../assets/nha trang.jpg'
+import phanThietImg from '../assets/phan thiết.jpg'
+import phuQuocImg from '../assets/phú quốc.jpg'
 
-// Destination images from Unsplash
 const DEST_IMAGES = {
-  'Nha Trang': 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=400&h=300&fit=crop',
-  'Đà Nẵng': 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=400&h=300&fit=crop',
-  'Phú Quốc': 'https://images.unsplash.com/photo-1583417319070-4a69db38a978?w=400&h=300&fit=crop',
-  'Đà Lạt': 'https://images.unsplash.com/photo-1567694673016-7f1c4247c38a?w=400&h=300&fit=crop',
-  'Huế': 'https://images.unsplash.com/photo-1586188775618-295c6677b2c8?w=400&h=300&fit=crop',
-  'Hà Nội': 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=400&h=300&fit=crop',
-  'TP.HCM': 'https://images.unsplash.com/photo-1583417319070-4a69db38a978?w=400&h=300&fit=crop',
+  'Nha Trang': nhaTrangImg,
+  'Đà Nẵng': daNangImg,
+  'Phú Quốc': phuQuocImg,
+  'Đà Lạt': phanThietImg,
+  'Huế': daNangImg,
+  'TP.HCM': khanhHoaImg,
 };
 
 // Airport codes mapping

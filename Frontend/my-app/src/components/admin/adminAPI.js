@@ -17,46 +17,37 @@
  */
 
 import { INIT_CUSTOMERS, INIT_FLIGHTS, INIT_TICKETS, INIT_LOGS, TOP_ROUTES } from './mockData'
+import { getToken as getKeycloakToken, isTokenExpired } from '../../services/keycloakService'
 
-const BASE = '/api'
+const BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
 // ─── TOKEN ───────────────────────────────────────────────────────────────────
 
-function getToken() {
-  // Ưu tiên: raw JWT string (Postman script lưu: set("token", access_token))
-  const RAW_KEYS = ['access_token', 'token', 'kc_token', 'auth_token', 'adminToken']
-  for (const key of RAW_KEYS) {
-    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key)
-    if (raw && raw.startsWith('ey')) {
-      console.log(`%c[Token] Found at "${key}"`, 'color:#22c55e')
-      return raw
-    }
+function getAdminToken() {
+  const token = getKeycloakToken()
+  console.groupCollapsed('[Admin API] getAdminToken')
+  console.log('hasToken:', !!token)
+  console.log('isExpired:', isTokenExpired())
+  console.log('preview:', token ? `${token.slice(0, 16)}...${token.slice(-10)}` : 'missing')
+  if (!token) {
+    console.warn('[Admin API] Không tìm thấy access token trong phiên đăng nhập admin.')
+    console.groupEnd()
+    return null
   }
-
-  // Fallback: JSON object { access_token: "..." } — Keycloak JS adapter
-  const JSON_KEYS = ['kc_auth', 'keycloak', 'auth', 'user', 'session']
-  for (const key of JSON_KEYS) {
-    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key)
-    if (!raw) continue
-    try {
-      const parsed = JSON.parse(raw)
-      const t = parsed?.access_token ?? parsed?.token ?? null
-      if (t && t.startsWith('ey')) {
-        console.log(`%c[Token] Found in JSON at "${key}"`, 'color:#22c55e')
-        return t
-      }
-    } catch {}
+  if (isTokenExpired()) {
+    console.warn('[Admin API] Access token có dấu hiệu hết hạn, vẫn gửi lên backend để xác thực.')
   }
-
-  console.warn('[Token] No token — đăng nhập chưa? Keys hiện có:', Object.keys(localStorage))
-  return null
+  console.groupEnd()
+  return token
 }
 
 /** Lưu token Keycloak sau khi login thành công */
 export function saveKeycloakToken(kcResponse) {
   if (kcResponse?.access_token) {
+    sessionStorage.setItem('access_token', kcResponse.access_token)
     localStorage.setItem('access_token', kcResponse.access_token)
     if (kcResponse.refresh_token) {
+      sessionStorage.setItem('refresh_token', kcResponse.refresh_token)
       localStorage.setItem('refresh_token', kcResponse.refresh_token)
     }
     console.log('%c[Token] Saved to localStorage.access_token', 'color:#22c55e')
@@ -73,19 +64,26 @@ export function clearToken() {
 
 /** Gọi API với Bearer token tự động */
 async function apiFetch(method, path, body = null) {
-  const token = getToken()
+  const token = getAdminToken()
   const url   = `${BASE}${path}`
-  console.log(`%c[API] ${method} ${url}`, 'color:#3b82f6;font-weight:bold', token ? 'WITH TOKEN' : 'NO TOKEN')
+  console.groupCollapsed(`[API] ${method} ${url}`)
+  console.log('has token:', !!token)
+  console.log('auth header preview:', token ? `Bearer ${token.slice(0, 16)}...${token.slice(-10)}` : 'missing')
+  if (body) console.log('request body:', body)
   const res = await fetch(url, {
     method,
     headers: {
+      Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: body ? JSON.stringify(body) : null,
   })
-  console.log(`%c[API] <- ${res.status}`, res.ok ? 'color:#22c55e' : 'color:#ef4444')
   const data = await res.json().catch(() => ({}))
+  console.log('response status:', res.status)
+  console.log('response ok:', res.ok)
+  console.log('response data:', data)
+  console.groupEnd()
   if (!res.ok) throw new Error(data?.message ?? data?.error ?? data?.detail ?? `HTTP ${res.status}`)
   return data
 }

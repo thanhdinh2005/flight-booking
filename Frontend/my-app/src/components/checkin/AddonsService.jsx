@@ -673,7 +673,7 @@ export default function AddonsService({ bookings, onNext, onBack }) {
             <button className="as-back-btn" onClick={onBack}>← Quay lại</button>
             <button
               className="as-checkin-btn"
-              onClick={() => onNext({ bookings, selected, total })}
+              onClick={() => onNext({ bookings, selected, total, summaryRows })}
             >
               Tiếp tục →{hasAny ? ` (+${fmt(total)})` : ''}
             </button>

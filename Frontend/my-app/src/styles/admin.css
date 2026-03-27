@@ -6,12 +6,12 @@
 
 /* ── Variables ── */
 .adm-root {
-  --bg:        #08090d;
-  --surface:   #0e1018;
-  --surface2:  #14171f;
-  --border:    #1e2130;
-  --accent:    #00e5a0;
-  --accent2:   #60a5fa;
+  --bg:        #090b11;
+  --surface:   #10131c;
+  --surface2:  #151a24;
+  --border:    #222839;
+  --accent:    #00d8a4;
+  --accent2:   #67b7ff;
   --danger:    #ff5c5c;
   --warn:      #f59e0b;
   --purple:    #a78bfa;
@@ -28,14 +28,17 @@
 .adm-root {
   display: flex;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at top right, rgba(103,183,255,.08), transparent 18%),
+    radial-gradient(circle at top left, rgba(0,216,164,.06), transparent 20%),
+    var(--bg);
   color: var(--text);
 }
 
 /* ───────────── SIDEBAR ───────────── */
 .adm-sidebar {
   width: var(--fw);
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(16,19,28,.98), rgba(12,14,21,.98));
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -137,24 +140,56 @@
 .adm-main { margin-left: var(--fw); flex: 1; display: flex; flex-direction: column; }
 
 .adm-topbar {
-  height: var(--fh);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  min-height: var(--fh);
+  background: rgba(16,19,28,.82);
+  border-bottom: 1px solid rgba(255,255,255,.04);
   display: flex; align-items: center;
-  padding: 0 26px; gap: 14px;
+  padding: 12px 26px; gap: 14px;
   position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(16px);
 }
-.adm-topbar-title {
+.adm-topbar-context {
   flex: 1;
-  font-family: 'Syne', sans-serif;
-  font-size: 20px; font-weight: 700;
+  min-width: 0;
+}
+.adm-topbar-eyebrow {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  margin-bottom: 2px;
+}
+.adm-topbar-sub {
+  font-size: 13px;
+  color: var(--text-mid);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-topbar-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(103,183,255,.22);
+  background: rgba(103,183,255,.08);
+  color: var(--accent2);
+  font-size: 12px;
+  font-weight: 600;
 }
 .adm-topbar-time {
   font-family: 'DM Mono', monospace;
   font-size: 13px; color: var(--text-mid);
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 999px;
+  background: rgba(255,255,255,.03);
 }
 
-.adm-content { padding: 26px; flex: 1; }
+.adm-content {
+  padding: 26px;
+  flex: 1;
+  max-width: 1440px;
+}
 
 /* ───────────── ANIMATIONS ───────────── */
 @keyframes adm-fade-up {
@@ -207,6 +242,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r);
   overflow: hidden;
+  box-shadow: 0 14px 30px rgba(0,0,0,.18);
 }
 .adm-toolbar {
   display: flex; align-items: center; gap: 10px;

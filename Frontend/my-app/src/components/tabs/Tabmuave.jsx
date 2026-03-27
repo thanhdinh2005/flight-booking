@@ -5,9 +5,320 @@ import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
 import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
+import { getToken, isTokenExpired } from '../../services/keycloakService'
 import '../../styles/SearchPanel.css'
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
+
+function getAuthHeaders() {
+  const token = getToken()
+  if (!token || isTokenExpired()) throw new Error('TOKEN_MISSING')
+  return {
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  }
+}
+
+function fmt(n) {
+  return Number(n || 0).toLocaleString('vi-VN') + '₫'
+}
+
+function fmtDate(raw) {
+  if (!raw) return '—'
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime())
+    ? raw
+    : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid }) {
+  const [paying, setPaying] = useState(false)
+  const [vnpayUrl, setVnpayUrl] = useState(null)
+  const [apiError, setApiError] = useState('')
+
+  const addonTotal = addonSelection?.total || 0
+  const addonRows = addonSelection?.summaryRows || []
+  const grandTotal = Number(booking?.total_amount || 0) + Number(addonTotal || 0)
+
+  async function handleVNPayRedirect() {
+    if (!booking?.id) return
+    setPaying(true)
+    setApiError('')
+    try {
+      const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) throw new Error(json.message || `Lỗi ${res.status}`)
+      const url = json.data
+      if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ')
+      setVnpayUrl(url)
+      setTimeout(() => window.open(url, '_blank'), 800)
+      onPaid?.()
+    } catch (err) {
+      setApiError(
+        err.message === 'TOKEN_MISSING'
+          ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+          : err.message || 'Không lấy được link thanh toán. Vui lòng thử lại.'
+      )
+      setPaying(false)
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 20px 40px' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 24 }}>
+        {['Thông tin', 'Dịch vụ', 'Thanh toán'].map((label, index) => {
+          const state = index < 2 ? 'done' : 'active'
+          return (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: state === 'active' ? '#111827' : '#0f766e',
+                  color: '#fff', fontWeight: 800, fontSize: 13,
+                  boxShadow: state === 'active' ? '0 0 0 4px rgba(15,118,110,.18)' : 'none',
+                }}>
+                  {state === 'done' ? '✓' : index + 1}
+                </div>
+                <span style={{
+                  marginTop: 6, fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '.6px', color: state === 'active' ? '#111827' : '#6b7280',
+                }}>
+                  {label}
+                </span>
+              </div>
+              {index < 2 && (
+                <div style={{ flex: 1, height: 2, background: '#0f766e', marginBottom: 18 }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{
+        background: 'linear-gradient(135deg,#f0fdf9,#ecfeff)',
+        border: '1px solid #99f6e4',
+        borderRadius: 18,
+        padding: '20px 22px',
+        marginBottom: 18,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#0f766e', marginBottom: 6 }}>
+          Xác nhận đơn hàng
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: '#111827', marginBottom: 4 }}>
+          Kiểm tra lại thông tin trước khi thanh toán
+        </div>
+        <div style={{ fontSize: 13, color: '#4b5563' }}>
+          {searchData?.from} → {searchData?.to} · {fmtDate(searchData?.date)}
+          {searchData?.tripType === 'round' && searchData?.retDate ? ` · Về ${fmtDate(searchData.retDate)}` : ''}
+        </div>
+      </div>
+
+      <div style={{
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '18px 20px',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>🎟 Thông tin đặt chỗ</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 4 }}>PNR</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#065f46', fontFamily: 'Courier New, monospace' }}>{booking?.pnr || '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 4 }}>Liên hệ</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{booking?.contact_email || '—'}</div>
+            <div style={{ fontSize: 13, color: '#6b7280' }}>{booking?.contact_phone || '—'}</div>
+          </div>
+        </div>
+        {booking?.expires_at && (
+          <div style={{ marginTop: 14, fontSize: 12, color: '#b45309' }}>
+            ⏳ Hết hạn lúc <b>{new Date(booking.expires_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</b>
+            {' '}ngày {new Date(booking.expires_at).toLocaleDateString('vi-VN')}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '18px 20px',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>👤 Hành khách & vé</div>
+        {(booking?.tickets || []).map(ticket => (
+          <div key={ticket.id} style={{ padding: '10px 0', borderBottom: '1px dashed #e5e7eb' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
+              {ticket.passenger?.last_name} {ticket.passenger?.first_name}
+              <span style={{ fontWeight: 500, color: '#6b7280' }}>
+                {ticket.passenger?.gender === 'MALE' ? ' · Nam' : ticket.passenger?.gender === 'FEMALE' ? ' · Nữ' : ''}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#4b5563', marginTop: 4 }}>
+              {ticket.flight_instance?.route?.origin?.code} → {ticket.flight_instance?.route?.destination?.code}
+              {' · '}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: ticket.seat_class === 'BUSINESS' ? '#fffbeb' : '#eff6ff',
+                color: ticket.seat_class === 'BUSINESS' ? '#92400e' : '#1d4ed8',
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                {ticket.seat_class === 'BUSINESS' ? '👑 Thương gia' : '💺 Phổ thông'}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#0f766e', fontWeight: 700, marginTop: 4 }}>
+              {fmt(ticket.ticket_price)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '18px 20px',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>🛒 Dịch vụ bổ sung</div>
+        {addonRows.length > 0 ? addonRows.map((row, index) => (
+          <div key={`${row.label}-${row.name}-${index}`} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '10px 0',
+            borderBottom: '1px dashed #e5e7eb',
+            fontSize: 13,
+          }}>
+            <span style={{ color: '#374151' }}><b>{row.label}</b> · {row.name}</span>
+            <span style={{ color: '#0f766e', fontWeight: 700 }}>{fmt(row.price)}</span>
+          </div>
+        )) : (
+          <div style={{ fontSize: 13, color: '#6b7280' }}>Bạn chưa chọn dịch vụ bổ sung.</div>
+        )}
+      </div>
+
+      <div style={{
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 16,
+        padding: '18px 20px',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>💰 Tổng thanh toán</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#4b5563', marginBottom: 8 }}>
+          <span>Tiền vé</span>
+          <b style={{ color: '#111827' }}>{fmt(booking?.total_amount)}</b>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#4b5563', marginBottom: 8 }}>
+          <span>Dịch vụ bổ sung</span>
+          <b style={{ color: addonTotal > 0 ? '#0f766e' : '#111827' }}>{addonTotal > 0 ? `+${fmt(addonTotal)}` : fmt(0)}</b>
+        </div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: '1px solid #e5e7eb',
+          fontSize: 20,
+          fontWeight: 800,
+          color: '#111827',
+        }}>
+          <span>Tổng cộng</span>
+          <span style={{ color: '#0f766e' }}>{fmt(grandTotal)}</span>
+        </div>
+      </div>
+
+      {vnpayUrl && (
+        <div style={{
+          background: 'linear-gradient(135deg,#f0fdf9,#e6fffb)',
+          border: '1px solid #99f6e4',
+          borderRadius: 16,
+          padding: '18px 20px',
+          marginBottom: 16,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#065f46', marginBottom: 6 }}>Đang chờ thanh toán...</div>
+          <div style={{ fontSize: 13, color: '#047857', marginBottom: 14 }}>
+            Trang thanh toán VNPay đã được mở trong tab mới.
+          </div>
+          <button
+            onClick={() => window.open(vnpayUrl, '_blank')}
+            style={{
+              background: '#0f766e', color: '#fff', border: 'none',
+              borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Mở lại trang thanh toán →
+          </button>
+        </div>
+      )}
+
+      {apiError && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#dc2626',
+          borderRadius: 10,
+          padding: '12px 14px',
+          fontSize: 13,
+          marginBottom: 14,
+        }}>
+          {apiError}
+        </div>
+      )}
+
+      {!vnpayUrl && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            onClick={onBack}
+            style={{
+              padding: '12px 18px',
+              borderRadius: 10,
+              border: '1px solid #d1d5db',
+              background: '#fff',
+              color: '#4b5563',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            ← Quay lại chọn dịch vụ
+          </button>
+          <button
+            onClick={handleVNPayRedirect}
+            disabled={paying}
+            style={{
+              flex: 1,
+              minWidth: 240,
+              padding: '14px 22px',
+              borderRadius: 10,
+              border: 'none',
+              background: paying ? '#9ca3af' : 'linear-gradient(135deg,#0f766e,#115e59)',
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: paying ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {paying ? 'Đang chuyển sang thanh toán...' : `Tiếp tục thanh toán ${fmt(grandTotal)} →`}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Mini Calendar ──────────────────────────────────────────────────────────
 function MiniCalendar({ value, onChange, onClose }) {
@@ -205,6 +516,12 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   const [passengers, setPassengers] = useState('1')
   const [useLiveSearch, setUseLiveSearch] = useState(false)
 
+  useEffect(() => {
+    if (!initialDestination) return
+    setFromCity(initialDestination.from || 'Nội Bài (HAN) – Hà Nội')
+    setToCity(initialDestination.to || '')
+  }, [initialDestination])
+
   function swap() {
     if (!toCity) return
     setFromCity(toCity)
@@ -377,14 +694,15 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
 }
 
 // ─── Root: TabMuaVe ───────────────────────────────────────────────────────────
-// Luồng: 'search' → 'results' → 'passenger' → 'addons'
+// Luồng: 'search' → 'results' → 'passenger' → 'addons' → 'summary'
 export default function TabMuaVe({ onAction, initialDestination }) {
 
-  const [screen,    setScreen]    = useState('search')   // 'search' | 'outbound' | 'return' | 'passenger' | 'addons'
+  const [screen,    setScreen]    = useState('search')   // 'search' | 'outbound' | 'return' | 'passenger' | 'addons' | 'summary'
   const [searchData, setSearchData] = useState(null)
   const [outboundSel, setOutboundSel] = useState(null)
   const [returnSel, setReturnSel] = useState(null)
   const [booking, setBooking] = useState(null)
+  const [addonSelection, setAddonSelection] = useState({ total: 0, selected: {}, summaryRows: [] })
   const [isLoading, setIsLoading] = useState(false)
   const [apiResults, setApiResults] = useState(null)
   const [filters,   setFilters]   = useState({})
@@ -429,6 +747,7 @@ export default function TabMuaVe({ onAction, initialDestination }) {
     setOutboundSel(null)
     setReturnSel(null)
     setBooking(null)
+    setAddonSelection({ total: 0, selected: {}, summaryRows: [] })
     try {
       const result = await searchFlights({
         origin:         data.from,
@@ -495,22 +814,24 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   // PassengerForm nên gọi onDone({ ticket_id }) để truyền ticket_id
   function handlePassengerDone(result) {
     setBooking(result?.booking ?? null)
+    setAddonSelection({ total: 0, selected: {}, summaryRows: [] })
     setScreen('addons')
     onAction?.('🎫 Đã điền thông tin hành khách — chọn dịch vụ bổ sung')
   }
 
-  // Bước 4 hoàn tất
-  function handleAddonsDone() {
-    onAction?.('🎉 Đặt vé thành công! Vui lòng kiểm tra email.')
-    setTimeout(() => {
-      setScreen('search')
-      setSearchData(null)
-      setOutboundSel(null)
-      setReturnSel(null)
-      setBooking(null)
-      setApiResults(null)
-      setFilters({})
-    }, 4000)
+  // Bước 4 → 5: tổng hợp trước khi thanh toán
+  function handleAddonsDone(result) {
+    setAddonSelection({
+      total: result?.total || 0,
+      selected: result?.selected || {},
+      summaryRows: result?.summaryRows || [],
+    })
+    setScreen('summary')
+    onAction?.('🧾 Đã cập nhật dịch vụ bổ sung — kiểm tra đơn hàng trước khi thanh toán')
+  }
+
+  function handlePaymentStart() {
+    onAction?.('💳 Đang mở trang thanh toán VNPay')
   }
 
   // ── Render ──
@@ -630,6 +951,21 @@ export default function TabMuaVe({ onAction, initialDestination }) {
           onAction?.('↩ Quay lại thông tin hành khách')
         }}
         onNext={handleAddonsDone}
+      />
+    )
+  }
+
+  if (screen === 'summary') {
+    return (
+      <OrderSummaryStep
+        booking={booking}
+        addonSelection={addonSelection}
+        searchData={searchData}
+        onBack={() => {
+          setScreen('addons')
+          onAction?.('↩ Quay lại chọn dịch vụ bổ sung')
+        }}
+        onPaid={handlePaymentStart}
       />
     )
   }

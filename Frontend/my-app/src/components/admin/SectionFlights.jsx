@@ -4,6 +4,9 @@ import Modal from '../model'
 import { fmt } from './helpers'
 import { flightAPI, flightFilterAPI } from './adminAPI'
 import { INIT_FLIGHTS } from './mockData'
+import { getToken, isTokenExpired } from '../../services/keycloakService'
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
 const FLIGHT_STATUSES = ['ALL', 'SCHEDULED', 'DEPARTED', 'DELAYED', 'CANCELLED']
 const STATUS_LABEL = { ALL: 'Tất cả', SCHEDULED: 'Đã lên lịch', DEPARTED: 'Đã bay', DELAYED: 'Hoãn', CANCELLED: 'Đã hủy' }
@@ -140,12 +143,21 @@ export function SectionFlights() {
     setAirportsLoading(true)
     setAirportsError('')
     try {
-      const res = await fetch('https://backend.test/api/airports')
+      const token = getToken()
+      if (!token || isTokenExpired()) {
+        throw new Error('Phiên đăng nhập admin đã hết hạn')
+      }
+      const res = await fetch(`${API_BASE}/airports`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setAirports(Array.isArray(data) ? data : (data.data ?? []))
     } catch (err) {
-      setAirportsError('Không tải được danh sách sân bay')
+      setAirportsError(err.message || 'Không tải được danh sách sân bay')
     } finally {
       setAirportsLoading(false)
     }

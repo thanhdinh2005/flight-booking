@@ -131,14 +131,14 @@ export function SectionCustomers() {
     <div className="adm-fade">
       <div className="adm-sec-header">
         <div>
-          <div className="adm-sec-title">Quản lý khách hàng</div>
-          <div className="adm-sec-sub">{list.length} khách hàng</div>
+          <div className="adm-sec-title">Quản lý tài khoản</div>
+          <div className="adm-sec-sub">{list.length} tài khoản</div>
         </div>
         <button
           className="adm-btn adm-btn-primary"
           onClick={() => { setModal(true); setForm({ name: '', email: '', phone: '', role: 'customer' }); setFormErrors({}); setError('') }}
           disabled={loading}
-        >+ Thêm khách hàng</button>
+        >+ Thêm tài khoản</button>
       </div>
 
       {error && (
@@ -200,7 +200,7 @@ export function SectionCustomers() {
       {/* MODAL THÊM */}
       {modal && (
         <Modal
-          title="Thêm khách hàng" sub="Điền thông tin bên dưới"
+          title="Thêm tài khoản" sub="Điền thông tin bên dưới"
           onClose={() => { setModal(false); setFormErrors({}) }}
           footer={
             <>
@@ -234,7 +234,7 @@ export function SectionCustomers() {
       {/* MODAL SỬA */}
       {editModal && (
         <Modal
-          title="Chỉnh sửa thông tin" sub={`Mã KH: ${editModal.id}`}
+          title="Chỉnh sửa tài khoản" sub={`Mã TK: ${editModal.id}`}
           onClose={() => { setEditModal(null); setEditErrors({}) }}
           footer={
             <>

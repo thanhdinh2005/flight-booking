@@ -460,9 +460,6 @@ export default function Topbar({ currentUser, onLogout }) {
                   <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/my-tickets'); }}>
                     <span>🎫</span> Vé của tôi
                   </button>
-                  <button className="topbar__dropdown-item" onClick={() => { setAvatarOpen(false); navigate('/settings'); }}>
-                    <span>⚙️</span> Cài đặt
-                  </button>
 
                   <div className="topbar__dropdown-divider" />
 
