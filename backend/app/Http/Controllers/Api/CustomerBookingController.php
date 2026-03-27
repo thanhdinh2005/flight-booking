@@ -29,9 +29,7 @@ class CustomerBookingController extends Controller
 
         // 2. Truy vấn tìm Booking thông qua PNR và Email chủ sở hữu
         $booking = \App\Models\Booking::where('pnr', $pnr)
-            ->whereHas('user', function ($query) use ($email) {
-                $query->where('email', $email);
-            })
+            ->where('contact_email', $email) // Lấy trực tiếp từ cột contact_email của bảng bookings
             ->first();
 
         if (!$booking) {
