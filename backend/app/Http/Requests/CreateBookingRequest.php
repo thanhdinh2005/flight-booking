@@ -30,7 +30,7 @@ class CreateBookingRequest extends FormRequest
             'passengers' => 'required|array|min:1',
             'passengers.*.first_name' => 'required|string|max:50',
             'passengers.*.last_name' => 'required|string|max:50',
-            'passengers.*.birthday' => 'required|date|before:today',
+            'passengers.*.date_of_birth' => 'required|date|before:today',
             'passengers.*.gender' => 'required|in:MALE,FEMALE,OTHER',
         ];
     }
@@ -41,7 +41,7 @@ class CreateBookingRequest extends FormRequest
             'itinerary.required' => 'Bạn phải chọn ít nhất một chuyến bay.',
             'itinerary.*.flight_instance_id.exists' => 'Chuyến bay không tồn tại trong hệ thống.',
             'passengers.required' => 'Vui lòng nhập thông tin hành khách.',
-            'passengers.*.birthday.before' => 'Ngày sinh không hợp lệ.',
+            'passengers.*.date_of_birth.before' => 'Ngày sinh không hợp lệ.',
         ];
     }
 }
