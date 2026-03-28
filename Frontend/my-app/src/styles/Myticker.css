@@ -17,10 +17,11 @@
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
-  color: var(--white);
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.86);
   padding: 10px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.28);
+  border: 1px solid rgba(58,138,171,0.16);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
   transition: transform var(--transition), background var(--transition), border-color var(--transition), box-shadow var(--transition);
@@ -28,7 +29,8 @@
 
 .mt-buy-btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.4);
+  background: #fff;
+  border-color: rgba(58,138,171,0.28);
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
 }
 
@@ -246,3 +248,250 @@
   color: var(--danger);
 }
 .mt-btn--danger:hover { background: var(--danger-dim); border-color: var(--danger); }
+
+/* ── Result header actions ── */
+.mt-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mt-header__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--sky-600);
+  margin-bottom: 6px;
+}
+
+/* ── Filters ── */
+.mt-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.mt-filter-tab {
+  border: 1px solid var(--border-default);
+  background: rgba(255,255,255,0.86);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition), background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.mt-filter-tab:hover {
+  transform: translateY(-1px);
+  border-color: var(--sky-500);
+  color: var(--sky-700);
+  box-shadow: var(--shadow-sm);
+}
+
+.mt-filter-tab.active {
+  background: linear-gradient(135deg, var(--sky-500), var(--sky-600));
+  border-color: transparent;
+  color: var(--white);
+  box-shadow: 0 12px 24px rgba(58,138,171,0.22);
+}
+
+.mt-filter-count {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(13,61,85,0.08);
+  color: inherit;
+}
+
+.mt-filter-tab.active .mt-filter-count {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ── Ticket list ── */
+.mt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mt-card__status-bar {
+  height: 4px;
+}
+
+.mt-card__route {
+  min-width: 150px;
+}
+
+.mt-card__iata {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--sky-800);
+}
+
+.mt-card__route-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 68px;
+}
+
+.mt-card__route-line {
+  width: 30px;
+  height: 1.5px;
+  background: var(--border-strong);
+}
+
+.mt-card__route-plane {
+  color: var(--sky-600);
+  font-size: 14px;
+}
+
+.mt-card__flight {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--sky-800);
+}
+
+.mt-card__time {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.mt-card__fare {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.mt-card__fare strong {
+  color: var(--sky-800);
+  font-weight: 800;
+}
+
+.mt-card__pax {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.mt-card__right {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.mt-card__price {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--sky-800);
+}
+
+.mt-card__status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mt-card__booking-code {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ── Card action buttons ── */
+.mt-action-btn {
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-secondary);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition), background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.mt-action-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--sky-500);
+  color: var(--sky-700);
+  box-shadow: var(--shadow-sm);
+}
+
+.mt-action-btn--primary {
+  background: linear-gradient(135deg, var(--sky-500), var(--sky-600));
+  border-color: transparent;
+  color: var(--white);
+  box-shadow: 0 12px 24px rgba(58,138,171,0.22);
+}
+
+.mt-action-btn--primary:hover {
+  color: var(--white);
+  filter: saturate(1.05);
+}
+
+.mt-action-btn--danger {
+  border-color: rgba(229,62,62,0.28);
+  color: var(--danger);
+  background: rgba(229,62,62,0.04);
+}
+
+.mt-action-btn--danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(229,62,62,0.10);
+}
+
+@media (max-width: 760px) {
+  .mt-card__main {
+    align-items: flex-start;
+  }
+
+  .mt-card__route {
+    width: 100%;
+  }
+
+  .mt-card__right {
+    margin-left: 0;
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .mt-card__actions {
+    flex-direction: column;
+  }
+
+  .mt-action-btn,
+  .mt-buy-btn,
+  .mt-buy-btn1 {
+    width: 100%;
+    justify-content: center;
+  }
+}

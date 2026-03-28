@@ -1,5 +1,5 @@
 // src/pages/MyTickets.jsx
-// Luồng: nhập PNR + Email → GET /api/bookings/search-tickets → hiển thị vé
+// Luồng: nhập PNR + Email → POST /api/bookings/search-tickets → hiển thị vé
 
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +11,35 @@ import '../styles/Searchform.css'
 function fmt(n) {
   if (!n && n !== 0) return '—'
   return Number(n).toLocaleString('vi-VN') + '₫'
+}
+
+function parseDisplayDate(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  const direct = new Date(raw)
+  if (!Number.isNaN(direct.getTime())) return direct
+
+  const slashDateTimeMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (slashDateTimeMatch) {
+    const [, dd, mm, yyyy, hh = '00', min = '00', ss = '00'] = slashDateTimeMatch
+    const normalized = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`)
+    if (!Number.isNaN(normalized.getTime())) return normalized
+  }
+
+  return null
+}
+
+function formatDisplayDate(value) {
+  const parsed = parseDisplayDate(value)
+  if (!parsed) return String(value ?? '').trim()
+  return parsed.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function formatDisplayTime(value) {
+  const parsed = parseDisplayDate(value)
+  if (!parsed) return ''
+  return parsed.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function getToken() {
@@ -51,9 +80,26 @@ async function apiFetch(path, options = {}) {
 
 // ─── API: tìm vé theo PNR + Email ─────────────────────────────────────────────
 async function searchTickets(pnr, email) {
-  const params = new URLSearchParams({ pnr: pnr.trim().toUpperCase(), email: email.trim().toLowerCase() })
-  const d = await apiFetch(`/bookings/search-tickets?${params}`)
-  const list = Array.isArray(d) ? d : (d?.data ?? d?.tickets ?? d?.bookings ?? [])
+  const payload = {
+    pnr: pnr.trim().toUpperCase(),
+    email: email.trim().toLowerCase(),
+  }
+
+  const d = await apiFetch('/bookings/search-tickets', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+  const list = Array.isArray(d?.data)
+    ? d.data
+    : Array.isArray(d)
+      ? d
+      : (d?.tickets ?? d?.bookings ?? [])
+
+  if (!list.length) {
+    throw new Error('Không tìm thấy vé nào với thông tin này.')
+  }
+
   return list.map(mapTicket)
 }
 
@@ -62,42 +108,46 @@ function mapTicket(b) {
   if (!b) return {}
   const fi      = b.flight_instance ?? b.flightInstance ?? {}
   const route   = fi.route ?? {}
-  const std     = fi.std ? new Date(fi.std) : null
-  const sta     = fi.sta ? new Date(fi.sta) : null
   const depDate = fi.departure_date ?? fi.date ?? b.departure_date ?? ''
-
-  const fmtDate = (raw) => {
-    if (!raw) return ''
-    const d = new Date(raw)
-    if (isNaN(d)) return raw
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
-  }
-
-  const passengers = b.passengers ?? b.travellers ?? []
+  const passengers = Array.isArray(b.passengers)
+    ? b.passengers
+    : b.passenger
+      ? [b.passenger]
+      : Array.isArray(b.travellers)
+        ? b.travellers
+        : []
   const passengerNames = passengers.map(p =>
     (p.full_name ?? p.name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`).trim().toUpperCase()
   )
   const seats = passengers.map(p => p.seat ?? p.seat_number ?? '')
+  const flightNo =
+    fi.flight_schedule?.flight_number ??
+    fi.flightSchedule?.flight_number ??
+    fi.flight_number ??
+    b.flight_number ??
+    '—'
+  const seatClass = b.seat_class ?? b.cabin_class ?? b.class ?? 'ECONOMY'
 
   return {
     id:          String(b.id ?? ''),
-    bookingCode: b.booking_code ?? b.pnr ?? b.code ?? `BK-${b.id}`,
+    bookingCode: b.booking_code ?? b.pnr ?? b.code ?? `Vé #${b.id}`,
     airline:     route.airline  ?? fi.airline ?? 'VietJett',
-    flightNo:    fi.flight_number ?? b.flight_number ?? '—',
-    dep:         std ? std.toTimeString().slice(0,5) : (b.dep ?? ''),
-    arr:         sta ? sta.toTimeString().slice(0,5) : (b.arr ?? ''),
-    date:        fmtDate(depDate),
+    flightNo,
+    dep:         formatDisplayTime(fi.std) || (b.dep ?? ''),
+    arr:         formatDisplayTime(fi.sta) || (b.arr ?? ''),
+    date:        formatDisplayDate(depDate),
     depCode:     route.from      ?? route.origin?.code ?? b.dep_code ?? '',
     arrCode:     route.to        ?? route.destination?.code ?? b.arr_code ?? '',
     depAirport:  route.from_name ?? route.origin?.name ?? b.dep_airport ?? '',
     arrAirport:  route.to_name   ?? route.destination?.name ?? b.arr_airport ?? '',
-    price:       Number(b.total_price ?? b.amount ?? b.price ?? 0),
-    class:       b.cabin_class  ?? b.class ?? 'Phổ thông',
+    price:       Number(b.ticket_price ?? b.total_price ?? b.amount ?? b.price ?? 0),
+    class:       seatClass === 'BUSINESS' ? 'Thương gia' : seatClass === 'ECONOMY' ? 'Phổ thông' : seatClass,
+    seatClass,
     logoColor:   '#1a3c6e',
     passengers:  passengerNames.length ? passengerNames : (b.passenger_names ?? []),
     seat:        seats,
     status:      (b.status ?? 'confirmed').toLowerCase(),
-    purchasedAt: fmtDate(b.created_at ?? b.purchased_at ?? ''),
+    purchasedAt: formatDisplayDate(b.created_at ?? b.purchased_at ?? ''),
     raw:         b,
   }
 }
@@ -396,6 +446,7 @@ export default function MyTickets() {
                   <div className="mt-card__info">
                     <div className="mt-card__flight">{t.flightNo} · {t.date}</div>
                     <div className="mt-card__time">{t.dep} – {t.arr} · {t.class}</div>
+                    <div className="mt-card__fare">Giá vé: <strong>{fmt(t.price)}</strong></div>
                     <div className="mt-card__pax">
                       {t.passengers.length > 0
                         ? t.passengers.map((p, i) => (
@@ -441,7 +492,7 @@ export default function MyTickets() {
                 {normalizeStatus(t.status) === 'confirmed' && (
                   <div className="mt-card__actions">
                     <button
-                      className="mt-action-btn"
+                      className="mt-action-btn mt-action-btn--danger"
                       onClick={() => navigate('/cancel-ticket', {
                         state: {
                           ticketId: t.id,
@@ -451,7 +502,7 @@ export default function MyTickets() {
                         }
                       })}
                     >
-                      🚫 Hủy vé
+                      ↩ Hoàn vé
                     </button>
                     <button
                       className="mt-action-btn mt-action-btn--primary"

@@ -55,13 +55,7 @@ async function fetchTopbarAirports() {
 }
 
 async function fetchTopbarFlights({ origin, destination, departure_date, return_date, adults = '1' }) {
-  const params = new URLSearchParams({
-    origin,
-    destination,
-    departure_date,
-    adults: String(adults),
-  });
-  if (return_date) params.append('return_date', return_date);
+  const params = buildFlightSearchParams({ origin, destination, departure_date, return_date, adults });
 
   const res = await fetch(`${API_BASE}/flights/search?${params.toString()}`, {
     headers: {
@@ -71,6 +65,22 @@ async function fetchTopbarFlights({ origin, destination, departure_date, return_
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
+}
+
+function buildFlightSearchParams({ origin, destination, departure_date, return_date, adults }) {
+  const params = new URLSearchParams();
+
+  params.append('origin', origin);
+  params.append('destination', destination);
+  params.append('departure_date', departure_date);
+
+  if (return_date) {
+    params.append('return_date', return_date);
+  }
+
+  params.append('adults', String(adults ?? 1));
+
+  return params;
 }
 
 function MiniCalendar({ value, onChange, onClose }) {
@@ -155,7 +165,7 @@ function MiniCalendar({ value, onChange, onClose }) {
   );
 }
 
-export default function Topbar({ currentUser, onLogout }) {
+export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
   const navigate = useNavigate();
   const [avatarOpen,     setAvatarOpen]     = useState(false);
   const [searchVal,      setSearchVal]      = useState('');
@@ -222,18 +232,20 @@ export default function Topbar({ currentUser, onLogout }) {
   // Advanced search
   async function handleAdvancedSearch(e) {
     e.preventDefault();
-    const { origin, destination, departure_date, return_date } = advancedValues;
+    const { origin, destination, departure_date, return_date, adults } = advancedValues;
 
     if (!origin || !destination || !departure_date) return;
     if (origin === destination) return;
     if (return_date && return_date < departure_date) return;
 
-    const params = new URLSearchParams();
-    params.append('origin', origin);
-    params.append('destination', destination);
-    params.append('departure_date', departure_date);
-    if (return_date) params.append('return_date', return_date);
-    params.append('adults', '1');
+    const adultsValue = adults ?? 1;
+    const params = buildFlightSearchParams({
+      origin,
+      destination,
+      departure_date,
+      return_date,
+      adults: adultsValue,
+    });
 
     setSearchingFlights(true);
     try {
@@ -242,13 +254,19 @@ export default function Topbar({ currentUser, onLogout }) {
         destination,
         departure_date,
         return_date,
-        adults: '1',
+        adults: adultsValue,
       });
 
-      navigate(`/flights?${params.toString()}`, {
+      navigate('/flightspage', {
         state: {
           prefetchedResult,
-          prefetchedQuery: params.toString(),
+          searchData: {
+            origin,
+            destination,
+            departure_date,
+            return_date,
+            adults: String(adultsValue),
+          },
         },
       });
       setIsExpanded(false);
@@ -291,6 +309,15 @@ export default function Topbar({ currentUser, onLogout }) {
   return (
     <>
       <header className="topbar">
+        <button
+          type="button"
+          className="topbar__menu-btn"
+          onClick={onMenuToggle}
+          aria-label="Mở menu điều hướng"
+        >
+          ☰
+        </button>
+
         {/* Logo */}
         <a className="topbar__logo" href="/home">
           <span className="topbar__logo-icon">✈️</span>

@@ -1,0 +1,259 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+:root {
+  --adm-bg-1: #081826;
+  --adm-bg-2: #10283a;
+  --adm-panel: rgba(10, 26, 39, 0.88);
+  --adm-panel-soft: rgba(255, 255, 255, 0.08);
+  --adm-border: rgba(148, 197, 255, 0.18);
+  --adm-text: #e6f1ff;
+  --adm-muted: #97acc5;
+  --adm-accent: #38bdf8;
+  --adm-accent-2: #22c55e;
+  --adm-danger: #fca5a5;
+}
+
+.adm-login {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 30%),
+    linear-gradient(135deg, var(--adm-bg-1), var(--adm-bg-2));
+  font-family: 'Outfit', sans-serif;
+  color: var(--adm-text);
+}
+
+.adm-login__backdrop {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.adm-login__shell {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  align-items: stretch;
+}
+
+.adm-login__aside,
+.adm-login__panel {
+  padding: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.adm-login__aside {
+  gap: 18px;
+}
+
+.adm-login__kicker {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--adm-accent);
+}
+
+.adm-login__title {
+  font-size: 52px;
+  line-height: 1;
+  font-weight: 800;
+  max-width: 520px;
+}
+
+.adm-login__desc {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--adm-muted);
+  max-width: 520px;
+}
+
+.adm-login__stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.adm-login__stat {
+  min-width: 170px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--adm-border);
+  backdrop-filter: blur(10px);
+}
+
+.adm-login__stat-num {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.adm-login__stat-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--adm-muted);
+}
+
+.adm-login__panel {
+  background: linear-gradient(180deg, rgba(7, 20, 31, 0.88), rgba(7, 20, 31, 0.72));
+  border-left: 1px solid rgba(148, 197, 255, 0.12);
+}
+
+.adm-login__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.adm-login__brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  background: linear-gradient(135deg, var(--adm-accent), #2563eb);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
+}
+
+.adm-login__brand-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.adm-login__brand-sub {
+  font-size: 13px;
+  color: var(--adm-muted);
+}
+
+.adm-login__form {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.adm-login__label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d9e8f8;
+}
+
+.adm-login__input {
+  width: 100%;
+  border: 1px solid var(--adm-border);
+  border-radius: 16px;
+  background: var(--adm-panel-soft);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.adm-login__input::placeholder {
+  color: #7f96ae;
+}
+
+.adm-login__input:focus {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+  background: rgba(255,255,255,0.1);
+}
+
+.adm-login__error {
+  border: 1px solid rgba(252, 165, 165, 0.28);
+  background: rgba(127, 29, 29, 0.28);
+  color: var(--adm-danger);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.adm-login__submit,
+.adm-login__link {
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: transform .14s ease, filter .14s ease, opacity .14s ease, border-color .14s ease, background .14s ease;
+}
+
+.adm-login__submit {
+  margin-top: 6px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #03121c;
+  background: linear-gradient(135deg, var(--adm-accent), #67e8f9);
+  box-shadow: 0 18px 32px rgba(56, 189, 248, 0.18);
+}
+
+.adm-login__submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.adm-login__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.adm-login__link {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #dbeafe;
+  background: transparent;
+  border: 1px solid var(--adm-border);
+}
+
+.adm-login__link:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.06);
+}
+
+@media (max-width: 980px) {
+  .adm-login__shell {
+    grid-template-columns: 1fr;
+  }
+
+  .adm-login__aside {
+    padding-bottom: 20px;
+  }
+
+  .adm-login__panel {
+    border-left: none;
+    border-top: 1px solid rgba(148, 197, 255, 0.12);
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-login__aside,
+  .adm-login__panel {
+    padding: 28px 20px;
+  }
+
+  .adm-login__title {
+    font-size: 38px;
+  }
+}

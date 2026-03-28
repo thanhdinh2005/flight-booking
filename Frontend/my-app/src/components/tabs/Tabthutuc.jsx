@@ -41,13 +41,32 @@ async function apiFetch(method, path, body = null, extraHeaders = {}) {
   return data
 }
 
-function fmtTime(iso) {
-  if (!iso) return '—'
-  try { return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) } catch { return iso }
+function parseDisplayDate(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  const direct = new Date(raw)
+  if (!Number.isNaN(direct.getTime())) return direct
+
+  const slashDateTimeMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (slashDateTimeMatch) {
+    const [, dd, mm, yyyy, hh = '00', min = '00', ss = '00'] = slashDateTimeMatch
+    const normalized = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`)
+    if (!Number.isNaN(normalized.getTime())) return normalized
+  }
+
+  return null
 }
-function fmtDate(iso) {
-  if (!iso) return '—'
-  try { return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) } catch { return iso }
+
+function fmtTime(value) {
+  const parsed = parseDisplayDate(value)
+  if (!parsed) return String(value ?? '').trim()
+  return parsed.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+function fmtDate(value) {
+  const parsed = parseDisplayDate(value)
+  if (!parsed) return String(value ?? '').trim()
+  return parsed.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function normalizeText(value) {
@@ -80,9 +99,7 @@ function parseDateInput(value) {
 function formatDateInput(value) {
   const normalized = normalizeDate(parseDateInput(value))
   if (!normalized) return ''
-  const [yyyy, mm, dd] = normalized.split('-')
-  if (!yyyy || !mm || !dd) return String(value ?? '')
-  return `${dd}/${mm}/${yyyy}`
+  return normalized
 }
 
 function normalizeSeatMapRows(payload) {
@@ -204,18 +221,20 @@ const BASE_CSS = `
 
   /* Seat map */
   .sm-plane-wrap { background:#fff; border:1px solid var(--border); border-radius:12px;
-    padding:20px 16px; overflow-x:auto; }
-  .sm-header-row,.sm-seat-row { display:flex; align-items:center; gap:0; }
-  .sm-row-num { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted);
-    width:28px; flex-shrink:0; text-align:center; }
-  .sm-col-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
-    color:var(--teal); text-align:center; flex:1; }
-  .sm-aisle  { width:18px; flex-shrink:0; }
+    padding:24px 20px; overflow-x:auto;
+    --sm-seat-size: 52px; --sm-seat-gap: 6px; --sm-row-width: 40px; --sm-aisle-width: 32px; }
+  .sm-header-row,.sm-seat-row { display:flex; align-items:center; gap:0; width:max-content; min-width:100%; justify-content:center; }
+  .sm-row-num { font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; color:var(--muted);
+    width:var(--sm-row-width); flex:0 0 var(--sm-row-width); text-align:center; }
+  .sm-col-label { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700;
+    color:var(--teal); text-align:center; width:var(--sm-seat-size); flex:0 0 var(--sm-seat-size);
+    margin:0 var(--sm-seat-gap); }
+  .sm-aisle  { width:var(--sm-aisle-width); flex:0 0 var(--sm-aisle-width); }
   .sm-divider{ height:1px; background:var(--border); margin:4px 0; }
-  .sm-seat { flex:1; aspect-ratio:1; max-width:34px; min-width:24px;
-    border:1.5px solid; border-radius:4px; margin:1.5px;
+  .sm-seat { width:var(--sm-seat-size); height:var(--sm-seat-size); flex:0 0 var(--sm-seat-size);
+    border:1.5px solid; border-radius:6px; margin:var(--sm-seat-gap);
     display:flex; align-items:center; justify-content:center;
-    font-family:'IBM Plex Mono',monospace; font-size:8px; font-weight:700;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700;
     cursor:pointer; transition:all .12s; position:relative; }
   .sm-seat--available    { background:var(--teal-dim); border-color:rgba(42,171,171,.3); color:var(--teal); }
   .sm-seat--available:hover { background:var(--teal-mid); border-color:var(--teal); transform:scale(1.1); z-index:1; }
@@ -225,6 +244,13 @@ const BASE_CSS = `
   .sm-legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
   .sm-legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
   .sm-legend-dot  { width:12px; height:12px; border:1.5px solid; border-radius:2px; flex-shrink:0; }
+  @media(max-width:720px){
+    .sm-plane-wrap { --sm-seat-size: 34px; --sm-seat-gap: 3px; --sm-row-width: 28px; --sm-aisle-width: 18px; padding:18px 12px; }
+    .sm-header-row,.sm-seat-row { justify-content:flex-start; }
+    .sm-col-label { font-size:12px; }
+    .sm-row-num { font-size:11px; }
+    .sm-seat { font-size:11px; }
+  }
 
   /* Boarding pass */
   .bp-card { background:linear-gradient(135deg,#1a3c6e 0%,#2aabab 100%);
@@ -391,6 +417,7 @@ function LookupScreen({ onSuccess }) {
 
 function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
   const [selected, setSelected] = useState(null)
+  const showRefundOnly = tickets.length === 1
 
   function statusLabel(status) {
     const map = { PENDING:'Chờ thanh toán', CONFIRMED:'Đã xác nhận', USED:'Đã sử dụng', CANCELLED:'Đã huỷ' }
@@ -424,8 +451,10 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
             const flightNo = t.flight_instance?.flight_schedule?.flight_number ?? `FI-${t.flight_instance_id ?? '---'}`
             const pax    = t.passenger
             const isSelected = selected?.id === t.id
-            const genderLabel = pax?.gender === 'MALE' ? 'Nam' : pax?.gender === 'FEMALE' ? 'Nữ' : pax?.gender ?? '—'
-            const idNumber = pax?.id_number || 'Chưa có'
+            const passengerName = [pax?.last_name, pax?.first_name].filter(Boolean).join(' ').trim()
+            const genderLabel = pax?.gender === 'MALE' ? 'Nam' : pax?.gender === 'FEMALE' ? 'Nữ' : pax?.gender ?? ''
+            const idNumber = pax?.id_number ? String(pax.id_number).trim() : ''
+            const birthDate = pax?.date_of_birth ? fmtDate(pax.date_of_birth) : ''
 
             return (
               <div
@@ -439,17 +468,19 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                     <span className={`tk-card__badge tk-card__badge--${(t.seat_class||'economy').toLowerCase()}`}>
                       {t.seat_class === 'BUSINESS' ? '👑 Thương gia' : '💺 Phổ thông'}
                     </span>
-                    <span className={`tk-card__status tk-card__status--${statusClass(t.status)}`}>
-                      {statusLabel(t.status)}
-                    </span>
+                    {t.status && (
+                      <span className={`tk-card__status tk-card__status--${statusClass(t.status)}`}>
+                        {statusLabel(t.status)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="tk-card__meta">
-                  <span>👤 {pax?.last_name} {pax?.first_name}</span>
-                  <span>🪪 {idNumber}</span>
-                  <span>⚥ {genderLabel}</span>
-                  <span>🎂 {fmtDate(pax?.date_of_birth)}</span>
+                  {passengerName && <span>👤 {passengerName}</span>}
+                  {idNumber && <span>🪪 {idNumber}</span>}
+                  {genderLabel && <span>⚥ {genderLabel}</span>}
+                  {birthDate && <span>🎂 {birthDate}</span>}
                   {std && <span>📅 {fmtDate(std)} · {fmtTime(std)}</span>}
                   {sta && <span>🕒 Đến {fmtTime(sta)}</span>}
                   <span>✈️ {flightNo}</span>
@@ -469,29 +500,36 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                       color: 'var(--ink)',
                       lineHeight: 1.6,
                     }}>
-                      <div><strong>Hành khách:</strong> {pax?.last_name} {pax?.first_name}</div>
-                      <div><strong>Giới tính:</strong> {genderLabel}</div>
-                      <div><strong>Ngày sinh:</strong> {fmtDate(pax?.date_of_birth)}</div>
-                      <div><strong>Giấy tờ:</strong> {idNumber}</div>
+                      {passengerName && <div><strong>Hành khách:</strong> {passengerName}</div>}
+                      {genderLabel && <div><strong>Giới tính:</strong> {genderLabel}</div>}
+                      {birthDate && <div><strong>Ngày sinh:</strong> {birthDate}</div>}
+                      {idNumber && <div><strong>Giấy tờ:</strong> {idNumber}</div>}
                       <div><strong>Hạng vé:</strong> {t.seat_class}</div>
                       <div><strong>Giá vé:</strong> {Number(t.ticket_price || 0).toLocaleString('vi-VN')}₫</div>
                     </div>
 
-                    <div className="tk-actions">
-                    <button
-                      className="ci-btn ci-btn--primary"
-                      style={{ fontSize:13 }}
-                      onClick={e => { e.stopPropagation(); onCheckin(t) }}
+                    <div
+                      className="tk-actions"
+                      style={{ gridTemplateColumns: '1fr' }}
                     >
-                      ✈️ Check-in
-                    </button>
-                    <button
-                      className="ci-btn ci-btn--warn"
-                      style={{ fontSize:13 }}
-                      onClick={e => { e.stopPropagation(); onRefund(t) }}
-                    >
-                      ↩ Hoàn vé
-                    </button>
+                    {showRefundOnly && (
+                      <button
+                        className="ci-btn ci-btn--primary"
+                        style={{ fontSize:13 }}
+                        onClick={e => { e.stopPropagation(); onCheckin(t) }}
+                      >
+                        ✈️ Check-in
+                      </button>
+                    )}
+                    {!showRefundOnly && (
+                      <button
+                        className="ci-btn ci-btn--warn"
+                        style={{ fontSize:13 }}
+                        onClick={e => { e.stopPropagation(); onRefund(t) }}
+                      >
+                        ↩ Hoàn vé
+                      </button>
+                    )}
                     </div>
                   </>
                 )}
@@ -526,15 +564,13 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); setError('') }
 
   useEffect(() => {
-    const passenger = ticket?.passenger
-    if (!passenger) return
-
     setForm({
-      first_name: passenger.first_name ? normalizeText(passenger.first_name) : '',
-      last_name: passenger.last_name ? normalizeText(passenger.last_name) : '',
-      id_number: passenger.id_number ? String(passenger.id_number).trim() : '',
-      date_of_birth: passenger.date_of_birth ? formatDateInput(passenger.date_of_birth) : '',
+      first_name: '',
+      last_name: '',
+      id_number: '',
+      date_of_birth: '',
     })
+    setError('')
   }, [ticket])
 
   const normalizedDob = parseDateInput(form.date_of_birth)
@@ -562,10 +598,6 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
 
       if (mismatch.length > 0) {
         throw new Error(`Thông tin không khớp với vé đã tra cứu (${mismatch.join(', ')}).`)
-      }
-
-      if (!expectedPassenger.id_number) {
-        throw new Error('Vé này chưa có số giấy tờ trong dữ liệu tra cứu, chưa thể xác thực check-in.')
       }
 
       const verifyPayload = {
@@ -656,7 +688,7 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
 
           <div className="ci-field">
             <label className="ci-label">Ngày sinh *</label>
-            <input className="ci-input" type="text" placeholder="DD/MM/YYYY hoặc YYYY-MM-DD"
+            <input className="ci-input" type="text" placeholder="YYYY-MM-DD"
               value={form.date_of_birth}
               onChange={e => set('date_of_birth', e.target.value)}
               onBlur={() => {
@@ -816,7 +848,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
                         <div className="sm-row-num">{rowNum}</div>
                         {leftCols.map(col => {
                           const seat  = find(col)
-                          if (!seat) return <div key={col} style={{ flex:1, maxWidth:34 }} />
+                          if (!seat) return <div key={col} style={{ width:'var(--sm-seat-size)', height:'var(--sm-seat-size)', flex:'0 0 var(--sm-seat-size)', margin:'var(--sm-seat-gap)' }} />
                           const state = getSeatState(seat)
                           return (
                             <div key={seat.seat_number} className={`sm-seat sm-seat--${state}`}
@@ -830,7 +862,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
                         <div className="sm-aisle" />
                         {rightCols.map(col => {
                           const seat  = find(col)
-                          if (!seat) return <div key={col} style={{ flex:1, maxWidth:34 }} />
+                          if (!seat) return <div key={col} style={{ width:'var(--sm-seat-size)', height:'var(--sm-seat-size)', flex:'0 0 var(--sm-seat-size)', margin:'var(--sm-seat-gap)' }} />
                           const state = getSeatState(seat)
                           return (
                             <div key={seat.seat_number} className={`sm-seat sm-seat--${state}`}
@@ -920,6 +952,26 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, ticketData, on
     QRCode.toCanvas(qrRef.current, bp.qr_code_content, { width:140, margin:1 }, () => {})
   }, [bp])
 
+  const ticketInfo = bp?.ticket_info ?? {}
+  const passengerInfo = bp?.passenger ?? {}
+  const flightInfo = bp?.flight ?? {}
+  const routeInfo = bp?.route ?? {}
+  const scheduleInfo = bp?.schedule ?? {}
+
+  const boardingSeat = ticketInfo?.seat ?? seatNumber ?? '—'
+  const passengerName = passengerInfo?.full_name
+    ?? (`${ticketData?.passenger?.last_name ?? ''} ${ticketData?.passenger?.first_name ?? ''}`.trim() || '—')
+  const flightNumber = flightInfo?.number ?? ticketData?.flight_instance?.flight_schedule?.flight_number ?? '—'
+  const gate = flightInfo?.gate ?? '—'
+  const boardingTime = scheduleInfo?.boarding_time ?? ''
+  const departureTime = scheduleInfo?.departure_time ?? ''
+  const departureDate = scheduleInfo?.date ?? ticketData?.flight_instance?.departure_date ?? ''
+  const cabinClass = ticketInfo?.class ?? ticketData?.seat_class ?? 'ECONOMY'
+  const originCode = routeInfo?.from_code ?? ticketData?.flight_instance?.route?.origin?.code ?? '—'
+  const destinationCode = routeInfo?.to_code ?? ticketData?.flight_instance?.route?.destination?.code ?? '—'
+  const originCity = routeInfo?.from_city ?? ticketData?.flight_instance?.route?.origin?.city ?? ''
+  const destinationCity = routeInfo?.to_city ?? ticketData?.flight_instance?.route?.destination?.city ?? ''
+
   async function handleDownload() {
     if (!cardRef.current) return
     try {
@@ -927,11 +979,15 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, ticketData, on
       const canvas = await html2canvas(cardRef.current, { scale:2, useCORS:true })
       const a = document.createElement('a')
       a.href     = canvas.toDataURL('image/jpeg', 0.95)
-      a.download = `boarding-pass-${bp?.seat ?? seatNumber ?? ticketId}.jpg`
+      a.download = `boarding-pass-${ticketInfo?.seat ?? seatNumber ?? ticketId}.jpg`
       a.click()
     } catch {
       alert('Không xuất được ảnh. Vui lòng chụp màn hình thủ công.')
     }
+  }
+
+  function handleFinish() {
+    window.location.reload()
   }
 
   if (loading) return <LoadingScreen message="Đang tạo thẻ lên máy bay..." />
@@ -958,56 +1014,54 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, ticketData, on
               <div className="bp-route">
                 <div>
                   <div style={{ fontSize:11, opacity:.6, marginBottom:2 }}>Từ</div>
-                  <div className="bp-iata">{bp?.origin ?? '—'}</div>
-                  <div style={{ fontSize:11, opacity:.7 }}>{bp?.origin_city ?? ''}</div>
+                  <div className="bp-iata">{originCode}</div>
+                  <div style={{ fontSize:11, opacity:.7 }}>{originCity}</div>
                 </div>
                 <div className="bp-arrow">✈</div>
                 <div style={{ textAlign:'right' }}>
                   <div style={{ fontSize:11, opacity:.6, marginBottom:2 }}>Đến</div>
-                  <div className="bp-iata">{bp?.destination ?? '—'}</div>
-                  <div style={{ fontSize:11, opacity:.7 }}>{bp?.destination_city ?? ''}</div>
+                  <div className="bp-iata">{destinationCode}</div>
+                  <div style={{ fontSize:11, opacity:.7 }}>{destinationCity}</div>
                 </div>
               </div>
               <div className="bp-row">
                 <div className="bp-field">
                   <div className="bp-field__label">Hành khách</div>
-                  <div className="bp-field__value">
-                    {bp?.passenger_name ?? (`${ticketData?.passenger?.last_name ?? ''} ${ticketData?.passenger?.first_name ?? ''}`.trim() || '—')}
-                  </div>
+                  <div className="bp-field__value">{passengerName}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Số ghế</div>
                   <div className="bp-field__value bp-field__value--large" style={{ color:'#fde68a' }}>
-                    {bp?.seat ?? seatNumber ?? '—'}
+                    {boardingSeat}
                   </div>
                 </div>
               </div>
               <div className="bp-row">
                 <div className="bp-field">
                   <div className="bp-field__label">Chuyến bay</div>
-                  <div className="bp-field__value">{bp?.flight_number ?? ticketData?.flight_instance?.flight_schedule?.flight_number ?? '—'}</div>
+                  <div className="bp-field__value">{flightNumber}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Cửa (Gate)</div>
-                  <div className="bp-field__value">{bp?.gate ?? '—'}</div>
+                  <div className="bp-field__value">{gate}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Lên máy bay</div>
-                  <div className="bp-field__value">{bp?.boarding_time ? fmtTime(bp.boarding_time) : '—'}</div>
+                  <div className="bp-field__value">{boardingTime ? fmtTime(boardingTime) : '—'}</div>
                 </div>
               </div>
               <div className="bp-row">
                 <div className="bp-field">
                   <div className="bp-field__label">Khởi hành</div>
-                  <div className="bp-field__value">{bp?.departure_time ? fmtTime(bp.departure_time) : '—'}</div>
+                  <div className="bp-field__value">{departureTime ? fmtTime(departureTime) : '—'}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Ngày bay</div>
-                  <div className="bp-field__value">{bp?.departure_date ? fmtDate(bp.departure_date) : ticketData?.flight_instance?.departure_date ? fmtDate(ticketData.flight_instance.departure_date) : '—'}</div>
+                  <div className="bp-field__value">{departureDate ? fmtDate(departureDate) : '—'}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Hạng</div>
-                  <div className="bp-field__value">{bp?.cabin_class ?? ticketData?.seat_class ?? 'ECONOMY'}</div>
+                  <div className="bp-field__value">{cabinClass}</div>
                 </div>
               </div>
               {bp?.qr_code_content && (
@@ -1020,12 +1074,12 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, ticketData, on
 
             <div style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent:'center', marginBottom:24 }}>
               <button className="ci-btn ci-btn--ghost" onClick={handleDownload}>📥 Tải về (.jpg)</button>
-              <button className="ci-btn ci-btn--primary" onClick={() => navigate('/home', { replace:true })}>Hoàn tất ✓</button>
+              <button className="ci-btn ci-btn--primary" onClick={handleFinish}>Hoàn tất ✓</button>
             </div>
 
             <Alert type="info">
-              Vui lòng có mặt tại cửa <strong>{bp?.gate ?? '...'}</strong> trước{' '}
-              <strong>{bp?.boarding_time ? fmtTime(bp.boarding_time) : '...'}</strong>.
+              Vui lòng có mặt tại cửa <strong>{gate || '...'}</strong> trước{' '}
+              <strong>{boardingTime ? fmtTime(boardingTime) : '...'}</strong>.
             </Alert>
           </>
         )}
