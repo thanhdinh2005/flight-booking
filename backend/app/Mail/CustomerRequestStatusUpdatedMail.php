@@ -8,45 +8,45 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Models\BookingRequest;
 
-class CustomerRequestStatusUpdatedMail extends Mailable
+class CustomerRequestStatusUpdatedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
-public $requestData;
+
+    // QUAN TRỌNG: Khai báo biến public để Blade nhận được $requestData
+    public $requestData;
+
     /**
-     * Create a new message instance.
+     * Nhận đối tượng BookingRequest từ Admin UseCase
      */
-    public function __construct($requestData)
+    public function __construct(BookingRequest $requestData)
     {
         $this->requestData = $requestData;
     }
 
     /**
-     * Get the message envelope.
+     * Tiêu đề Mail thay đổi theo trạng thái APPROVED/REJECTED
      */
     public function envelope(): Envelope
     {
-        $statusText = $this->requestData->status === 'APPROVED' ? 'Đã được Duyệt' : 'Bị Từ Chối';
-    return new Envelope(
-        subject: "[InteractHub] Yêu cầu của bạn $statusText",
-    );
-    }
-
-    /**
-     * Get the message content definition.
-     */
-    public function content(): Content
-    {
-        return new Content(
-            view: 'view.name',
+        $statusText = $this->requestData->status->value === 'APPROVED' ? 'Đã được Duyệt' : 'Bị Từ Chối';
+        
+        return new Envelope(
+            subject: "[InteractHub] Yêu cầu hoàn vé #{$this->requestData->id} {$statusText}",
         );
     }
 
     /**
-     * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     * Trỏ đến file giao diện mail kết quả
      */
+    public function content(): Content
+    {
+        return new Content(
+            view: 'emails.requests.status-updated',
+        );
+    }
+
     public function attachments(): array
     {
         return [];

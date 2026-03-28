@@ -15,7 +15,9 @@ class PaymentController extends Controller
     public function create($bookingId, CreateVnpayPaymentUseCase $usecase) {
         $booking = Booking::find($bookingId);
         if (!$booking) throw new EntityNotFoundException("Không tìm thấy Booking");
-
+        if($booking->status->value != "PENDING"){
+            throw new EntityNotFoundException("Không tìm thấy Booking co trang thai la PENDING");
+        }
         $paymentUrl = $usecase->execute($booking);
         return ApiResponse::success($paymentUrl);
     }

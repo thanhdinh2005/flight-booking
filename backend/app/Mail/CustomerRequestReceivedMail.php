@@ -8,46 +8,34 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Models\BookingRequest;
 
-class CustomerRequestReceivedMail extends Mailable
+class CustomerRequestReceivedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new message instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    // 1. PHẢI CÓ DÒNG NÀY: Khai báo biến public để Laravel tự truyền sang Blade
+    public $requestData;
 
     /**
-     * Get the message envelope.
+     * 2. PHẢI CÓ DÒNG NÀY: Nhận dữ liệu từ UseCase truyền vào
      */
+    public function __construct(BookingRequest $requestData)
+    {
+        $this->requestData = $requestData;
+    }
+
     public function envelope(): Envelope
     {
         return new Envelope(
-        subject: '[InteractHub] Chúng tôi đã tiếp nhận yêu cầu của bạn',
-    );
+            subject: '[InteractHub] Tiếp nhận yêu cầu hoàn vé #' . $this->requestData->id,
+        );
     }
 
-    /**
-     * Get the message content definition.
-     */
     public function content(): Content
     {
         return new Content(
-        view: 'emails.requests.received', // Bạn sẽ tạo file blade này
-    );
-    }
-
-    /**
-     * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
-     */
-    public function attachments(): array
-    {
-        return [];
+            view: 'emails.requests.received',
+        );
     }
 }
