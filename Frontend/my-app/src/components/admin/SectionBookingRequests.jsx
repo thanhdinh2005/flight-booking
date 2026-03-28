@@ -26,6 +26,33 @@ function StatusBadge({ value }) {
   )
 }
 
+const MODAL_BODY_SCROLL_STYLE = {
+  maxHeight: 'calc(100dvh - 320px)',
+  overflowY: 'auto',
+  paddingRight: 4,
+}
+
+const APPROVE_INFO_BOX_STYLE = {
+  padding: '16px 18px',
+  background: 'linear-gradient(180deg, rgba(34,197,94,.14), rgba(34,197,94,.09))',
+  border: '1px solid rgba(88,255,161,.34)',
+  borderRadius: 12,
+  fontSize: 13,
+  color: 'var(--text)',
+  boxShadow: '0 12px 28px rgba(20, 88, 53, .16)',
+}
+
+const REJECT_INFO_BOX_STYLE = {
+  padding: '14px 16px',
+  background: 'linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.09))',
+  border: '1px solid rgba(255,120,120,.28)',
+  borderRadius: 12,
+  fontSize: 13,
+  color: 'var(--text)',
+  marginBottom: 14,
+  boxShadow: '0 12px 28px rgba(110, 25, 25, .14)',
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export function SectionBookingRequests() {
   const [list, setList]         = useState([])
@@ -339,6 +366,8 @@ export function SectionBookingRequests() {
           title="Xác nhận duyệt yêu cầu"
           sub={`Booking: ${modal.item.code}`}
           onClose={() => setModal(null)}
+          overlayClassName="adm-overlay-booking-action"
+          modalClassName="adm-modal-booking-action"
           footer={
             <>
               <button className="adm-btn adm-btn-ghost" onClick={() => setModal(null)} disabled={loading}>Hủy</button>
@@ -353,38 +382,40 @@ export function SectionBookingRequests() {
             </>
           }
         >
-          <div style={{ padding: '14px 16px', background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)', borderRadius: 8, fontSize: 13 }}>
-            <div style={{ marginBottom: 10, fontWeight: 600, color: 'var(--accent2)' }}>Thông tin yêu cầu</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
-              <div><span style={{ color: 'var(--text-dim)' }}>Khách hàng:</span><br /><b>{modal.item.customer}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Vé:</span><br /><b>#{modal.item.ticketId}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Loại yêu cầu:</span><br /><b>{modal.item.requestType?.toUpperCase()}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Tiền hoàn đề xuất:</span><br /><b style={{ color: 'var(--accent)' }}>{fmt(modal.item.refundAmount)}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Giá vé gốc:</span><br /><b>{fmt(modal.item.originalPrice)}</b></div>
-              <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-dim)' }}>Lý do:</span><br /><b>{modal.item.reason || '—'}</b></div>
+          <div style={MODAL_BODY_SCROLL_STYLE}>
+            <div style={APPROVE_INFO_BOX_STYLE}>
+              <div style={{ marginBottom: 10, fontWeight: 700, color: '#93f5bd' }}>Thông tin yêu cầu</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                <div><span style={{ color: 'rgba(225,236,255,.72)' }}>Khách hàng:</span><br /><b style={{ color: '#f3fbff' }}>{modal.item.customer}</b></div>
+                <div><span style={{ color: 'rgba(225,236,255,.72)' }}>Vé:</span><br /><b style={{ color: '#f3fbff' }}>#{modal.item.ticketId}</b></div>
+                <div><span style={{ color: 'rgba(225,236,255,.72)' }}>Loại yêu cầu:</span><br /><b style={{ color: '#f3fbff' }}>{modal.item.requestType?.toUpperCase()}</b></div>
+                <div><span style={{ color: 'rgba(225,236,255,.72)' }}>Tiền hoàn đề xuất:</span><br /><b style={{ color: '#7ff7b5' }}>{fmt(modal.item.refundAmount)}</b></div>
+                <div><span style={{ color: 'rgba(225,236,255,.72)' }}>Giá vé gốc:</span><br /><b style={{ color: '#f3fbff' }}>{fmt(modal.item.originalPrice)}</b></div>
+                <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'rgba(225,236,255,.72)' }}>Lý do:</span><br /><b style={{ color: '#f3fbff' }}>{modal.item.reason || '—'}</b></div>
+              </div>
             </div>
-          </div>
-          <div className="adm-field" style={{ marginTop: 14 }}>
-            <label className="adm-label">Số tiền hoàn cuối cùng</label>
-            <input
-              className="adm-input"
-              type="number"
-              min="0"
-              value={approveAmount}
-              onChange={e => setApproveAmount(e.target.value)}
-              placeholder="Nhập số tiền hoàn"
-            />
-          </div>
-          <div className="adm-field">
-            <label className="adm-label">Ghi chú nhân viên <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
-            <textarea
-              className="adm-input"
-              rows={3}
-              placeholder="Nhập ghi chú xử lý..."
-              value={approveNote}
-              onChange={e => setApproveNote(e.target.value)}
-              style={{ resize: 'vertical', minHeight: 80 }}
-            />
+            <div className="adm-field" style={{ marginTop: 14 }}>
+              <label className="adm-label">Số tiền hoàn cuối cùng</label>
+              <input
+                className="adm-input"
+                type="number"
+                min="0"
+                value={approveAmount}
+                onChange={e => setApproveAmount(e.target.value)}
+                placeholder="Nhập số tiền hoàn"
+              />
+            </div>
+            <div className="adm-field">
+              <label className="adm-label">Ghi chú nhân viên <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
+              <textarea
+                className="adm-input"
+                rows={2}
+                placeholder="Nhập ghi chú xử lý..."
+                value={approveNote}
+                onChange={e => setApproveNote(e.target.value)}
+                style={{ resize: 'vertical', minHeight: 64 }}
+              />
+            </div>
           </div>
         </Modal>
       )}
@@ -395,6 +426,8 @@ export function SectionBookingRequests() {
           title="Từ chối yêu cầu"
           sub={`Booking: ${modal.item.code}`}
           onClose={() => setModal(null)}
+          overlayClassName="adm-overlay-booking-action"
+          modalClassName="adm-modal-booking-action"
           footer={
             <>
               <button className="adm-btn adm-btn-ghost" onClick={() => setModal(null)} disabled={loading}>Hủy</button>
@@ -408,19 +441,21 @@ export function SectionBookingRequests() {
             </>
           }
         >
-          <div style={{ padding: '12px 14px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
-            <p>Từ chối yêu cầu của <b>{modal.item.customer}</b> cho vé <b>#{modal.item.ticketId}</b>.</p>
-          </div>
-          <div className="adm-field">
-            <label className="adm-label">Ghi chú từ chối <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
-            <textarea
-              className="adm-input"
-              rows={3}
-              placeholder="Nhập ghi chú để thông báo cho khách hàng..."
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-              style={{ resize: 'vertical', minHeight: 80 }}
-            />
+          <div style={MODAL_BODY_SCROLL_STYLE}>
+            <div style={REJECT_INFO_BOX_STYLE}>
+              <p>Từ chối yêu cầu của <b>{modal.item.customer}</b> cho vé <b>#{modal.item.ticketId}</b>.</p>
+            </div>
+            <div className="adm-field">
+              <label className="adm-label">Ghi chú từ chối <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
+              <textarea
+                className="adm-input"
+                rows={2}
+                placeholder="Nhập ghi chú để thông báo cho khách hàng..."
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                style={{ resize: 'vertical', minHeight: 64 }}
+              />
+            </div>
           </div>
         </Modal>
       )}

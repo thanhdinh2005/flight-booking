@@ -135,6 +135,7 @@ function reverseViName(fullName) {
 function mapUser(u) {
   if (!u) return {}
   const rawName = u.full_name ?? u.name ?? ''
+  const normalizedRole = String(u.role ?? 'customer').toLowerCase()
   return {
     id:      String(u.id ?? ''),
     name:    reverseViName(rawName),
@@ -142,7 +143,7 @@ function mapUser(u) {
     email:   u.email          ?? '',
     phone:   u.phone_number   ?? u.phone ?? '',
     status:  u.status         ?? 'active',
-    role:    u.role           ?? 'customer',
+    role:    normalizedRole,
     tickets: u.tickets        ?? 0,
     joined:  u.created_at ? u.created_at.substring(0, 10) : (u.joined ?? ''),
   }
@@ -369,7 +370,10 @@ export const customerAPI = {
     }
   },
 
-  create: async (body) => apiFetch('POST', '/admin/users', body),
+  create: async (body) => {
+    const d = await apiFetch('POST', '/admin/users', body)
+    return mapUser(d?.data ?? d)
+  },
 
   updateProfile: async (id, body) => apiFetch('PUT', `/admin/users/${id}`, body),
 
