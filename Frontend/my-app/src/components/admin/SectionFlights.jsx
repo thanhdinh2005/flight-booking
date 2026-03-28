@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import Badge from '../badge'
 import Modal from '../model'
-import { fmt } from './helpers'
 import { flightAPI, flightFilterAPI } from './adminAPI'
 import { INIT_FLIGHTS } from './mockData'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
@@ -11,7 +10,12 @@ const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 const FLIGHT_STATUSES = ['ALL', 'SCHEDULED', 'DEPARTED', 'DELAYED', 'CANCELLED']
 const STATUS_LABEL = { ALL: 'Tất cả', SCHEDULED: 'Đã lên lịch', DEPARTED: 'Đã bay', DELAYED: 'Hoãn', CANCELLED: 'Đã hủy' }
 
-const GEN_TIMES = [['06:00', '08:10'], ['10:00', '12:10'], ['14:00', '16:10'], ['18:00', '20:10']]
+function fmtDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleString('vi-VN')
+}
 
 // ─── Detail drawer ─────────────────────────────────────────────────────────
 function FlightDetailModal({ flightId, onClose }) {
@@ -41,14 +45,18 @@ function FlightDetailModal({ flightId, onClose }) {
       ) : data ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px', fontSize: 13 }}>
           {[
-            ['Mã chuyến',  data.flight_number || data.id],
+            ['ID',         data.id || '—'],
+            ['Mã chuyến',  data.flight_number || '—'],
             ['Tuyến',      data.from && data.to ? `${data.from} → ${data.to}` : '—'],
-            ['Ngày bay',   data.date || '—'],
-            ['Giờ đi',     data.dep  || '—'],
-            ['Giờ đến',    data.arr  || '—'],
+            ['Ngày khởi hành', data.date || '—'],
+            ['STD',        fmtDateTime(data.std)],
+            ['STA',        fmtDateTime(data.sta)],
+            ['ETD',        fmtDateTime(data.etd)],
+            ['ETA',        fmtDateTime(data.eta)],
             ['Máy bay',    data.aircraft || '—'],
-            ['Chỗ đã bán', `${data.sold ?? 0} / ${data.seats ?? 0}`],
-            ['Giá vé',     data.price ? fmt(data.price) : '—'],
+            ['Số đăng ký', data.registration_number || '—'],
+            ['Tạo lúc',    fmtDateTime(data.created_at)],
+            ['Cập nhật lúc', fmtDateTime(data.updated_at)],
             ['Trạng thái', <Badge value={data.status} />],
           ].map(([label, value]) => (
             <div key={label}>
@@ -82,7 +90,7 @@ export function SectionFlights() {
   const [perPage]         = useState(10)
 
   // Generate form
-  const [gen, setGen] = useState({ from: 'HAN', to: 'SGN', date: '2026-03-20', count: 2, price: 1200000 })
+  const [gen, setGen] = useState({ from: '', to: '', date: '2026-03-20', count: 2 })
 
   // Airport list
   const [airports, setAirports]           = useState([])
@@ -193,6 +201,8 @@ export function SectionFlights() {
           {airports.map(ap => {
             const code = ap.iata_code ?? ap.code ?? ap.id ?? ''
             const name = ap.name ?? ap.city ?? code
+            const otherField = field === 'from' ? 'to' : 'from'
+            if (!code || code === gen[otherField]) return null
             return <option key={code} value={code}>{code} – {name}</option>
           })}
         </select>
@@ -207,7 +217,7 @@ export function SectionFlights() {
     try {
       const result = await flightAPI.generate({
         from: gen.from, to: gen.to, date: gen.date,
-        count: +gen.count, price: +gen.price,
+        count: +gen.count,
       })
       const newPage = 1 // về trang 1 sau khi tạo
       setPage(newPage)
@@ -320,8 +330,8 @@ export function SectionFlights() {
                 <th>Ngày</th>
                 <th>Giờ đi</th>
                 <th>Giờ đến</th>
-                <th>Chỗ trống</th>
-                <th>Giá vé</th>
+                <th>Máy bay</th>
+                <th>Đăng ký</th>
                 <th>Trạng thái</th>
                 <th></th>
               </tr>
@@ -333,7 +343,7 @@ export function SectionFlights() {
                 <tr key={f.id} style={{ opacity: loading ? 0.6 : 1 }}>
                   <td>
                     <span style={{ fontFamily: 'DM Mono', color: 'var(--accent2)', fontWeight: 600 }}>
-                      {f.flight_number || f.id}
+                      {f.flight_number || '—'}
                     </span>
                   </td>
                   <td>
@@ -344,16 +354,8 @@ export function SectionFlights() {
                   <td><span className="adm-mono">{f.date}</span></td>
                   <td><span className="adm-mono">{f.dep}</span></td>
                   <td><span className="adm-mono">{f.arr}</span></td>
-                  <td>
-                    <span style={{ color: f.sold === f.seats ? 'var(--danger)' : 'inherit' }}>
-                      {f.sold}/{f.seats}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="adm-mono" style={{ color: 'var(--accent)' }}>
-                      {f.price ? fmt(f.price) : '—'}
-                    </span>
-                  </td>
+                  <td>{f.aircraft || '—'}</td>
+                  <td><span className="adm-mono">{f.registration_number || '—'}</span></td>
                   <td><Badge value={f.status} /></td>
                   <td>
                     <button
@@ -422,11 +424,6 @@ export function SectionFlights() {
               <label className="adm-label">Số chuyến (1–4)</label>
               <input className="adm-input" type="number" min={1} max={4} value={gen.count}
                 onChange={e => setGen(g => ({ ...g, count: e.target.value }))} />
-            </div>
-            <div className="adm-field">
-              <label className="adm-label">Giá cơ bản (VNĐ)</label>
-              <input className="adm-input" type="number" value={gen.price}
-                onChange={e => setGen(g => ({ ...g, price: e.target.value }))} />
             </div>
           </div>
         </Modal>

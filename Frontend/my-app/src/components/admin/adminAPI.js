@@ -100,7 +100,11 @@ function normalizeList(data, hints = []) {
 
 /** Chuẩn hóa meta phân trang */
 function normalizeMeta(raw, { page, per_page, listLen }) {
-  const m = raw?.meta ?? raw?.pagination ?? {}
+  const m = raw?.data?.current_page
+    ? raw.data
+    : raw?.meta?.current_page
+      ? raw.meta
+      : raw?.pagination ?? raw?.meta ?? {}
   return {
     total:        m.total        ?? listLen,
     last_page:    m.last_page    ?? 1,
@@ -155,6 +159,8 @@ function mapFlight(f) {
   const std      = f.std            ? new Date(f.std)            : null
   const sta      = f.sta            ? new Date(f.sta)            : null
   const depDate  = f.departure_date ? new Date(f.departure_date) : std
+  const etd      = f.etd            ? new Date(f.etd)            : null
+  const eta      = f.eta            ? new Date(f.eta)            : null
   return {
     id:            String(f.id ?? ''),
     flight_number: f.flight_number ?? '',
@@ -164,36 +170,61 @@ function mapFlight(f) {
     dep:           std     ? std.toTimeString().slice(0, 5)      : '',
     arr:           sta     ? sta.toTimeString().slice(0, 5)      : '',
     aircraft:      aircraft.model  ?? '',
+    registration_number: aircraft.registration_number ?? '',
+    departure_date: f.departure_date ?? '',
+    std:           f.std ?? '',
+    sta:           f.sta ?? '',
+    etd:           f.etd ?? '',
+    eta:           f.eta ?? '',
+    created_at:    f.created_at ?? '',
+    updated_at:    f.updated_at ?? '',
     status:        (f.status ?? 'SCHEDULED').toLowerCase(),
-    // seats/sold/price: API chưa trả về, để component tự tính nếu cần
-    seats: aircraft.model?.includes('A321') ? 180 : aircraft.model?.includes('A350') ? 300 : 180,
-    sold:  0,
-    price: 0,
     raw:   f,
   }
 }
 
+function formatDaysOfWeek(days) {
+  if (!Array.isArray(days) || days.length === 0) return ''
+  const labels = {
+    1: 'T2',
+    2: 'T3',
+    3: 'T4',
+    4: 'T5',
+    5: 'T6',
+    6: 'T7',
+    7: 'CN',
+  }
+  return days
+    .map(day => labels[day] ?? String(day))
+    .join(', ')
+}
+
 /**
  * Backend schedule → frontend schedule
- * Backend: { id, route: {id,from,to}, aircraft: {model}, departure_time, arrival_time, frequency, valid_from, valid_to, status }
+ * Backend: { id, flight_number, departure_time, days_of_week, is_active, route, aircraft }
  */
 function mapSchedule(s) {
   if (!s) return {}
   const route = s.route ?? {}
+  const aircraft = s.aircraft ?? {}
   return {
-    id:        s.id    ?? '',
-    routeId:   route.id ?? s.route_id ?? '',
-    route:     route.from && route.to ? `${route.from} → ${route.to}` : (s.route_name ?? '—'),
-    from:      route.from ?? '',
-    to:        route.to   ?? '',
-    depTime:   s.departure_time ?? s.dep_time ?? '',
-    arrTime:   s.arrival_time   ?? s.arr_time ?? '',
-    frequency: s.frequency      ?? '',
-    aircraft:  s.aircraft?.model ?? s.aircraft_type ?? '',
-    validFrom: s.valid_from ? s.valid_from.substring(0, 10) : '',
-    validTo:   s.valid_to   ? s.valid_to.substring(0, 10)   : '',
-    status:    (s.status ?? 'active').toLowerCase(), // active | phased_out
-    raw:       s,
+    id:          s.id ?? '',
+    flightNumber:s.flight_number ?? '—',
+    routeId:     route.id ?? s.route_id ?? '',
+    route:       route.from && route.to ? `${route.from} → ${route.to}` : (s.route_name ?? '—'),
+    from:        route.from ?? '',
+    to:          route.to ?? '',
+    depTime:     s.departure_time ?? s.dep_time ?? '',
+    daysOfWeek:  Array.isArray(s.days_of_week) ? s.days_of_week : [],
+    frequency:   formatDaysOfWeek(s.days_of_week),
+    aircraft:    aircraft.model ?? s.aircraft_type ?? '',
+    registrationNumber: aircraft.registration_number ?? '',
+    aircraftId:  aircraft.id ?? s.aircraft_id ?? '',
+    isActive:    typeof s.is_active === 'boolean' ? s.is_active : String(s.status ?? '').toLowerCase() === 'active',
+    status:      typeof s.is_active === 'boolean'
+      ? (s.is_active ? 'active' : 'phased_out')
+      : (String(s.status ?? 'active').toLowerCase() === 'active' ? 'active' : 'phased_out'),
+    raw:         s,
   }
 }
 
@@ -203,12 +234,13 @@ function mapSchedule(s) {
  */
 function mapBookingRequest(r) {
   if (!r) return {}
+  const ticket = r.ticket ?? {}
   return {
     id:         r.id ?? '',
-    code:       r.code ?? r.booking_code ?? `BK-${r.id}`,
-    customer:   r.user?.full_name ?? r.customer_name ?? r.user?.email ?? '—',
-    customerId: r.user?.id        ?? r.user_id        ?? '',
-    flight:     r.flight_instance?.flight_number ?? r.flight_number ?? '—',
+    code:       r.code ?? r.booking_code ?? `REQ-${r.id}`,
+    customer:   r.user?.full_name ?? r.customer_name ?? (r.user_id ? `User #${r.user_id}` : '—'),
+    customerId: r.user?.id        ?? r.user_id ?? '',
+    flight:     r.flight_instance?.flight_number ?? r.flight_number ?? `Ticket #${r.ticket_id ?? ticket.id ?? '—'}`,
     flightId:   r.flight_instance?.id ?? r.flight_instance_id ?? '',
     route:      r.flight_instance?.route
                   ? `${r.flight_instance.route.from} → ${r.flight_instance.route.to}`
@@ -217,11 +249,21 @@ function mapBookingRequest(r) {
     dep:        r.flight_instance?.std
                   ? new Date(r.flight_instance.std).toTimeString().slice(0, 5)
                   : (r.dep ?? ''),
-    seats:      r.seat_count ?? r.seats ?? 1,
-    totalPrice: r.total_price ?? r.amount ?? 0,
-    status:     (r.status ?? 'pending').toLowerCase(), // pending | approved | rejected
+    seats:      ticket.seat_number ?? r.seat_count ?? r.seats ?? '—',
+    totalPrice: Number(r.refund_amount ?? r.system_refund_amount ?? r.total_price ?? r.amount ?? 0),
+    originalPrice: Number(ticket.ticket_price ?? 0),
+    refundAmount: Number(r.refund_amount ?? 0),
+    systemRefundAmount: Number(r.system_refund_amount ?? 0),
+    ticketId:   r.ticket_id ?? ticket.id ?? '',
+    bookingId:  r.booking_id ?? ticket.booking_id ?? '',
+    seatClass:  ticket.seat_class ?? '—',
+    requestType:(r.request_type ?? 'REFUND').toLowerCase(),
+    reason:     r.reason ?? '',
+    staffNote:  r.staff_note ?? '',
+    processedAt:r.processed_at ? r.processed_at.substring(0, 10) : '',
+    status:     (r.status ?? 'pending').toLowerCase(),
     createdAt:  r.created_at ? r.created_at.substring(0, 10) : '',
-    note:       r.note ?? r.rejection_reason ?? '',
+    note:       r.staff_note ?? r.note ?? r.rejection_reason ?? '',
     raw:        r,
   }
 }
@@ -434,7 +476,7 @@ export const flightAPI = {
   create: async (body) => apiFetch('POST', '/admin/flight-instances', body),
 
   /** Tạo nhiều chuyến bay tự động theo lịch giờ cố định */
-  generate: async ({ from, to, date, count, price }) => {
+  generate: async ({ from, to, date, count }) => {
     const flightNumber = `VN${Math.floor(600 + Math.random() * 399)}`
     const aircraftId   = 1
     const routeMap     = { 'HAN-SGN': 1, 'HAN-DAD': 2, 'SGN-DAD': 3, 'SGN-HAN': 4, 'DAD-HAN': 5, 'DAD-SGN': 6 }
@@ -565,7 +607,9 @@ export const bookingRequestAPI = {
       const p = new URLSearchParams({ page: String(page), per_page: String(per_page) })
       if (status && status !== 'all') p.set('status', status.toUpperCase())
       const d    = await apiFetch('GET', `/admin/booking-requests?${p.toString()}`)
-      const list = normalizeList(d, ['bookingRequests', 'booking_requests', 'requests', 'data'])
+      const list = Array.isArray(d?.data?.data)
+        ? d.data.data
+        : normalizeList(d, ['bookingRequests', 'booking_requests', 'requests', 'data'])
       console.log(`[bookingRequestAPI.getAll] OK: ${list.length}, status="${status}"`)
       return {
         data: list.map(mapBookingRequest),
@@ -588,15 +632,15 @@ export const bookingRequestAPI = {
   },
 
   /** POST /admin/booking-requests/{id}/approve */
-  approve: async (id) => {
-    const d = await apiFetch('POST', `/admin/booking-requests/${id}/approve`)
+  approve: async (id, body = {}) => {
+    const d = await apiFetch('POST', `/admin/booking-requests/${id}/approve`, body)
     console.log(`%c[bookingRequestAPI.approve] ✅ id=${id}`, 'color:#22c55e', d)
     return d
   },
 
   /**
    * POST /admin/booking-requests/{id}/reject
-   * @param {{ reason?: string }} body
+   * @param {{ staff_note?: string }} body
    */
   reject: async (id, body = {}) => {
     const d = await apiFetch('POST', `/admin/booking-requests/${id}/reject`, body)

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import Badge from '../badge'
 import Modal from '../model'
 import { fmt } from './helpers'
 import { bookingRequestAPI } from './adminAPI'
@@ -42,6 +41,8 @@ export function SectionBookingRequests() {
   // Modal state: { type: 'approve'|'reject', item: BookingRequest }
   const [modal, setModal]       = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [approveAmount, setApproveAmount] = useState('')
+  const [approveNote, setApproveNote] = useState('')
 
   // Detail drawer
   const [detail, setDetail]     = useState(null)
@@ -75,13 +76,24 @@ export function SectionBookingRequests() {
       r.code.toLowerCase().includes(lower) ||
       r.customer.toLowerCase().includes(lower) ||
       r.flight.toLowerCase().includes(lower) ||
-      r.route.toLowerCase().includes(lower)
+      r.route.toLowerCase().includes(lower) ||
+      String(r.ticketId ?? '').includes(lower) ||
+      String(r.bookingId ?? '').includes(lower) ||
+      String(r.reason ?? '').toLowerCase().includes(lower)
     )
   })
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const openApprove = (item) => { setModal({ type: 'approve', item }); setRejectReason('') }
-  const openReject  = (item) => { setModal({ type: 'reject',  item }); setRejectReason('') }
+  const openApprove = (item) => {
+    setModal({ type: 'approve', item })
+    setRejectReason('')
+    setApproveAmount(String(item.refundAmount || item.systemRefundAmount || 0))
+    setApproveNote(item.staffNote || '')
+  }
+  const openReject  = (item) => {
+    setModal({ type: 'reject',  item })
+    setRejectReason(item.staffNote || '')
+  }
 
   const confirmAction = async () => {
     if (!modal) return
@@ -89,15 +101,47 @@ export function SectionBookingRequests() {
     setLoading(true)
     setError('')
     try {
+      let responseData = null
+
       if (type === 'approve') {
-        await bookingRequestAPI.approve(item.id)
+        const res = await bookingRequestAPI.approve(item.id, {
+          final_amount: Number(approveAmount || 0),
+          staff_note: approveNote.trim() || undefined,
+        })
+        responseData = res?.data ?? null
       } else {
-        await bookingRequestAPI.reject(item.id, { reason: rejectReason.trim() || undefined })
+        const res = await bookingRequestAPI.reject(item.id, {
+          staff_note: rejectReason.trim() || undefined,
+        })
+        responseData = res?.data ?? null
       }
-      // Cập nhật local state ngay, không cần reload toàn bộ
-      const newStatus = type === 'approve' ? 'approved' : 'rejected'
+
+      const newStatus = String(responseData?.status ?? (type === 'approve' ? 'approved' : 'rejected')).toLowerCase()
+      const nextRefundAmount = Number(
+        responseData?.refund_amount ??
+        responseData?.system_refund_amount ??
+        (type === 'approve' ? Number(approveAmount || 0) : item.refundAmount)
+      )
+      const nextProcessedAt = responseData?.processed_at
+        ? String(responseData.processed_at).substring(0, 10)
+        : item.processedAt
+      const nextStaffNote = String(
+        responseData?.staff_note ??
+        (type === 'approve' ? approveNote.trim() : rejectReason.trim())
+      )
+
       setList(l => l.map(r => r.id === item.id
-        ? { ...r, status: newStatus, note: type === 'reject' ? rejectReason : r.note }
+        ? {
+            ...r,
+            status: newStatus,
+            refundAmount: nextRefundAmount,
+            totalPrice: nextRefundAmount,
+            processedAt: nextProcessedAt,
+            staffNote: nextStaffNote,
+            note: nextStaffNote,
+            bookingId: responseData?.booking_id ?? r.bookingId,
+            ticketId: responseData?.ticket_id ?? r.ticketId,
+          }
         : r
       ))
       setModal(null)
@@ -180,13 +224,12 @@ export function SectionBookingRequests() {
           <table className="adm-table">
             <thead>
               <tr>
-                <th>Mã</th>
+                <th>Mã YC</th>
                 <th>Khách hàng</th>
-                <th>Chuyến</th>
-                <th>Tuyến</th>
-                <th>Ngày bay</th>
-                <th>Số ghế</th>
-                <th>Tổng tiền</th>
+                <th>Vé</th>
+                <th>Loại YC</th>
+                <th>Tiền hoàn</th>
+                <th>Giá gốc</th>
                 <th>Trạng thái</th>
                 <th>Ngày tạo</th>
                 <th>Hành động</th>
@@ -195,13 +238,13 @@ export function SectionBookingRequests() {
             <tbody>
               {loading && list.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={9}>
                     <div className="adm-empty">⏳ Đang tải...</div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={9}>
                     <div className="adm-empty">
                       {list.length === 0 ? 'Không có yêu cầu nào' : 'Không tìm thấy kết quả'}
                     </div>
@@ -222,17 +265,16 @@ export function SectionBookingRequests() {
                   <td style={{ fontWeight: 500 }}>{r.customer}</td>
                   <td>
                     <span style={{ fontFamily: 'DM Mono', fontWeight: 600, color: 'var(--accent2)' }}>
-                      {r.flight}
+                      #{r.ticketId}
                     </span>
                   </td>
-                  <td style={{ fontSize: 13, color: 'var(--text-mid)' }}>{r.route}</td>
-                  <td><span className="adm-mono">{r.date}</span></td>
-                  <td style={{ textAlign: 'center' }}>{r.seats}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-mid)' }}>{r.requestType?.toUpperCase() || 'REFUND'}</td>
                   <td>
                     <span className="adm-mono" style={{ color: 'var(--accent)' }}>
-                      {fmt(r.totalPrice)}
+                      {fmt(r.refundAmount)}
                     </span>
                   </td>
+                  <td><span className="adm-mono">{fmt(r.originalPrice)}</span></td>
                   <td><StatusBadge value={r.status} /></td>
                   <td><span className="adm-mono">{r.createdAt}</span></td>
                   <td>
@@ -294,7 +336,7 @@ export function SectionBookingRequests() {
       {/* ── Modal DUYỆT ───────────────────────────────────────────────────── */}
       {modal?.type === 'approve' && (
         <Modal
-          title="Xác nhận duyệt vé"
+          title="Xác nhận duyệt yêu cầu"
           sub={`Booking: ${modal.item.code}`}
           onClose={() => setModal(null)}
           footer={
@@ -312,19 +354,38 @@ export function SectionBookingRequests() {
           }
         >
           <div style={{ padding: '14px 16px', background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)', borderRadius: 8, fontSize: 13 }}>
-            <div style={{ marginBottom: 10, fontWeight: 600, color: 'var(--accent2)' }}>Thông tin booking</div>
+            <div style={{ marginBottom: 10, fontWeight: 600, color: 'var(--accent2)' }}>Thông tin yêu cầu</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
               <div><span style={{ color: 'var(--text-dim)' }}>Khách hàng:</span><br /><b>{modal.item.customer}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Chuyến bay:</span><br /><b>{modal.item.flight}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Tuyến:</span><br /><b>{modal.item.route}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Ngày bay:</span><br /><b>{modal.item.date}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Số ghế:</span><br /><b>{modal.item.seats}</b></div>
-              <div><span style={{ color: 'var(--text-dim)' }}>Tổng tiền:</span><br /><b style={{ color: 'var(--accent)' }}>{fmt(modal.item.totalPrice)}</b></div>
+              <div><span style={{ color: 'var(--text-dim)' }}>Vé:</span><br /><b>#{modal.item.ticketId}</b></div>
+              <div><span style={{ color: 'var(--text-dim)' }}>Loại yêu cầu:</span><br /><b>{modal.item.requestType?.toUpperCase()}</b></div>
+              <div><span style={{ color: 'var(--text-dim)' }}>Tiền hoàn đề xuất:</span><br /><b style={{ color: 'var(--accent)' }}>{fmt(modal.item.refundAmount)}</b></div>
+              <div><span style={{ color: 'var(--text-dim)' }}>Giá vé gốc:</span><br /><b>{fmt(modal.item.originalPrice)}</b></div>
+              <div style={{ gridColumn: '1 / -1' }}><span style={{ color: 'var(--text-dim)' }}>Lý do:</span><br /><b>{modal.item.reason || '—'}</b></div>
             </div>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 12 }}>
-            Sau khi duyệt, vé sẽ được xác nhận và khách hàng sẽ nhận thông báo.
-          </p>
+          <div className="adm-field" style={{ marginTop: 14 }}>
+            <label className="adm-label">Số tiền hoàn cuối cùng</label>
+            <input
+              className="adm-input"
+              type="number"
+              min="0"
+              value={approveAmount}
+              onChange={e => setApproveAmount(e.target.value)}
+              placeholder="Nhập số tiền hoàn"
+            />
+          </div>
+          <div className="adm-field">
+            <label className="adm-label">Ghi chú nhân viên <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
+            <textarea
+              className="adm-input"
+              rows={3}
+              placeholder="Nhập ghi chú xử lý..."
+              value={approveNote}
+              onChange={e => setApproveNote(e.target.value)}
+              style={{ resize: 'vertical', minHeight: 80 }}
+            />
+          </div>
         </Modal>
       )}
 
@@ -348,14 +409,14 @@ export function SectionBookingRequests() {
           }
         >
           <div style={{ padding: '12px 14px', background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
-            <p>Từ chối yêu cầu của <b>{modal.item.customer}</b> — chuyến <b>{modal.item.flight}</b> ({modal.item.route}).</p>
+            <p>Từ chối yêu cầu của <b>{modal.item.customer}</b> cho vé <b>#{modal.item.ticketId}</b>.</p>
           </div>
           <div className="adm-field">
-            <label className="adm-label">Lý do từ chối <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
+            <label className="adm-label">Ghi chú từ chối <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>(tùy chọn)</span></label>
             <textarea
               className="adm-input"
               rows={3}
-              placeholder="Nhập lý do để thông báo cho khách hàng..."
+              placeholder="Nhập ghi chú để thông báo cho khách hàng..."
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               style={{ resize: 'vertical', minHeight: 80 }}
@@ -391,16 +452,17 @@ export function SectionBookingRequests() {
         >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px', fontSize: 13 }}>
             {[
-              ['Mã booking', detail.code],
+              ['Mã yêu cầu', detail.code],
               ['Khách hàng', detail.customer],
-              ['Chuyến bay', detail.flight],
-              ['Tuyến', detail.route],
-              ['Ngày bay', detail.date],
-              ['Giờ đi', detail.dep || '—'],
-              ['Số ghế', detail.seats],
-              ['Tổng tiền', fmt(detail.totalPrice)],
+              ['Booking ID', detail.bookingId || '—'],
+              ['Ticket ID', detail.ticketId || '—'],
+              ['Loại yêu cầu', detail.requestType?.toUpperCase() || '—'],
+              ['Hạng ghế', detail.seatClass || '—'],
+              ['Tiền hoàn', fmt(detail.refundAmount)],
+              ['Giá vé gốc', fmt(detail.originalPrice)],
               ['Trạng thái', <StatusBadge value={detail.status} />],
               ['Ngày tạo', detail.createdAt],
+              ['Lý do', detail.reason || '—'],
             ].map(([label, value]) => (
               <div key={label}>
                 <div style={{ color: 'var(--text-dim)', fontSize: 11, marginBottom: 2 }}>{label}</div>
@@ -408,9 +470,9 @@ export function SectionBookingRequests() {
               </div>
             ))}
           </div>
-          {detail.note && (
+          {detail.staffNote && (
             <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, fontSize: 12, color: 'var(--text-mid)' }}>
-              <b>Ghi chú:</b> {detail.note}
+              <b>Ghi chú nhân viên:</b> {detail.staffNote}
             </div>
           )}
         </Modal>
