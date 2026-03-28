@@ -315,8 +315,8 @@ export default function AddonsService({ bookings, onNext, onBack, onReset }) {
 
   function toggle(category, id) {
     setAddons(prev => {
-      const s = new Set(prev[flight.id][category])
-      s.has(id) ? s.delete(id) : s.add(id)
+      const current = prev[flight.id][category]
+      const s = current.has(id) ? new Set() : new Set([id])
       return { ...prev, [flight.id]: { ...prev[flight.id], [category]: s } }
     })
   }

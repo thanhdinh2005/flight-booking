@@ -312,7 +312,7 @@ export default function PassengerForm({
 
   const [subStep, setSubStep]       = useState(0);
   const [forms, setForms]           = useState(() =>
-    Array.from({ length: pax }, () => ({ first_name: '', last_name: '', birthday: '', gender: 'MALE' }))
+    Array.from({ length: pax }, () => ({ first_name: '', last_name: '', date_of_birth: '', id_number: '', gender: 'MALE' }))
   );
   const [contact, setContact]       = useState({ email: '', phone: '' });
   const [policyRead, setPolicyRead] = useState(false);
@@ -329,7 +329,7 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
   }
 
   const formFieldsValid =
-    forms.every(f => f.first_name.trim() && f.last_name.trim() && f.gender) &&
+    forms.every(f => f.first_name.trim() && f.last_name.trim() && f.date_of_birth && f.id_number.trim() && f.gender) &&
     contact.email.trim() && contact.phone.trim();
 
   // ── BƯỚC 0 → 1: POST /api/createBooking ──────────────────────────────────
@@ -356,7 +356,8 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
           passengers: forms.map(f => ({
             first_name: f.first_name.trim(),
             last_name:  f.last_name.trim(),
-            birthday:   f.birthday || undefined,
+            date_of_birth: f.date_of_birth || undefined,
+            id_number:  f.id_number.trim() || undefined,
             gender:     f.gender,
           })),
         }),
@@ -528,7 +529,7 @@ function StepBar({ active }) {
                       type="tel" placeholder="09xxxxxxxx"
                       value={contact.phone}
                       onChange={e => {
-                        setContact(c => ({ ...c, phone: e.target.value }))
+                        setContact(c => ({ ...c, phone: e.target.value.replace(/\D/g, '') }))
                         if (apiError) setApiError('')
                       }}
                     />
@@ -562,7 +563,7 @@ function StepBar({ active }) {
                         }} />
                     </div>
                    <div className="pf-field" style={{ position: 'relative' }}>
-                <label>Ngày sinh</label>
+                <label>Ngày sinh <span className="pf-req">*</span></label>
 
                 <div
                   className="form-field__input"
@@ -575,9 +576,9 @@ function StepBar({ active }) {
                   onClick={() => setOpenCalIndex(i)}
                 >
                   <span>📅</span>
-                  <span style={{ color: f.birthday ? 'inherit' : '#9ca3af' }}>
-                    {f.birthday
-                      ? f.birthday.split('-').reverse().join('/')
+                  <span style={{ color: f.date_of_birth ? 'inherit' : '#9ca3af' }}>
+                    {f.date_of_birth
+                      ? f.date_of_birth.split('-').reverse().join('/')
                       : 'Chọn ngày'}
                   </span>
                 </div>
@@ -595,9 +596,9 @@ function StepBar({ active }) {
                     />
 
                     <MiniCalendar
-                      value={f.birthday}
+                      value={f.date_of_birth}
                       onChange={(date) => {
-                        updForm(i, 'birthday', date)
+                        updForm(i, 'date_of_birth', date)
                         if (apiError) setApiError('')
                       }}
                       onClose={() => setOpenCalIndex(null)}
@@ -605,6 +606,14 @@ function StepBar({ active }) {
                   </>
                 )}
               </div>
+                    <div className="pf-field">
+                      <label>Căn cước công dân <span className="pf-req">*</span></label>
+                      <input placeholder="VD: 001234567890" value={f.id_number}
+                        onChange={e => {
+                          updForm(i, 'id_number', e.target.value.replace(/\D/g, ''))
+                          if (apiError) setApiError('')
+                        }} />
+                    </div>
                     <div className="pf-field">
                       <label>Giới tính <span className="pf-req">*</span></label>
                       <select value={f.gender}

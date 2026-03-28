@@ -50,6 +50,61 @@ function fmtDate(iso) {
   try { return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) } catch { return iso }
 }
 
+function normalizeText(value) {
+  return String(value ?? '').trim().toUpperCase()
+}
+
+function normalizeDate(value) {
+  if (!value) return ''
+  try {
+    return new Date(value).toISOString().slice(0, 10)
+  } catch {
+    return String(value).slice(0, 10)
+  }
+}
+
+function parseDateInput(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (slashMatch) {
+    const [, dd, mm, yyyy] = slashMatch
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  return raw
+}
+
+function formatDateInput(value) {
+  const normalized = normalizeDate(parseDateInput(value))
+  if (!normalized) return ''
+  const [yyyy, mm, dd] = normalized.split('-')
+  if (!yyyy || !mm || !dd) return String(value ?? '')
+  return `${dd}/${mm}/${yyyy}`
+}
+
+function normalizeSeatMapRows(payload) {
+  if (!Array.isArray(payload)) return []
+
+  return payload.flatMap(row => {
+    const rowNumber = row?.row_number
+    const seats = Array.isArray(row?.seats) ? row.seats : []
+
+    return seats.map(seat => {
+      const seatNumber = seat?.seat_number ?? ''
+      const col = seatNumber ? seatNumber.replace(/[0-9]/g, '').slice(-1) : ''
+
+      return {
+        ...seat,
+        row: rowNumber ?? parseInt(seatNumber, 10) ?? null,
+        col,
+      }
+    })
+  })
+}
+
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 
 const BASE_CSS = `
@@ -257,11 +312,11 @@ function LookupScreen({ onSuccess }) {
   setLoading(true)
   setError('')
   try {
-    const params = new URLSearchParams({
+    const payload = {
       pnr:   pnr.trim().toUpperCase(),
       email: email.trim().toLowerCase(),
-    })
-    const res  = await apiFetch('GET', `/bookings/search-tickets?${params}`)
+    }
+    const res  = await apiFetch('POST', '/bookings/search-tickets', payload)
 
     // Response: { success: true, data: [ ticket, ticket, ... ] }
     const list = Array.isArray(res?.data) ? res.data
@@ -270,10 +325,11 @@ function LookupScreen({ onSuccess }) {
 
     if (!list.length) throw new Error('Không tìm thấy vé nào với thông tin này.')
 
-    // Nhóm các ticket cùng flight_instance_id → mỗi nhóm là 1 vé
-    const grouped = groupTicketsByFlight(list)
-
-    onSuccess({ tickets: grouped, raw: list })
+    onSuccess({
+      booking: { pnr: payload.pnr, email: payload.email },
+      tickets: list,
+      raw: list,
+    })
   } catch (err) {
     setError(err.message || 'Không tìm thấy đặt chỗ. Vui lòng kiểm tra lại.')
   } finally {
@@ -364,8 +420,12 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
             const origin = t.flight_instance?.route?.origin?.code      ?? '???'
             const dest   = t.flight_instance?.route?.destination?.code ?? '???'
             const std    = t.flight_instance?.std
+            const sta    = t.flight_instance?.sta
+            const flightNo = t.flight_instance?.flight_schedule?.flight_number ?? `FI-${t.flight_instance_id ?? '---'}`
             const pax    = t.passenger
             const isSelected = selected?.id === t.id
+            const genderLabel = pax?.gender === 'MALE' ? 'Nam' : pax?.gender === 'FEMALE' ? 'Nữ' : pax?.gender ?? '—'
+            const idNumber = pax?.id_number || 'Chưa có'
 
             return (
               <div
@@ -387,13 +447,37 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
 
                 <div className="tk-card__meta">
                   <span>👤 {pax?.last_name} {pax?.first_name}</span>
+                  <span>🪪 {idNumber}</span>
+                  <span>⚥ {genderLabel}</span>
+                  <span>🎂 {fmtDate(pax?.date_of_birth)}</span>
                   {std && <span>📅 {fmtDate(std)} · {fmtTime(std)}</span>}
+                  {sta && <span>🕒 Đến {fmtTime(sta)}</span>}
+                  <span>✈️ {flightNo}</span>
                   <span>🎫 Vé #{t.id}</span>
                 </div>
 
                 {/* Actions — chỉ hiện khi đang chọn */}
                 {isSelected && (
-                  <div className="tk-actions">
+                  <>
+                    <div style={{
+                      marginTop: 14,
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      background: 'rgba(42,171,171,.06)',
+                      border: '1px solid var(--border)',
+                      fontSize: 12,
+                      color: 'var(--ink)',
+                      lineHeight: 1.6,
+                    }}>
+                      <div><strong>Hành khách:</strong> {pax?.last_name} {pax?.first_name}</div>
+                      <div><strong>Giới tính:</strong> {genderLabel}</div>
+                      <div><strong>Ngày sinh:</strong> {fmtDate(pax?.date_of_birth)}</div>
+                      <div><strong>Giấy tờ:</strong> {idNumber}</div>
+                      <div><strong>Hạng vé:</strong> {t.seat_class}</div>
+                      <div><strong>Giá vé:</strong> {Number(t.ticket_price || 0).toLocaleString('vi-VN')}₫</div>
+                    </div>
+
+                    <div className="tk-actions">
                     <button
                       className="ci-btn ci-btn--primary"
                       style={{ fontSize:13 }}
@@ -408,7 +492,8 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                     >
                       ↩ Hoàn vé
                     </button>
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             )
@@ -440,20 +525,60 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); setError('') }
 
-  const valid = form.first_name.trim() && form.last_name.trim() && form.id_number.trim() && form.date_of_birth
+  useEffect(() => {
+    const passenger = ticket?.passenger
+    if (!passenger) return
+
+    setForm({
+      first_name: passenger.first_name ? normalizeText(passenger.first_name) : '',
+      last_name: passenger.last_name ? normalizeText(passenger.last_name) : '',
+      id_number: passenger.id_number ? String(passenger.id_number).trim() : '',
+      date_of_birth: passenger.date_of_birth ? formatDateInput(passenger.date_of_birth) : '',
+    })
+  }, [ticket])
+
+  const normalizedDob = parseDateInput(form.date_of_birth)
+  const valid = form.first_name.trim() && form.last_name.trim() && form.id_number.trim() && normalizedDob
 
   async function handleSubmit() {
     if (!valid) return
     setLoading(true); setError('')
     try {
+      const expectedPassenger = ticket?.passenger ?? {}
+      const mismatch = []
+
+      if (normalizeText(expectedPassenger.first_name) && normalizeText(expectedPassenger.first_name) !== normalizeText(form.first_name)) {
+        mismatch.push('tên')
+      }
+      if (normalizeText(expectedPassenger.last_name) && normalizeText(expectedPassenger.last_name) !== normalizeText(form.last_name)) {
+        mismatch.push('họ')
+      }
+      if (normalizeDate(expectedPassenger.date_of_birth) && normalizeDate(expectedPassenger.date_of_birth) !== normalizeDate(normalizedDob)) {
+        mismatch.push('ngày sinh')
+      }
+      if (expectedPassenger.id_number && String(expectedPassenger.id_number).trim() !== form.id_number.trim()) {
+        mismatch.push('số giấy tờ')
+      }
+
+      if (mismatch.length > 0) {
+        throw new Error(`Thông tin không khớp với vé đã tra cứu (${mismatch.join(', ')}).`)
+      }
+
+      if (!expectedPassenger.id_number) {
+        throw new Error('Vé này chưa có số giấy tờ trong dữ liệu tra cứu, chưa thể xác thực check-in.')
+      }
+
+      const verifyPayload = {
+        ticket_id: ticket.id,
+        first_name: normalizeText(form.first_name),
+        last_name: normalizeText(form.last_name),
+        id_number: form.id_number.trim(),
+        date_of_birth: normalizedDob,
+      }
+
       // POST /api/verify
-      const res  = await apiFetch('POST', '/verify', {
-        ticket_id:     ticket.id,
-        first_name:    form.first_name.trim().toUpperCase(),
-        last_name:     form.last_name.trim().toUpperCase(),
-        id_number:     form.id_number.trim(),
-        date_of_birth: form.date_of_birth,
-      })
+      const res  = await apiFetch('POST', '/verify', verifyPayload)
+      
       const data = res?.data ?? res
       // Backend trả: { ticket_id, checkin_token }
       if (!data?.checkin_token) throw new Error('Phản hồi không hợp lệ từ máy chủ.')
@@ -531,9 +656,13 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
 
           <div className="ci-field">
             <label className="ci-label">Ngày sinh *</label>
-            <input className="ci-input" type="date"
+            <input className="ci-input" type="text" placeholder="DD/MM/YYYY hoặc YYYY-MM-DD"
               value={form.date_of_birth}
               onChange={e => set('date_of_birth', e.target.value)}
+              onBlur={() => {
+                if (!form.date_of_birth) return
+                set('date_of_birth', formatDateInput(form.date_of_birth))
+              }}
               disabled={loading}
             />
           </div>
@@ -569,7 +698,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
       // GET /api/seat-map?ticket_id=&checkin_token=
       const res  = await apiFetch('GET', `/seat-map?ticket_id=${ticketId}&checkin_token=${checkinToken}`)
       const data = res?.data ?? res
-      setSeatMap(data?.seats ?? data ?? [])
+      setSeatMap(normalizeSeatMapRows(data))
       setSelected(null)
     } catch (err) {
       if (err.status === 403) onExpired?.()
@@ -579,6 +708,11 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
     }
   }
 
+  useEffect(() => {
+    if (!ticketId || !checkinToken) return
+    fetchSeatMap()
+  }, [ticketId, checkinToken])
+
   async function handleConfirm() {
     if (!selected) return
     setSubmitting(true); setError('')
@@ -586,11 +720,15 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
       // POST /api/submit
       const res  = await apiFetch('POST', '/submit', {
         ticket_id:     ticketId,
+         checkin_token: checkinToken,
         seat_number:   selected,
-        checkin_token: checkinToken,
+       
       })
       const data = res?.data ?? res
-      onSuccess({ seat_number: selected, submit_data: data })
+      onSuccess({
+        seat_number: data?.seat_number ?? selected,
+        submit_data: data,
+      })
     } catch (err) {
       if (err.status === 409) {
         setError('Ghế vừa bị người khác chọn. Vui lòng chọn ghế khác.')
@@ -618,7 +756,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
   function getSeatState(seat) {
     if (seat.seat_number === selected) return 'selected'
     if (!seat.is_available)            return 'taken'
-    if (seat.is_same_class === false)  return 'locked'
+    if (seat.selectable === false || seat.is_same_class === false)  return 'locked'
     return 'available'
   }
   function handleClick(seat) {
@@ -683,7 +821,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
                           return (
                             <div key={seat.seat_number} className={`sm-seat sm-seat--${state}`}
                               onClick={() => handleClick(seat)}
-                              title={state === 'locked' ? 'Cần nâng hạng' : seat.seat_number}
+                              title={state === 'locked' ? `${seat.seat_number} · ${seat.seat_class} · Cần đúng hạng ghế` : `${seat.seat_number} · ${seat.seat_class}`}
                             >
                               {state==='taken'?'×':state==='locked'?'🔒':state==='selected'?'✓':''}
                             </div>
@@ -697,7 +835,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
                           return (
                             <div key={seat.seat_number} className={`sm-seat sm-seat--${state}`}
                               onClick={() => handleClick(seat)}
-                              title={state === 'locked' ? 'Cần nâng hạng' : seat.seat_number}
+                              title={state === 'locked' ? `${seat.seat_number} · ${seat.seat_class} · Cần đúng hạng ghế` : `${seat.seat_number} · ${seat.seat_class}`}
                             >
                               {state==='taken'?'×':state==='locked'?'🔒':state==='selected'?'✓':''}
                             </div>
@@ -717,13 +855,16 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
               {selected ? (
                 <>
                   <div style={{ fontSize:40, fontWeight:800, color:'var(--teal)', fontFamily:"'IBM Plex Mono',monospace", textAlign:'center', padding:'12px 0' }}>{selected}</div>
-                  <Alert type="success">Ghế <strong>{selected}</strong> đã sẵn sàng xác nhận.</Alert>
+                  <Alert type="success">
+                    Ghế <strong>{selected}</strong> đã sẵn sàng xác nhận.
+                    {seatMap.find(s => s.seat_number === selected)?.seat_class ? ` Hạng ghế: ${seatMap.find(s => s.seat_number === selected)?.seat_class}.` : ''}
+                  </Alert>
                 </>
               ) : (
                 <div style={{ textAlign:'center', padding:'20px 0', color:'var(--muted)', fontSize:13 }}>Chưa chọn ghế</div>
               )}
             </div>
-            <Alert type="info">Ghế bị khoá 🔒 thuộc hạng khác. Liên hệ quầy để nâng hạng.</Alert>
+            <Alert type="info">Ghế bị khoá 🔒 thuộc hạng ghế khác hoặc không được phép chọn với vé hiện tại.</Alert>
           </div>
         </div>
 
@@ -743,7 +884,7 @@ function SeatMapScreen({ checkinToken, ticketId, seatClass, onSuccess, onBack, o
 
 // ─── Giai đoạn 5: Boarding Pass ──────────────────────────────────────────────
 
-function BoardingPassScreen({ ticketId, checkinToken, seatNumber, onReset }) {
+function BoardingPassScreen({ ticketId, checkinToken, seatNumber, ticketData, onReset }) {
   const navigate = useNavigate()
   const qrRef    = useRef(null)
   const cardRef  = useRef(null)
@@ -830,7 +971,9 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, onReset }) {
               <div className="bp-row">
                 <div className="bp-field">
                   <div className="bp-field__label">Hành khách</div>
-                  <div className="bp-field__value">{bp?.passenger_name ?? '—'}</div>
+                  <div className="bp-field__value">
+                    {bp?.passenger_name ?? (`${ticketData?.passenger?.last_name ?? ''} ${ticketData?.passenger?.first_name ?? ''}`.trim() || '—')}
+                  </div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Số ghế</div>
@@ -842,7 +985,7 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, onReset }) {
               <div className="bp-row">
                 <div className="bp-field">
                   <div className="bp-field__label">Chuyến bay</div>
-                  <div className="bp-field__value">{bp?.flight_number ?? '—'}</div>
+                  <div className="bp-field__value">{bp?.flight_number ?? ticketData?.flight_instance?.flight_schedule?.flight_number ?? '—'}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Cửa (Gate)</div>
@@ -860,11 +1003,11 @@ function BoardingPassScreen({ ticketId, checkinToken, seatNumber, onReset }) {
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Ngày bay</div>
-                  <div className="bp-field__value">{bp?.departure_date ? fmtDate(bp.departure_date) : '—'}</div>
+                  <div className="bp-field__value">{bp?.departure_date ? fmtDate(bp.departure_date) : ticketData?.flight_instance?.departure_date ? fmtDate(ticketData.flight_instance.departure_date) : '—'}</div>
                 </div>
                 <div className="bp-field">
                   <div className="bp-field__label">Hạng</div>
-                  <div className="bp-field__value">{bp?.cabin_class ?? 'ECONOMY'}</div>
+                  <div className="bp-field__value">{bp?.cabin_class ?? ticketData?.seat_class ?? 'ECONOMY'}</div>
                 </div>
               </div>
               {bp?.qr_code_content && (
@@ -899,6 +1042,7 @@ export default function TabThuTuc({ onAction }) {
     booking:       null,
     tickets:       [],
     ticket:        null,    // vé đang xử lý
+    checked_in_ticket: null,
     checkin_token: null,
     ticket_id:     null,
     seat_class:    'ECONOMY',
@@ -907,7 +1051,7 @@ export default function TabThuTuc({ onAction }) {
 
   function reset() {
     setScreen('lookup')
-    setSession({ booking:null, tickets:[], ticket:null, checkin_token:null, ticket_id:null, seat_class:'ECONOMY', seat_number:null })
+    setSession({ booking:null, tickets:[], ticket:null, checked_in_ticket:null, checkin_token:null, ticket_id:null, seat_class:'ECONOMY', seat_number:null })
     onAction?.('↩ Quay về tra cứu')
   }
 
@@ -962,8 +1106,15 @@ export default function TabThuTuc({ onAction }) {
           checkinToken={session.checkin_token}
           ticketId={session.ticket_id}
           seatClass={session.seat_class}
-          onSuccess={({ seat_number }) => {
-            setSession(s => ({ ...s, seat_number }))
+          onSuccess={({ seat_number, submit_data }) => {
+            setSession(s => ({
+              ...s,
+              seat_number,
+              checked_in_ticket: submit_data ?? null,
+              ticket: submit_data ?? s.ticket,
+              booking: submit_data?.booking ?? s.booking,
+              seat_class: submit_data?.seat_class ?? s.seat_class,
+            }))
             setScreen('boarding')
             onAction?.(`💺 Ghế ${seat_number} xác nhận — đang lấy boarding pass`)
           }}
@@ -981,6 +1132,7 @@ export default function TabThuTuc({ onAction }) {
           ticketId={session.ticket_id}
           checkinToken={session.checkin_token}
           seatNumber={session.seat_number}
+          ticketData={session.checked_in_ticket}
           onReset={reset}
         />
       )}
