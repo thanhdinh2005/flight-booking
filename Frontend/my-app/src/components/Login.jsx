@@ -1,9 +1,11 @@
 // src/components/Login.jsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   loginKeycloak,
   saveToken,
+  getToken,
+  isAuthenticated,
   getUserFromToken,
   redirectByRole,
 } from '../services/keycloakService'
@@ -15,6 +17,14 @@ export default function Login({ onNavigate }) {
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isAuthenticated()) return
+    const token = getToken()
+    const user = token ? getUserFromToken(token) : null
+    if (!user) return
+    redirectByRole(user.roles || [], navigate)
+  }, [navigate])
 
   const handleChange = (e) => {
     const { name, value } = e.target

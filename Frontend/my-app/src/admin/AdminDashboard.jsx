@@ -74,7 +74,7 @@ export default function AdminDashboard() {
 
   const logout = () => {
     clearToken()
-    navigate('/login', { replace: true })
+    navigate('/admin/login', { replace: true })
   }
 
   const ActiveSection = SECTIONS[tab] || SectionDashboard

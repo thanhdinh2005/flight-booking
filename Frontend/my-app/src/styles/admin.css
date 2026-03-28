@@ -282,29 +282,182 @@
 /* ───────────── MODAL ───────────── */
 .adm-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
-  backdrop-filter: blur(4px);
-  z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(128,198,255,.18), transparent 24%),
+    rgba(4,10,18,.72);
+  backdrop-filter: blur(6px);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.adm-overlay-booking-action {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(118, 197, 255, .16), transparent 26%),
+    rgba(4, 10, 18, .72);
+  backdrop-filter: blur(5px);
 }
 .adm-modal {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 26px 30px;
-  width: 460px; max-width: 100%; max-height: 88vh; overflow-y: auto;
+  background:
+    linear-gradient(180deg, rgba(156, 211, 255, .08), rgba(255,255,255,.02) 22%, rgba(255,255,255,0)),
+    linear-gradient(180deg, rgba(16,22,34,.98), rgba(11,16,26,.98));
+  border: 1px solid rgba(120, 190, 255, .24);
+  border-radius: 18px;
+  width: min(460px, calc(100vw - 48px));
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
   position: relative;
+  margin: auto;
+  box-sizing: border-box;
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.42),
+    0 0 0 1px rgba(180,225,255,.04) inset,
+    0 0 26px rgba(88, 167, 255, .06);
 }
-.adm-modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 3px; }
-.adm-modal-sub   { font-size: 14px; color: var(--text-mid); margin-bottom: 22px; }
+.adm-modal-booking-action {
+  background:
+    linear-gradient(180deg, rgba(150, 203, 255, .08), rgba(255,255,255,.015) 22%, rgba(255,255,255,0)),
+    linear-gradient(180deg, rgba(15, 22, 34, .98), rgba(10, 16, 26, .98));
+  border: 1px solid rgba(120, 190, 255, .3);
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.44),
+    0 0 0 1px rgba(173, 220, 255, .05) inset,
+    0 0 28px rgba(88, 167, 255, .08);
+}
+.adm-modal-booking-action .adm-modal-head {
+  background: linear-gradient(180deg, rgba(103,183,255,.12), rgba(103,183,255,.03) 62%, transparent);
+  border-bottom-color: rgba(163, 213, 255, .1);
+}
+.adm-modal-booking-action .adm-modal-title {
+  color: #eef7ff;
+}
+.adm-modal-booking-action .adm-modal-sub {
+  color: #a8b8d6;
+}
+.adm-modal-booking-action .adm-modal-body {
+  color: #dfe9fb;
+}
+.adm-modal-booking-action .adm-modal-foot {
+  background: linear-gradient(180deg, transparent, rgba(103,183,255,.03));
+  border-top-color: rgba(163, 213, 255, .08);
+}
+.adm-modal-booking-action .adm-modal-x {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(173, 220, 255, .12);
+  color: #c2d3eb;
+}
+.adm-modal-head {
+  padding: 26px 30px 16px;
+  border-bottom: 1px solid rgba(173, 220, 255, .09);
+  background: linear-gradient(180deg, rgba(103,183,255,.11), rgba(103,183,255,.04) 62%, transparent);
+}
+.adm-modal-heading {
+  padding-right: 34px;
+}
+.adm-modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -.3px;
+  margin-bottom: 6px;
+  color: #edf6ff;
+}
+.adm-modal-sub {
+  font-size: 13px;
+  color: #a4b6d5;
+}
+.adm-modal-body {
+  padding: 18px 30px 0;
+  overflow-y: auto;
+  max-height: calc(100dvh - 220px);
+  color: #dfe9fb;
+}
 .adm-modal-x {
   position: absolute; top: 18px; right: 18px;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-mid); width: 28px; height: 28px;
-  border-radius: 6px; cursor: pointer; font-size: 15px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(173, 220, 255, .12);
+  color: #c2d3eb; width: 32px; height: 32px;
+  border-radius: 10px; cursor: pointer; font-size: 15px;
   display: flex; align-items: center; justify-content: center;
+  transition: all .16s ease;
 }
-.adm-modal-x:hover { border-color: var(--danger); color: var(--danger); }
-.adm-modal-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
+.adm-modal-x:hover {
+  border-color: rgba(255,92,92,.4);
+  color: var(--danger);
+  background: rgba(255,92,92,.08);
+}
+.adm-modal-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 18px 30px 24px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(173, 220, 255, .08);
+  background: linear-gradient(180deg, transparent, rgba(103,183,255,.03));
+}
+
+.adm-modal-foot .adm-btn-ghost {
+  color: #ff8a8a;
+  border-color: rgba(255, 110, 110, .28);
+  background: rgba(255, 92, 92, .04);
+}
+
+.adm-modal-foot .adm-btn-ghost:hover {
+  color: #ffc1c1;
+  border-color: rgba(255, 110, 110, .5);
+  background: rgba(255, 92, 92, .12);
+}
+
+.adm-modal-foot .adm-btn-ghost:disabled {
+  color: rgba(255, 138, 138, .5);
+  border-color: rgba(255, 110, 110, .14);
+  background: rgba(255, 92, 92, .03);
+}
+
+.adm-modal .adm-label {
+  color: #7485a4;
+}
+
+.adm-modal .adm-input {
+  background: rgba(255,255,255,.045);
+  border-color: rgba(155, 208, 255, .16);
+  color: #eef6ff;
+}
+
+.adm-modal .adm-input::placeholder {
+  color: #5e708f;
+}
+
+.adm-modal .adm-input:focus {
+  border-color: rgba(112, 208, 255, .62);
+  box-shadow: 0 0 0 3px rgba(103,183,255,.08);
+}
+
+.adm-modal select.adm-input option {
+  background: #111a27;
+  color: #eef6ff;
+}
+
+@media (max-height: 760px) {
+  .adm-overlay {
+    align-items: flex-start;
+  }
+
+  .adm-modal {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .adm-modal-body {
+    max-height: calc(100dvh - 196px);
+  }
+}
 
 /* ───────────── FORM FIELD ───────────── */
 .adm-field { margin-bottom: 14px; }

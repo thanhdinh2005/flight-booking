@@ -6,6 +6,7 @@ import MyTicket      from "./components/Myticker";
 import CancelTicket  from "./components/Cancelticker";
 import Tabthutuc     from "./components/tabs/Tabthutuc";
 import Login         from "./components/Login";
+import AdminLogin    from "./components/AdminLogin";
 import Register      from "./components/Register";
 import ProtectedRoute from "./components/protected";
 import AdminDashboard from "./admin/AdminDashboard";
@@ -65,6 +66,7 @@ export default function App() {
 
         {/* Public */}
         <Route path="/login"        element={<AuthPage />} />
+        <Route path="/admin/login"  element={<AdminLogin />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
         {/* Customer layout */}

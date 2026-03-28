@@ -18,12 +18,12 @@ import {
 export default function ProtectedRoute({ children, requiredRole }) {
   // isAuthenticated() kiểm tra token còn hạn không (dùng token_expiry trong sessionStorage)
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />
+    return <Navigate to={requiredRole === 'ADMIN' ? "/admin/login" : "/login"} replace />
   }
 
   const token = getToken()
   const user  = getUserFromToken(token)
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to={requiredRole === 'ADMIN' ? "/admin/login" : "/login"} replace />
 
   const roles = user.roles || []
 

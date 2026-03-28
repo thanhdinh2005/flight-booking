@@ -12,9 +12,11 @@ export function SectionCustomers() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
-  const [form, setForm]             = useState({ name: '', email: '', phone: '', role: 'customer' })
+  const [form, setForm]             = useState({ name: '', email: '', password: '', phone: '', role: 'customer' })
   const [editErrors, setEditErrors] = useState({})
   const [formErrors, setFormErrors] = useState({})
+
+  const getCreateInitialForm = () => ({ name: '', email: '', password: '', phone: '', role: 'customer' })
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -44,8 +46,22 @@ export function SectionCustomers() {
     if (!data.name?.trim()) errors.name = 'Họ tên không được trống'
     if (!data.email?.trim()) errors.email = 'Email không được trống'
     if (data.email && !validateEmail(data.email)) errors.email = 'Email không hợp lệ'
+    if ('password' in data) {
+      if (!data.password?.trim()) errors.password = 'Mật khẩu không được trống'
+      else if (data.password.trim().length < 6) errors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+    }
     if (data.phone && !/^[\d\s+\-()]*$/.test(data.phone)) errors.phone = 'Số điện thoại không hợp lệ'
     return errors
+  }
+
+  const splitNameForApi = (fullName) => {
+    const parts = String(fullName ?? '').trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return { first_name: '', last_name: '' }
+    if (parts.length === 1) return { first_name: parts[0], last_name: parts[0] }
+    return {
+      first_name: parts[0],
+      last_name: parts.slice(1).join(' '),
+    }
   }
 
   const toggle = async (id, currentStatus) => {
@@ -70,13 +86,21 @@ export function SectionCustomers() {
     if (Object.keys(errors).length > 0) return
     setLoading(true)
     setError('')
-    const payload = { name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(), role: form.role }
+    const { first_name, last_name } = splitNameForApi(form.name)
+    const payload = {
+      email: form.email.trim(),
+      password: form.password.trim(),
+      first_name,
+      last_name,
+      phone_number: form.phone.trim(),
+      role: String(form.role ?? 'customer').toUpperCase(),
+    }
     try {
       const result = await customerAPI.create(payload)
       if (result?.id) setList(l => [...l, result])
       else await fetchUsers()
       setModal(false)
-      setForm({ name: '', email: '', phone: '', role: 'customer' })
+      setForm(getCreateInitialForm())
       setFormErrors({})
     } catch (err) {
       setError('Lỗi thêm: ' + err.message)
@@ -136,7 +160,7 @@ export function SectionCustomers() {
         </div>
         <button
           className="adm-btn adm-btn-primary"
-          onClick={() => { setModal(true); setForm({ name: '', email: '', phone: '', role: 'customer' }); setFormErrors({}); setError('') }}
+          onClick={() => { setModal(true); setForm(getCreateInitialForm()); setFormErrors({}); setError('') }}
           disabled={loading}
         >+ Thêm tài khoản</button>
       </div>
@@ -209,9 +233,9 @@ export function SectionCustomers() {
             </>
           }
         >
-          {[['name','Họ tên','text','Nguyễn Văn A'],['email','Email','email','email@mail.com'],['phone','Điện thoại','text','+84 9xx']].map(([k,l,t,p]) => (
+          {[['name','Họ tên','text','Nguyễn Văn A'],['email','Email','email','email@mail.com'],['password','Mật khẩu','password','Nhập mật khẩu'],['phone','Điện thoại','text','0986xxxxxx']].map(([k,l,t,p]) => (
             <div className="adm-field" key={k}>
-              <label className="adm-label">{l}{(k==='name'||k==='email')&&<span style={{color:'var(--danger)'}}>*</span>}</label>
+              <label className="adm-label">{l}{(k==='name'||k==='email'||k==='password')&&<span style={{color:'var(--danger)'}}>*</span>}</label>
               <input
                 className={`adm-input ${formErrors[k] ? 'adm-input-error' : ''}`}
                 type={t} placeholder={p} value={form[k]}

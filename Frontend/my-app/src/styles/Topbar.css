@@ -15,6 +15,22 @@
   box-shadow: var(--shadow-sm);
 }
 
+.topbar__menu-btn {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--sky-200);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--sky-700);
+  font-size: 18px;
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ── Logo ── */
 .topbar__logo {
   display: flex; align-items: center; gap: 8px;
@@ -81,6 +97,7 @@
   flex: 1;
   max-width: 520px;
   position: relative;
+  min-width: 0;
 }
 
 /* ── Main Search Bar ── */
@@ -113,6 +130,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .search-icon {
@@ -123,6 +141,7 @@
 
 .search-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
@@ -540,6 +559,7 @@
 .topbar__dropdown {
   position: absolute; top: calc(100% + 8px); right: 0;
   width: 240px;
+  max-width: calc(100vw - 24px);
   background: var(--white);
   border: 1.5px solid var(--sky-200);
   border-radius: var(--radius-lg);
@@ -605,9 +625,21 @@
     padding: 0 12px;
     gap: 10px;
   }
+
+  .topbar__menu-btn {
+    display: inline-flex;
+  }
   
   .topbar__search-wrapper {
     max-width: none;
+  }
+
+  .topbar__avatar-btn {
+    padding-right: 6px;
+  }
+
+  .topbar__avatar-caret {
+    display: none;
   }
   
   .advanced-grid {
@@ -627,16 +659,37 @@
 }
 
 @media (max-width: 480px) {
+  .topbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
   .topbar__logo-text {
     display: none;
+  }
+
+  .topbar__logo {
+    padding: 5px 10px;
   }
   
   .topbar__search-main {
     height: 38px;
+    padding-left: 10px;
   }
   
   .search-input {
     font-size: 13px;
+  }
+
+  .search-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .expand-toggle {
+    width: 30px;
+    height: 30px;
+    margin-left: 2px;
   }
   
   .advanced-grid {
@@ -656,7 +709,26 @@
   }
   
   .search-advanced-panel {
+    position: fixed;
+    top: 66px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: calc(100vh - 78px);
+    overflow-y: auto;
     padding: 12px;
-    border-radius: 0 0 12px 12px;
+    border: 1.5px solid var(--amber);
+    border-radius: 16px;
+  }
+
+  .topbar-cal {
+    left: 0;
+    right: 0;
+    width: min(280px, calc(100vw - 48px));
+  }
+
+  .topbar__dropdown {
+    right: 0;
+    width: min(240px, calc(100vw - 20px));
   }
 }
