@@ -17,8 +17,10 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\api\AdminDashboardController;
+use App\Http\Controllers\api\AircraftController;
 use App\Http\Controllers\api\ReportController;
 use App\Http\Controllers\api\CheckinController;
+use App\Http\Controllers\api\RouteController;
 
 Route::options('{any}', function () {
     return response()->json([], 200);
@@ -66,6 +68,12 @@ Route::middleware('auth.keycloak') -> group(function () {
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
+
+        Route::get('/routes', [RouteController::class, 'index']);
+        Route::get('/routes/{id}', [RouteController::class, 'getRouteById']);
+
+        Route::get('/aircraft', [AircraftController::class, 'index']);
+        Route::get('/aircraft/{id}', [AircraftController::class, 'getById']);
 
         Route::get('/booking-requests', [AdminBookRequestController::class, 'index']);
         Route::get('/booking-requests/{id}', [AdminBookRequestController::class, 'show']);
