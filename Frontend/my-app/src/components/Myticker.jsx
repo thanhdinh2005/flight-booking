@@ -169,9 +169,7 @@ const STATUS_CONFIG = {
 const FILTER_TABS = [
   { id: 'all',            label: 'Tất cả' },
   { id: 'confirmed',      label: 'Xác nhận' },
-  { id: 'cancel_pending', label: 'Chờ hủy' },
   { id: 'change_pending', label: 'Chờ đổi' },
-  { id: 'cancelled',      label: 'Đã hủy' },
 ]
 
 // ─── Search Form ──────────────────────────────────────────────────────────────
@@ -282,13 +280,34 @@ export default function MyTickets() {
   const [notif,    setNotif]    = useState(null)
   const [expandId, setExpandId] = useState(null)
   const [searchCtx, setSearchCtx] = useState({ pnr: '', email: '' })
+  const [accountStatus, setAccountStatus] = useState('ACTIVE')
+
+  const isAccountInactive = String(accountStatus).toUpperCase() === 'INACTIVE'
+
+  async function fetchCurrentAccountStatus() {
+    const token = getToken()
+    if (!token) return 'ACTIVE'
+
+    try {
+      const res = await apiFetch('/me')
+      const profile = res?.data ?? res
+      return String(profile?.status ?? 'ACTIVE').toUpperCase()
+    } catch {
+      return 'ACTIVE'
+    }
+  }
 
   // ── Nhận kết quả tìm kiếm ────────────────────────────────────────────
-  function handleSearch(data, pnr, email) {
+  async function handleSearch(data, pnr, email) {
+    const nextStatus = await fetchCurrentAccountStatus()
     setTickets(data)
     setSearchCtx({ pnr, email })
+    setAccountStatus(nextStatus)
     setFilter('all')
     setPhase('result')
+    setNotif(nextStatus === 'INACTIVE'
+      ? 'Tài khoản đang ở trạng thái tạm khóa. Bạn chỉ có thể tra cứu và xem chi tiết vé.'
+      : null)
   }
 
   // ── Tìm lại ──────────────────────────────────────────────────────────
@@ -297,14 +316,22 @@ export default function MyTickets() {
     setTickets([])
     setNotif(null)
     setExpandId(null)
+    setAccountStatus('ACTIVE')
   }
 
   // ── Làm mới (search lại với cùng PNR+email) ───────────────────────────
   const handleRefresh = useCallback(async () => {
     if (!searchCtx.pnr || !searchCtx.email) return
     try {
-      const data = await searchTickets(searchCtx.pnr, searchCtx.email)
+      const [data, nextStatus] = await Promise.all([
+        searchTickets(searchCtx.pnr, searchCtx.email),
+        fetchCurrentAccountStatus(),
+      ])
       setTickets(data)
+      setAccountStatus(nextStatus)
+      setNotif(nextStatus === 'INACTIVE'
+        ? 'Tài khoản đang ở trạng thái tạm khóa. Bạn chỉ có thể tra cứu và xem chi tiết vé.'
+        : null)
     } catch (err) {
       setNotif('Không thể làm mới: ' + err.message)
     }
@@ -488,8 +515,33 @@ export default function MyTickets() {
                   </div>
                 )}
 
+                {isExpanded && (
+                  <div className="mt-card__pending-notice" style={{ borderColor: 'rgba(58,138,171,0.26)' }}>
+                    <span style={{ color: '#3a8aab' }}>ℹ️</span>
+                    <div>
+                      <strong style={{ color: '#3a8aab' }}>Chi tiết vé</strong>
+                      <p>Mã vé: {t.id} · Mã đặt chỗ: {t.bookingCode}</p>
+                      <p>Hành trình: {t.depCode} → {t.arrCode} · {t.date}</p>
+                      <p>Chuyến bay: {t.flightNo} · {t.dep} - {t.arr}</p>
+                      <p>Hạng vé: {t.class} · Trạng thái: {sc.label}</p>
+                    </div>
+                    <button className="mt-dismiss" onClick={() => setExpandId(null)}>✕</button>
+                  </div>
+                )}
+
                 {/* Actions */}
-                {normalizeStatus(t.status) === 'confirmed' && (
+                {isAccountInactive && (
+                  <div className="mt-card__actions">
+                    <button
+                      className="mt-action-btn"
+                      onClick={() => setExpandId(isExpanded ? null : t.id)}
+                    >
+                      {isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}
+                    </button>
+                  </div>
+                )}
+
+                {!isAccountInactive && normalizeStatus(t.status) === 'confirmed' && (
                   <div className="mt-card__actions">
                     <button
                       className="mt-action-btn mt-action-btn--danger"
@@ -514,7 +566,7 @@ export default function MyTickets() {
                 )}
 
                 {/* Xem chi tiết nếu cancel_pending / change_pending */}
-                {(normalizeStatus(t.status) === 'cancel_pending' || normalizeStatus(t.status) === 'change_pending') && (
+                {!isAccountInactive && (normalizeStatus(t.status) === 'cancel_pending' || normalizeStatus(t.status) === 'change_pending') && (
                   <div className="mt-card__actions">
                     <button
                       className="mt-action-btn"

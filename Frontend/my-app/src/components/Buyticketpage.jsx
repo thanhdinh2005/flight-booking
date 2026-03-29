@@ -1,6 +1,6 @@
 // src/pages/BuyTicketPage.jsx
 // Luồng đầy đủ: PassengerForm → AddonsService → Thanh toán VNPay
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PassengerForm from '../components/Passengerform';
 import AddonsService from '../components/checkin/AddonsService';
@@ -26,13 +26,33 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
   const [apiError, setApiError] = useState('');
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState('');
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const paymentWindowRef = useRef(null);
 
   const grandTotal = (booking.total_amount || 0) + addonTotal;
+
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data;
+      if (!message || message.type !== 'VNPAY_RETURN') return;
+
+      setVnpayReturnPayload(message.payload || null);
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage);
+    return () => window.removeEventListener('message', handleVnpayReturnMessage);
+  }, []);
 
   async function handleVNPayRedirect() {
     if (!booking?.id) return;
     setPaying(true);
     setApiError('');
+    setPaymentStatusMessage('');
+    setVnpayReturnPayload(null);
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800');
+    paymentWindowRef.current = popup;
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -43,8 +63,16 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
       const url = json.data;
       if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ');
       setVnpayUrl(url);
-      setTimeout(() => window.open(url, '_blank'), 800);
+      setPaymentStatusMessage('Hoàn tất thanh toán trên cửa sổ VNPay rồi bấm "Cập nhật trạng thái".');
+
+      if (popup) {
+        popup.location.href = url;
+        popup.focus();
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -55,43 +83,34 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
   }
 
   async function handleRefreshPaymentStatus() {
-    if (!booking?.pnr || !booking?.contact_email) {
-      setApiError('Không đủ thông tin để tải lại tình trạng thanh toán.');
-      return;
-    }
-
     setCheckingStatus(true);
     setApiError('');
     setPaymentStatusMessage('');
-
-    try {
-      const res = await fetch(`${API_BASE}/bookings/search-tickets`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pnr: booking.pnr,
-          email: booking.contact_email,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || `Lỗi ${res.status}`);
+    window.setTimeout(() => {
+      if (!vnpayReturnPayload) {
+        setPaymentStatusMessage('Chưa nhận được dữ liệu trả về từ VNPay Sandbox. Vui lòng hoàn tất thanh toán ở cửa sổ VNPay trước.');
+        setCheckingStatus(false);
+        return;
       }
 
-      const tickets = Array.isArray(json?.data) ? json.data : [];
-      if (tickets.length > 0) {
-        setPaymentStatusMessage('Đã ghi nhận thanh toán thành công. Vé của bạn đã khả dụng.');
+      if (vnpayReturnPayload.success) {
+        setPaymentStatusMessage(vnpayReturnPayload.message || 'Thanh toán thành công.');
       } else {
-        setPaymentStatusMessage('Chưa ghi nhận thay đổi trạng thái thanh toán. Vui lòng thử lại sau ít phút.');
+        setApiError(vnpayReturnPayload.message || 'Thanh toán thất bại.');
       }
-    } catch (err) {
-      setApiError(err.message || 'Chưa thể tải lại tình trạng thanh toán.');
-    } finally {
+
       setCheckingStatus(false);
+    }, 250);
+  }
+
+  function handleReopenPaymentWindow() {
+    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+      paymentWindowRef.current.focus();
+      return;
+    }
+
+    if (vnpayUrl) {
+      paymentWindowRef.current = window.open(vnpayUrl, 'vnpay-payment', 'width=1200,height=800');
     }
   }
 
@@ -163,7 +182,7 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button
-              onClick={() => window.open(vnpayUrl, '_blank')}
+              onClick={handleReopenPaymentWindow}
               style={{
                 background: '#009B8D', color: '#fff', border: 'none',
                 borderRadius: 8, padding: '10px 20px', fontSize: 13,
@@ -181,7 +200,7 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
                 fontWeight: 700, cursor: checkingStatus ? 'not-allowed' : 'pointer',
               }}
             >
-              {checkingStatus ? 'Đang tải lại...' : 'Tải lại tình trạng thanh toán'}
+              {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
             </button>
           </div>
           {paymentStatusMessage && (

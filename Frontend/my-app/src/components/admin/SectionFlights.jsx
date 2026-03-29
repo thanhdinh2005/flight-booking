@@ -196,7 +196,15 @@ export function SectionFlights() {
     return (
       <div className="adm-field">
         <label className="adm-label">{label}</label>
-        <select className="adm-input" value={gen[field]} onChange={e => setGen(g => ({ ...g, [field]: e.target.value }))} style={{ cursor: 'pointer' }}>
+        <select
+          className="adm-input"
+          value={gen[field]}
+          onChange={e => setGen(g => ({ ...g, [field]: e.target.value }))}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
+          onFocus={e => e.stopPropagation()}
+          style={{ cursor: 'pointer' }}
+        >
           <option value="">— Chọn sân bay —</option>
           {airports.map(ap => {
             const code = ap.iata_code ?? ap.code ?? ap.id ?? ''
@@ -402,7 +410,7 @@ export function SectionFlights() {
 
       {/* Generate modal */}
       {modal && (
-        <Modal title="Sinh chuyến bay tự động" sub="Tạo nhiều chuyến theo lịch" onClose={() => setModal(false)}
+        <Modal title="Sinh chuyến bay tự động" sub="Tạo nhiều chuyến theo lịch" onClose={() => setModal(false)} closeOnOverlay={false}
           footer={
             <>
               <button className="adm-btn adm-btn-ghost" onClick={() => setModal(false)} disabled={loading}>Hủy</button>

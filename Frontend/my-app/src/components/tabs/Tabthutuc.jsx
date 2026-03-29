@@ -512,7 +512,7 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                       className="tk-actions"
                       style={{ gridTemplateColumns: '1fr' }}
                     >
-                    {showRefundOnly && (
+                    {!showRefundOnly && (
                       <button
                         className="ci-btn ci-btn--primary"
                         style={{ fontSize:13 }}
@@ -521,7 +521,7 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                         ✈️ Check-in
                       </button>
                     )}
-                    {!showRefundOnly && (
+                    {showRefundOnly && (
                       <button
                         className="ci-btn ci-btn--warn"
                         style={{ fontSize:13 }}

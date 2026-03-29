@@ -1,6 +1,6 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
 // Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getToken, isTokenExpired } from '../services/keycloakService';
 import '../styles/Passenger.css';
@@ -279,9 +279,9 @@ function MiniCalendar({ value, onChange, onClose }) {
       <div className="vnp-waiting__content">
         <div className="vnp-waiting__title">Đang chờ thanh toán...</div>
         <div className="vnp-waiting__sub">
-          Trang thanh toán VNPay đã được mở trong tab mới.
+          Trang thanh toán VNPay đã được mở trong cửa sổ mới.
           <br />
-          Trang này sẽ tự cập nhật sau khi bạn hoàn tất.
+          Sau khi hoàn tất, bấm Cập nhật trạng thái để nhận kết quả từ VNPay Sandbox.
         </div>
       </div>
 
@@ -330,7 +330,7 @@ function MiniCalendar({ value, onChange, onClose }) {
           onClick={onRefreshStatus}
           disabled={checkingStatus}
         >
-          {checkingStatus ? 'Đang tải lại...' : 'Tải lại trạng thái thanh toán'}
+          {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
         </button>
 
         <button
@@ -387,60 +387,67 @@ export default function PassengerForm({
   const [vnpayUrl, setVnpayUrl]     = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [paymentStatus, setPaymentStatus]   = useState(null);
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const paymentWindowRef = useRef(null);
 const [openCalIndex, setOpenCalIndex] = useState(null);
   function updForm(i, field, val) {
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
 
   async function refreshPaymentStatus() {
-    if (!booking?.pnr || !booking?.contact_email) {
-      setApiError('Không đủ thông tin để tải lại trạng thái thanh toán.');
-      return false;
-    }
-
     setCheckingStatus(true);
     setApiError('');
     setPaymentStatus(null);
 
-    try {
-      const res = await fetch(`${API_BASE}/bookings/search-tickets`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pnr: booking.pnr,
-          email: booking.contact_email,
-        }),
-      });
+    return await new Promise(resolve => {
+      window.setTimeout(() => {
+        if (!vnpayReturnPayload) {
+          setPaymentStatus({
+            type: 'pending',
+            message: 'Chưa nhận được dữ liệu trả về từ VNPay Sandbox. Vui lòng hoàn tất thanh toán ở cửa sổ VNPay trước.',
+          });
+          setCheckingStatus(false);
+          resolve(false);
+          return;
+        }
 
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok && json?.success) {
-        const tickets = Array.isArray(json?.data) ? json.data : [];
-        if (tickets.length > 0) {
-          setBooking(prev => prev ? { ...prev, status: 'PAID', expires_at: null, tickets } : prev);
+        if (vnpayReturnPayload.success) {
+          setBooking(prev => prev ? {
+            ...prev,
+            ...(vnpayReturnPayload.data || {}),
+            status: 'PAID',
+            expires_at: null,
+          } : prev);
           setPaymentStatus({
             type: 'success',
-            message: 'Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
+            message: vnpayReturnPayload.message || 'Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
           });
-          return true;
+          setCheckingStatus(false);
+          resolve(true);
+          return;
         }
-      }
 
-      setPaymentStatus({
-        type: 'pending',
-        message: 'Chưa ghi nhận thay đổi trạng thái thanh toán. Vui lòng thử lại sau ít phút.',
-      });
-      return false;
-    } catch (err) {
-      setApiError(err.message || 'Chưa thể tải lại trạng thái thanh toán.');
-      return false;
-    } finally {
-      setCheckingStatus(false);
-    }
+        setPaymentStatus({
+          type: 'error',
+          message: vnpayReturnPayload.message || 'Thanh toán thất bại.',
+        });
+        setCheckingStatus(false);
+        resolve(false);
+      }, 250);
+    });
   }
+
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data;
+      if (!message || message.type !== 'VNPAY_RETURN') return;
+
+      setVnpayReturnPayload(message.payload || null);
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage);
+    return () => window.removeEventListener('message', handleVnpayReturnMessage);
+  }, []);
 
   useEffect(() => {
     if (!booking?.id) return;
@@ -467,14 +474,14 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
   }, [booking?.id]);
 
   useEffect(() => {
-    if (!vnpayUrl || !booking?.pnr || checkingStatus || paymentStatus?.type === 'success') return;
+    if (!vnpayUrl || checkingStatus || paymentStatus?.type === 'success' || !vnpayReturnPayload?.success) return;
 
     const timer = window.setInterval(() => {
       refreshPaymentStatus();
     }, 15000);
 
     return () => window.clearInterval(timer);
-  }, [vnpayUrl, booking?.pnr, checkingStatus, paymentStatus?.type]);
+  }, [vnpayUrl, checkingStatus, paymentStatus?.type, vnpayReturnPayload?.success]);
 
   function getFormValidationError() {
     if (!contact.email.trim()) return 'Vui lòng nhập email nhận vé.'
@@ -555,6 +562,11 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
     if (!booking?.id) return;
     setPaying(true);
     setApiError('');
+    setVnpayReturnPayload(null);
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800');
+    paymentWindowRef.current = popup;
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -569,11 +581,17 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
       setVnpayUrl(url);
       setPaymentStatus({
         type: 'pending',
-        message: 'Sau khi thanh toán xong ở tab VNPay, bấm "Tải lại trạng thái thanh toán" để cập nhật.',
+        message: 'Sau khi thanh toán xong ở cửa sổ VNPay, bấm "Cập nhật trạng thái" để cập nhật.',
       });
-      // Mở VNPay sandbox trong tab mới, trang hiện tại giữ nguyên chờ kết quả
-      setTimeout(() => { window.open(url, '_blank'); }, 800);
+
+      if (popup) {
+        popup.location.href = url;
+        popup.focus();
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'

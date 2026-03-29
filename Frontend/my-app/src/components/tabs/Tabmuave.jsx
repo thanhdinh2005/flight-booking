@@ -1,6 +1,6 @@
 // src/components/tabs/TabMuaVe.jsx
 // Kết nối: SearchPanel → FlightResults → PassengerForm → AddonsService
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
@@ -35,15 +35,37 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
   const [paying, setPaying] = useState(false)
   const [vnpayUrl, setVnpayUrl] = useState(null)
   const [apiError, setApiError] = useState('')
+  const [checkingStatus, setCheckingStatus] = useState(false)
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState('')
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null)
+  const paymentWindowRef = useRef(null)
 
   const addonTotal = addonSelection?.total || 0
   const addonRows = addonSelection?.summaryRows || []
   const grandTotal = Number(booking?.total_amount || 0) + Number(addonTotal || 0)
 
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data
+      if (!message || message.type !== 'VNPAY_RETURN') return
+
+      setVnpayReturnPayload(message.payload || null)
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage)
+    return () => window.removeEventListener('message', handleVnpayReturnMessage)
+  }, [])
+
   async function handleVNPayRedirect() {
     if (!booking?.id) return
     setPaying(true)
     setApiError('')
+    setPaymentStatusMessage('')
+    setVnpayReturnPayload(null)
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800')
+    paymentWindowRef.current = popup
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -54,9 +76,18 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
       const url = json.data
       if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ')
       setVnpayUrl(url)
-      setTimeout(() => window.open(url, '_blank'), 800)
+      setPaymentStatusMessage('Hoàn tất thanh toán trên cửa sổ VNPay rồi bấm "Cập nhật trạng thái".')
+
+      if (popup) {
+        popup.location.href = url
+        popup.focus()
+      } else {
+        window.open(url, '_blank')
+      }
+
       onPaid?.()
     } catch (err) {
+      if (popup && !popup.closed) popup.close()
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -64,6 +95,39 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
       )
       setPaying(false)
     }
+  }
+
+  function handleReopenPayment() {
+    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+      paymentWindowRef.current.focus()
+      return
+    }
+
+    if (vnpayUrl) {
+      paymentWindowRef.current = window.open(vnpayUrl, 'vnpay-payment', 'width=1200,height=800')
+    }
+  }
+
+  function handleRefreshPaymentStatus() {
+    setCheckingStatus(true)
+    setApiError('')
+    setPaymentStatusMessage('')
+
+    window.setTimeout(() => {
+      if (!vnpayReturnPayload) {
+        setPaymentStatusMessage('Chưa nhận được dữ liệu trả về từ VNPay Sandbox. Vui lòng hoàn tất thanh toán trước.')
+        setCheckingStatus(false)
+        return
+      }
+
+      if (vnpayReturnPayload.success) {
+        setPaymentStatusMessage(vnpayReturnPayload.message || 'Thanh toán thành công.')
+      } else {
+        setApiError(vnpayReturnPayload.message || 'Thanh toán thất bại.')
+      }
+
+      setCheckingStatus(false)
+    }, 250)
   }
 
   return (
@@ -253,15 +317,38 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
           <div style={{ fontSize: 13, color: '#047857', marginBottom: 14 }}>
             Trang thanh toán VNPay đã được mở trong tab mới.
           </div>
-          <button
-            onClick={() => window.open(vnpayUrl, '_blank')}
-            style={{
-              background: '#0f766e', color: '#fff', border: 'none',
-              borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            Mở lại trang thanh toán →
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={handleReopenPayment}
+              style={{
+                background: '#0f766e', color: '#fff', border: 'none',
+                borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Mở lại trang thanh toán →
+            </button>
+            <button
+              onClick={handleRefreshPaymentStatus}
+              disabled={checkingStatus}
+              style={{
+                background: checkingStatus ? '#ccfbf1' : '#ffffff',
+                color: '#0f766e',
+                border: '1px solid #0f766e',
+                borderRadius: 10,
+                padding: '10px 18px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: checkingStatus ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
+            </button>
+          </div>
+          {paymentStatusMessage && (
+            <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: '#0f766e' }}>
+              {paymentStatusMessage}
+            </div>
+          )}
         </div>
       )}
 
