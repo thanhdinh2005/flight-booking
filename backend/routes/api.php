@@ -14,12 +14,13 @@ use App\Http\Controllers\Api\CustomerBookingController;
 
 use App\Http\Controllers\Api\FlightInstanceController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\api\AdminDashboardController;
+use App\Http\Controllers\api\AircraftController;
 use App\Http\Controllers\api\ReportController;
 use App\Http\Controllers\api\CheckinController;
+use App\Http\Controllers\api\RouteController;
 
 Route::options('{any}', function () {
     return response()->json([], 200);
@@ -33,6 +34,7 @@ Route::get('/airports', [AirportController::class, 'getAll']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
+Route::put('/forgot-password', [AdminDashboardController::class, 'forgotPassword']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
 
 
@@ -63,21 +65,15 @@ Route::middleware('auth.keycloak') -> group(function () {
     Route::get('/checkin/boarding-pass/{id}', [CheckinController::class, 'getBoardingPass']);
 });
 
-Route::middleware(['auth.keycloak', 'role:STAFF'])
-    ->prefix('staff')
-    ->group(function () {
-
-        Route::post('/processing-refund/{bookingRequestId}/approve', [StaffController::class, 'approveRefundRequest']);
-        Route::post('/processing-refund/{bookingRequestId}/reject', [StaffController::class, 'rejectRefundRequest']);
-
-        
-        // Route::get('/dashboard', [StaffController::class, 'dashboard']);
-        // Route::get('/flights', [StaffController::class, 'manageFlights']);
-});
-
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
     ->prefix('admin')
     ->group(function () {
+
+        Route::get('/routes', [RouteController::class, 'index']);
+        Route::get('/routes/{id}', [RouteController::class, 'getRouteById']);
+
+        Route::get('/aircraft', [AircraftController::class, 'index']);
+        Route::get('/aircraft/{id}', [AircraftController::class, 'getById']);
 
         Route::get('/booking-requests', [AdminBookRequestController::class, 'index']);
         Route::get('/booking-requests/{id}', [AdminBookRequestController::class, 'show']);
@@ -105,6 +101,7 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/users/{userId}', [UserController::class, 'getUserById']);
         Route::put('/users/{userId}/disable', [UserController::class, 'disable']);
         Route::put('/users/{userId}/active', [UserController::class, 'active']);
+        Route::put('/users/change-role/{userId}', [UserController::class, 'changeRole']);
         
         // Statistic & Report API
         Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);

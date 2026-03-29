@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api;
 use App\Application\UseCases\ChangeRoleUseCase;
 use App\Application\UseCases\CreateUserUseCase;
 use App\Application\UseCases\GetAllUserUseCase;
+use App\Enums\SystemStatus;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateUserRequest;
@@ -85,7 +86,7 @@ class UserController extends Controller
         if (!$user) throw new EntityNotFoundException("Không tìm thấy người dùng!");
 
         $user->update([
-            'status' => 'disable',
+            'status' => SystemStatus::INACTIVE,
             'disabled_at' => now()    
         ]);
 
@@ -96,7 +97,7 @@ class UserController extends Controller
         $user = User::find($userId);
         if (!$user) throw new EntityNotFoundException("Không tìm thấy người dùng!");
 
-        $user->update(['status' => 'active']);
+        $user->update(['status' => SystemStatus::ACTIVE]);
 
         return ApiResponse::success(data: $user);
     }
