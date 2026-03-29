@@ -44,30 +44,11 @@ class UserSeeder extends Seeder
 
             app(AssignRoleUserCommand::class)->execute($keycloakId, 'ADMIN');
 
-            $keycloakStaffId = app(CreateKeycloakUserCommand::class) -> execute(
-                'staff@gmail.com',
-                '1234567',
-                'Van B',
-                'Nguyen'
-            );
-
-            app(CreateLocalUserCommand::class) -> execute(
-                'staff@gmail.com',
-                'Van B',
-                'Nguyen',
-                '0987654321',
-                $keycloakStaffId,
-                'staff'
-            );
-
-            app(AssignRoleUserCommand::class)->execute($keycloakStaffId, 'STAFF');
-
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
             if (isset($keycloakId)) {
                 app(DeleteKeycloakUserCommand::class) -> execute($keycloakId);
-                app(DeleteKeycloakUserCommand::class) -> execute($keycloakStaffId);
             }
             throw $e;
         }

@@ -2,8 +2,10 @@
 
 namespace App\Infracstructure;
 
+use App\Exceptions\BusinessException;
 use Illuminate\Support\Facades\Http;
 use App\Exceptions\KeycloakException;
+use Illuminate\Support\Facades\Log;
 
 class KeycloakService
 {
@@ -145,5 +147,54 @@ class KeycloakService
                 'Failed to remove role from user'
             );
         }
+    }
+
+    public function getUserIdByEmail(string $email): ?string
+    {
+        $token = $this->adminToken();
+
+        $res = Http::withToken($token)->get(
+            "{$this->baseUrl}/admin/realms/{$this->realm}/users",
+            [
+                'email' => $email,
+                'exact' => 'true' // Bắt buộc để tránh tìm tương đối (VD: abc@gmail khớp với abc@gmail.com)
+            ]
+        );
+
+        if ($res->failed() || empty($res->json())) {
+            return null;
+        }
+
+        // Keycloak trả về một mảng các user khớp điều kiện, ta lấy ID của user đầu tiên
+        return $res->json('0.id'); 
+    }
+
+    /**
+     * Bắn lệnh gửi email Reset Password tới user
+     */
+    public function sendResetPasswordEmail(string $userId, ?string $redirectUri = null): bool
+    {
+        $token = $this->adminToken();
+
+        // Xây dựng URL cơ bản
+        $url = "{$this->baseUrl}/admin/realms/{$this->realm}/users/{$userId}/execute-actions-email";
+
+        // Thêm tham số redirect nếu muốn user đổi pass xong thì văng về lại Frontend
+        $queryParams = [];
+        if ($redirectUri) {
+            $queryParams['client_id'] = $this->clientId; // Hoặc Client ID của Frontend nếu khác
+            $queryParams['redirect_uri'] = $redirectUri;
+            $url .= '?' . http_build_query($queryParams);
+        }
+
+        // Gửi mảng chứa action UPDATE_PASSWORD
+        $res = Http::withToken($token)->put($url, ['UPDATE_PASSWORD']);
+
+        if ($res->failed()) {
+            Log::error("Keycloak Reset Password Error for User {$userId}: " . $res->body());
+            throw new BusinessException('Không thể gửi email đặt lại mật khẩu lúc này.');
+        }
+
+        return true;
     }
 }

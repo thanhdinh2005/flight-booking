@@ -14,7 +14,6 @@ use App\Http\Controllers\Api\CustomerBookingController;
 
 use App\Http\Controllers\Api\FlightInstanceController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\api\AdminDashboardController;
@@ -33,6 +32,7 @@ Route::get('/airports', [AirportController::class, 'getAll']);
 Route::get('/flights/search', [FlightController::class, 'search']);
 Route::post('/register', [RegisterController::class, 'register']);
 Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
+Route::put('/forgot-password', [AdminDashboardController::class, 'forgotPassword']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
 
 
@@ -61,18 +61,6 @@ Route::middleware('auth.keycloak') -> group(function () {
     Route::get('/seat-map', [CheckinController::class, 'getSeatMap']);
     Route::post('/submit', [CheckinController::class, 'submitCheckin']);
     Route::get('/checkin/boarding-pass/{id}', [CheckinController::class, 'getBoardingPass']);
-});
-
-Route::middleware(['auth.keycloak', 'role:STAFF'])
-    ->prefix('staff')
-    ->group(function () {
-
-        Route::post('/processing-refund/{bookingRequestId}/approve', [StaffController::class, 'approveRefundRequest']);
-        Route::post('/processing-refund/{bookingRequestId}/reject', [StaffController::class, 'rejectRefundRequest']);
-
-        
-        // Route::get('/dashboard', [StaffController::class, 'dashboard']);
-        // Route::get('/flights', [StaffController::class, 'manageFlights']);
 });
 
 Route::middleware(['auth.keycloak', 'role:ADMIN'])
