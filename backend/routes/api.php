@@ -93,6 +93,7 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/users/{userId}', [UserController::class, 'getUserById']);
         Route::put('/users/{userId}/disable', [UserController::class, 'disable']);
         Route::put('/users/{userId}/active', [UserController::class, 'active']);
+        Route::put('/users/change-role/{userId}', [UserController::class, 'changeRole']);
         
         // Statistic & Report API
         Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
