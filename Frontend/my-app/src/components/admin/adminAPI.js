@@ -5,7 +5,7 @@
  *   saveKeycloakToken(kcResponse)
  *   clearToken()
  *   dashboardAPI   — getStats, getRevenueChart
- *   customerAPI    — getAll, search, getById, create, updateProfile, disable, active, toggleStatus, delete
+ *   customerAPI    — getAll, search, getById, create, updateRole, disable, active, toggleStatus, delete
  *   flightAPI      — getAll, getPage, filter, getById, create, generate, update, delete
  *   flightFilterAPI— filter (với pagination + status/date), getById
  *   scheduleAPI    — getAll, getById, create, reactivate, phaseOut
@@ -128,6 +128,13 @@ function reverseViName(fullName) {
   return `${last} ${rest}`
 }
 
+function normalizeUserStatus(status) {
+  const normalized = String(status ?? '').trim().toLowerCase()
+  if (['active', 'enabled', 'hoat_dong', 'hoạt động'].includes(normalized)) return 'active'
+  if (['disabled', 'inactive', 'suspended', 'locked', 'blocked', 'tam_khoa', 'tạm khóa'].includes(normalized)) return 'disabled'
+  return normalized || 'active'
+}
+
 /**
  * Backend user → frontend user
  * Backend: { id, keycloak_id, email, full_name, phone_number, role, status, created_at }
@@ -142,7 +149,7 @@ function mapUser(u) {
     nameRaw: rawName,
     email:   u.email          ?? '',
     phone:   u.phone_number   ?? u.phone ?? '',
-    status:  u.status         ?? 'active',
+    status:  normalizeUserStatus(u.status),
     role:    normalizedRole,
     tickets: u.tickets        ?? 0,
     joined:  u.created_at ? u.created_at.substring(0, 10) : (u.joined ?? ''),
@@ -321,7 +328,7 @@ export const dashboardAPI = {
 // GET  /admin/users/search?email=...
 // GET  /admin/users/{id}
 // POST /admin/users
-// PUT  /admin/users/{id}
+// PUT  /admin/users/change-role/{id}
 // PUT  /admin/users/{id}/disable
 // PUT  /admin/users/{id}/active
 
@@ -375,7 +382,9 @@ export const customerAPI = {
     return mapUser(d?.data ?? d)
   },
 
-  updateProfile: async (id, body) => apiFetch('PUT', `/admin/users/${id}`, body),
+  updateRole: async (id, role) => apiFetch('PUT', `/admin/users/change-role/${id}`, {
+    role: String(role ?? 'customer').toUpperCase(),
+  }),
 
   /** PUT /admin/users/{id}/disable */
   disable: async (id) => apiFetch('PUT', `/admin/users/${id}/disable`),
@@ -385,7 +394,7 @@ export const customerAPI = {
 
   /** Tự động chọn disable/active dựa trên trạng thái hiện tại */
   toggleStatus: async (id, currentStatus) => {
-    if (currentStatus === 'active') return apiFetch('PUT', `/admin/users/${id}/disable`)
+    if (normalizeUserStatus(currentStatus) === 'active') return apiFetch('PUT', `/admin/users/${id}/disable`)
     return apiFetch('PUT', `/admin/users/${id}/active`)
   },
 

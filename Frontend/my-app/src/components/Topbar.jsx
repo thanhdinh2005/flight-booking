@@ -176,6 +176,7 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
   const [airportsError, setAirportsError]   = useState('');
   const [calendarOpen, setCalendarOpen]     = useState(null);
   const [searchingFlights, setSearchingFlights] = useState(false);
+  const [searchError, setSearchError]       = useState('');
   const dropRef   = useRef(null);
   const searchRef = useRef(null);
 
@@ -234,9 +235,20 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
     e.preventDefault();
     const { origin, destination, departure_date, return_date, adults } = advancedValues;
 
-    if (!origin || !destination || !departure_date) return;
-    if (origin === destination) return;
-    if (return_date && return_date < departure_date) return;
+    setSearchError('');
+
+    if (!origin || !destination || !departure_date) {
+      setSearchError('Vui lòng chọn đầy đủ điểm đi, điểm đến và ngày đi.');
+      return;
+    }
+    if (origin === destination) {
+      setSearchError('Điểm đi và điểm đến không được trùng nhau.');
+      return;
+    }
+    if (return_date && return_date < departure_date) {
+      setSearchError('Ngày về không được sớm hơn ngày đi.');
+      return;
+    }
 
     const adultsValue = adults ?? 1;
     const params = buildFlightSearchParams({
@@ -271,14 +283,17 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
       });
       setIsExpanded(false);
       setCalendarOpen(null);
+      setSearchError('');
     } catch (err) {
       console.error('[Topbar] searchFlights failed:', err);
+      setSearchError(err instanceof Error ? err.message : 'Không thể tìm chuyến bay lúc này.');
     } finally {
       setSearchingFlights(false);
     }
   }
 
   function handleAdvancedChange(fieldId, value) {
+    setSearchError('');
     setAdvancedValues(prev => ({ ...prev, [fieldId]: value }));
   }
 
@@ -415,8 +430,10 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                     </div>
                   ))}
                 </div>
-                {airportsError && (
-                  <div className="advanced-error">{airportsError}</div>
+                {(airportsError || searchError) && (
+                  <div className="advanced-error" role="alert" aria-live="polite">
+                    {airportsError || searchError}
+                  </div>
                 )}
                 <div className="advanced-footer">
                   <button
@@ -425,6 +442,7 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                     onClick={() => {
                       setAdvancedValues(buildDefaultAdvancedValues(airports));
                       setCalendarOpen(null);
+                      setSearchError('');
                     }}
                   >
                     Đặt lại

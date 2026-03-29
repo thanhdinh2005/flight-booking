@@ -125,6 +125,31 @@ export function redirectByRole(roles, navigate) {
   }
 }
 
+function normalizeAccountStatus(status) {
+  const normalized = String(status ?? '').trim().toUpperCase()
+  if (['INACTIVE', 'DISABLED', 'SUSPENDED', 'LOCKED', 'BLOCKED'].includes(normalized)) return 'INACTIVE'
+  return normalized || 'ACTIVE'
+}
+
+export async function getAccountStatusByEmail(email, accessToken) {
+  const listResponse = await getAllUsers(accessToken)
+  const list = Array.isArray(listResponse)
+    ? listResponse
+    : listResponse?.data ?? listResponse?.users ?? listResponse?.items ?? listResponse?.results ?? []
+
+  const matchedUser = Array.isArray(list)
+    ? list.find((item) => String(item?.email ?? '').toLowerCase() === String(email ?? '').trim().toLowerCase())
+    : null
+
+  if (!matchedUser?.id) {
+    throw new Error('Không tìm thấy thông tin tài khoản để kiểm tra trạng thái')
+  }
+
+  const detailResponse = await getUserById(matchedUser.id, accessToken)
+  const detail = detailResponse?.data ?? detailResponse
+  return normalizeAccountStatus(detail?.status)
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 export async function loginKeycloak(email, password) {
   console.groupCollapsed('[Auth] loginKeycloak request')
@@ -189,6 +214,22 @@ export async function registerUser(payload) {
   return data
 }
 
+export async function forgotPassword(email) {
+  const res = await fetch(`${BACKEND_URL}/forgot-password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Không gửi được yêu cầu quên mật khẩu')
+  }
+
+  return data
+}
+
 // ─── Logout ───────────────────────────────────────────────────────────────────
 export async function logoutKeycloak() {
   const refreshToken = sessionStorage.getItem('refresh_token')
@@ -213,8 +254,8 @@ export async function logoutKeycloak() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Helper function to get auth headers
-function getAuthHeaders() {
-  const token = getToken()
+function getAuthHeaders(accessToken) {
+  const token = accessToken || getToken()
   return {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -234,10 +275,10 @@ export async function searchUser(query) {
 }
 
 // ─── Get All Users (Admin) ────────────────────────────────────────────────────
-export async function getAllUsers() {
+export async function getAllUsers(accessToken) {
   const res = await fetch(`${BACKEND_URL}/admin/users`, {
     method: 'GET',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(accessToken),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message || 'Lấy danh sách user thất bại')
@@ -245,10 +286,10 @@ export async function getAllUsers() {
 }
 
 // ─── Get User by Id (Admin) ───────────────────────────────────────────────────
-export async function getUserById(userId) {
+export async function getUserById(userId, accessToken) {
   const res = await fetch(`${BACKEND_URL}/admin/users/${userId}`, {
     method: 'GET',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(accessToken),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message || 'Lấy thông tin user thất bại')

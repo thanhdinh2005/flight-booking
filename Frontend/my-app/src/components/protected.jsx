@@ -18,12 +18,12 @@ import {
 export default function ProtectedRoute({ children, requiredRole }) {
   // isAuthenticated() kiểm tra token còn hạn không (dùng token_expiry trong sessionStorage)
   if (!isAuthenticated()) {
-    return <Navigate to={requiredRole === 'ADMIN' ? "/admin/login" : "/login"} replace />
+    return <Navigate to="/login" replace />
   }
 
   const token = getToken()
   const user  = getUserFromToken(token)
-  if (!user) return <Navigate to={requiredRole === 'ADMIN' ? "/admin/login" : "/login"} replace />
+  if (!user) return <Navigate to="/login" replace />
 
   const roles = user.roles || []
 
@@ -38,10 +38,9 @@ export default function ProtectedRoute({ children, requiredRole }) {
   }
 
   if (requiredRole === 'CUSTOMER') {
-    // Nếu là ADMIN → về trang admin
-    if (roles.includes('ADMIN')) return <Navigate to="/admin" replace />
-    // Nếu là STAFF → về trang staff
-    if (roles.includes('STAFF')) return <Navigate to="/staff/dashboard" replace />
+    if (roles.includes('ADMIN') || roles.includes('STAFF')) {
+      return <Navigate to="/unauthorized" replace />
+    }
   }
 
   return children
