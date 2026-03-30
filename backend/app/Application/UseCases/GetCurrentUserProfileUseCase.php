@@ -23,7 +23,8 @@ final class GetCurrentUserProfileUseCase
             $user->role,
             $user->phone_number,
             $user->created_at,
-            $user->updated_at
+            $user->updated_at,
+            $user->status
         );
     }
 

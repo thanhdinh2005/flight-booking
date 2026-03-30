@@ -46,9 +46,9 @@ class UserProfileController extends Controller
     {
         $user = $request->user();
 
-        $userResponse = $useCase->execute($user->keycloak_id);
+        // $userResponse = $useCase->execute($user->keycloak_id);
 
-        return ApiResponse::success($userResponse);
+        return ApiResponse::success($user);
     }
 
     /**

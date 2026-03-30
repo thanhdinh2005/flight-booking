@@ -42,9 +42,7 @@ class GenerateFlightInstancesCommand
             ? Carbon::parse($lastFlight->departure_date)->addDay()
             : now()->startOfDay();
 
-        $end = now()->copy()
-            ->addDays($days)
-            ->min(now()->endOfMonth());
+        $end = now()->copy()->addDays($days);
 
         $daysOfWeek = $schedule->days_of_week;
 

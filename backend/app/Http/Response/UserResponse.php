@@ -2,6 +2,7 @@
 
 namespace App\Http\Response;
 
+use App\Enums\SystemStatus;
 use OpenApi\Annotations as OA;
 
 /**
@@ -73,5 +74,6 @@ final class UserResponse
         public string $phone_number,
         public string $created_at,
         public string $updated_at,
+        public SystemStatus $status
     ) {}
 }

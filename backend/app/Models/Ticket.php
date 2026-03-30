@@ -33,10 +33,10 @@ class Ticket extends Model
         return $this->belongsTo(FlightInstance::class);
     }
     public function addons() {
-    return $this->hasMany(TicketAddon::class);
-}
-public function bookingRequests()
-{
-    return $this->hasMany(BookingRequest::class);
-}
+        return $this->hasMany(TicketAddon::class);
+    }
+    public function bookingRequests()
+    {
+        return $this->hasMany(BookingRequest::class);
+    }
 }
