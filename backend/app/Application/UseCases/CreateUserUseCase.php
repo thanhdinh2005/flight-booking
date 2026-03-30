@@ -69,7 +69,8 @@ final class CreateUserUseCase
             $user->role,
             $user->phone_number,
             $user->created_at,
-            $user->updated_at
+            $user->updated_at,
+            $user->status
         );
         } catch (\Throwable $e) {
             DB::rollBack();

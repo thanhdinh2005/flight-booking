@@ -29,21 +29,33 @@ class PaymentController extends Controller
 
             if ($request->vnp_ResponseCode == '00') {
                 try {
-                    // Gọi UseCase: Logic cập nhật Booking, Ticket và Transaction nằm hết ở đây
                     $booking = $confirmPaymentUseCase->execute(
                         (int) $bookingId, 
                         'VNPAY', 
                         $request->vnp_TransactionNo,
                         (float) ($request->vnp_Amount / 100)
                     );
-                    return ApiResponse::success($booking, "Thanh toán thành công.");
+                    
+                    // Trả về View Thành Công kèm theo dữ liệu booking
+                    return view('payment.success', compact('booking'));
+                    
                 } catch (\Exception $e) {
-                    return ApiResponse::error($e->getMessage(), 400);
+                    // Lỗi logic hệ thống (VD: Không tìm thấy booking, sai tiền...)
+                    return view('payment.error', [
+                        'message' => 'Lỗi xử lý hệ thống: ' . $e->getMessage()
+                    ]);
                 }
             }
-            return ApiResponse::error("Giao dịch thất bại. Mã lỗi: " . $request->vnp_ResponseCode);
+            // Lỗi từ phía VNPAY (Khách hủy giao dịch, không đủ tiền...)
+            return view('payment.error', [
+                'message' => 'Giao dịch thất bại. Mã lỗi VNPAY: ' . $request->vnp_ResponseCode
+            ]);
         }
-        return ApiResponse::error("Sai chữ ký bảo mật.");
+        
+        // Lỗi sai chữ ký (Cảnh báo gian lận)
+        return view('payment.error', [
+            'message' => 'Sai chữ ký bảo mật. Giao dịch bị từ chối!'
+        ]);
     }
 
     public function vnpayIpn(Request $request, ConfirmPaymentUseCase $confirmPaymentUseCase)

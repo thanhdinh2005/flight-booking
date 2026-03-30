@@ -21,6 +21,7 @@ use App\Http\Controllers\api\AircraftController;
 use App\Http\Controllers\api\ReportController;
 use App\Http\Controllers\api\CheckinController;
 use App\Http\Controllers\api\RouteController;
+use App\Http\Controllers\api\TicketController;
 
 Route::options('{any}', function () {
     return response()->json([], 200);
@@ -37,7 +38,7 @@ Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 Route::put('/forgot-password', [AdminDashboardController::class, 'forgotPassword']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
 
-
+Route::get('/booking/{id}', [BookingController::class, 'getById']);
 
 Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
@@ -63,6 +64,8 @@ Route::middleware('auth.keycloak') -> group(function () {
     Route::get('/seat-map', [CheckinController::class, 'getSeatMap']);
     Route::post('/submit', [CheckinController::class, 'submitCheckin']);
     Route::get('/checkin/boarding-pass/{id}', [CheckinController::class, 'getBoardingPass']);
+
+    Route::get('tickets', [TicketController::class, 'getAll']);
 });
 
 Route::middleware(['auth.keycloak', 'role:ADMIN'])

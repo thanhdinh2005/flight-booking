@@ -70,6 +70,7 @@ class UserController extends Controller
                 'phone_number' => $user->phone_number,
                 'role' => $user->role,
                 'created_at' => $user->created_at,
+                'status' => $user->status
             ]
         );
 
