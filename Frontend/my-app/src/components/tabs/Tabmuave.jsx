@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
+import PaymentSuccessModal from '../PaymentSuccessModal'
 import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
 import '../../styles/SearchPanel.css'
@@ -23,6 +24,10 @@ function fmt(n) {
   return Number(n || 0).toLocaleString('vi-VN') + '₫'
 }
 
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 function fmtDate(raw) {
   if (!raw) return '—'
   const d = new Date(raw)
@@ -38,6 +43,7 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
   const [checkingStatus, setCheckingStatus] = useState(false)
   const [paymentStatusMessage, setPaymentStatusMessage] = useState('')
   const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const paymentWindowRef = useRef(null)
 
   const addonTotal = addonSelection?.total || 0
@@ -113,21 +119,59 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
     setApiError('')
     setPaymentStatusMessage('')
 
-    window.setTimeout(() => {
-      if (!vnpayReturnPayload) {
-        setPaymentStatusMessage('Chưa nhận được dữ liệu trả về từ VNPay Sandbox. Vui lòng hoàn tất thanh toán trước.')
+    // Gọi API để kiểm tra trạng thái thanh toán
+    const checkPaymentStatus = async () => {
+      try {
+        const token = getToken()
+        if (!token || isTokenExpired()) {
+          throw new Error('TOKEN_MISSING')
+        }
+
+        console.log('[Tabmuave] Checking booking status for PNR:', booking?.pnr)
+
+        const res = await fetch(`${API_BASE}/booking?pnr=${booking?.pnr}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        console.log('[Tabmuave] Response status:', res.status)
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+
+        const json = await res.json()
+        console.log('[Tabmuave] Response data:', json)
+
+        if (!json.success) {
+          throw new Error(json.message || 'Không thể kiểm tra trạng thái')
+        }
+
+        const bookingData = json.data
+        console.log('[Tabmuave] Booking status:', bookingData.status)
+
+        if (bookingData.status === 'PAID') {
+          // Thanh toán thành công
+          setPaymentStatusMessage('✅ Thanh toán thành công!')
+          setShowSuccessModal(true)
+        } else {
+          setPaymentStatusMessage('⏳ Thanh toán chưa được ghi nhận. Vui lòng đảm bảo thanh toán đã hoàn tất.')
+        }
+      } catch (err) {
+        console.error('[Tabmuave] Error:', err)
+        setApiError(
+          err.message === 'TOKEN_MISSING'
+            ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+            : `❌ ${err.message || 'Lỗi khi kiểm tra trạng thái'}`
+        )
+      } finally {
         setCheckingStatus(false)
-        return
       }
+    }
 
-      if (vnpayReturnPayload.success) {
-        setPaymentStatusMessage(vnpayReturnPayload.message || 'Thanh toán thành công.')
-      } else {
-        setApiError(vnpayReturnPayload.message || 'Thanh toán thất bại.')
-      }
-
-      setCheckingStatus(false)
-    }, 250)
+    checkPaymentStatus()
   }
 
   return (
@@ -403,6 +447,11 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
           </button>
         </div>
       )}
+      <PaymentSuccessModal 
+        isOpen={showSuccessModal}
+        onViewTickets={() => setShowSuccessModal(false)}
+        onGoBack={() => setShowSuccessModal(false)}
+      />
     </div>
   )
 }
@@ -493,7 +542,7 @@ function DateField({ label, value, onChange }) {
 }
 
 // ─── Airport Search ───────────────────────────────────────────────────────────
-function AirportSearch({ label, value, onChange, placeholder }) {
+function AirportSearch({ label, value, onChange, placeholder, inputRef }) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
@@ -523,6 +572,7 @@ function AirportSearch({ label, value, onChange, placeholder }) {
       <label className="form-field__label">{label}</label>
       <div className="airport-search">
         <input
+          ref={inputRef}
           className="form-field__input"
           placeholder={value || placeholder}
           value={query}
@@ -602,11 +652,19 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   const [retDate,    setRetDate]    = useState('')
   const [passengers, setPassengers] = useState('1')
   const [useLiveSearch, setUseLiveSearch] = useState(false)
+  const panelRef = useRef(null)
+  const fromInputRef = useRef(null)
+  const toInputRef = useRef(null)
 
   useEffect(() => {
     if (!initialDestination) return
     setFromCity(initialDestination.from || 'Nội Bài (HAN) – Hà Nội')
     setToCity(initialDestination.to || '')
+    window.requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const target = initialDestination.to ? toInputRef.current : fromInputRef.current
+      target?.focus?.()
+    })
   }, [initialDestination])
 
   function swap() {
@@ -634,7 +692,7 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   const airportOptions = airports.length > 0 ? airports : FALLBACK_AIRPORTS
 
   return (
-    <div className="tab-content">
+    <div ref={panelRef} className="tab-content">
       <div className="radio-group">
         {[['one','Một chiều'],['round','Khứ hồi']].map(([v, l]) => (
           <label key={v} className="radio-label">
@@ -647,11 +705,11 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
 
       <div className="form-row">
         {useLiveSearch ? (
-          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." />
+          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." inputRef={fromInputRef} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">✈️ Từ</label>
-            <select className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
+            <select ref={fromInputRef} className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
               {airportOptions.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
@@ -660,11 +718,11 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
         <button className="swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
         {useLiveSearch ? (
-          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." />
+          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." inputRef={toInputRef} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">🛬 Đến</label>
-            <select className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
+            <select ref={toInputRef} className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
               <option value="">-- Chọn điểm đến --</option>
               {airportOptions.filter(a => a !== fromCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -723,12 +781,24 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
             <div>
               <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>💰 Khoảng giá (VNĐ)</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input type="number" placeholder="Từ" value={localFilters.minPrice || ''}
-                  onChange={e => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                <input type="text" placeholder="Từ" value={localFilters.minPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(digitsOnly(e.target.value)) : undefined})}
+                  onKeyDown={e => {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }}
+                  inputMode="numeric"
                   style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
                 <span style={{ color: '#999' }}>-</span>
-                <input type="number" placeholder="Đến" value={localFilters.maxPrice || ''}
-                  onChange={e => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                <input type="text" placeholder="Đến" value={localFilters.maxPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(digitsOnly(e.target.value)) : undefined})}
+                  onKeyDown={e => {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }}
+                  inputMode="numeric"
                   style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
               </div>
             </div>
@@ -825,6 +895,19 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   useEffect(() => {
     fetchAirports()
   }, [fetchAirports])
+
+  useEffect(() => {
+    if (!initialDestination) return
+    setScreen('search')
+    setError(null)
+    setSearchData(null)
+    setOutboundSel(null)
+    setReturnSel(null)
+    setBooking(null)
+    setApiResults(null)
+    setFilters({})
+    setAddonSelection({ total: 0, selected: {}, summaryRows: [] })
+  }, [initialDestination])
 
   // Bước 1 → 2: tìm kiếm
   async function handleSearch(data) {

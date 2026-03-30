@@ -4,6 +4,20 @@ import Modal from '../model'
 import { INIT_CUSTOMERS } from './mockData'
 import { customerAPI } from './adminAPI'
 
+// ── Helper functions for input validation ──────────────────
+function removeAccents(text) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function lettersOnly(value) {
+  const noAccents = removeAccents(value)
+  return noAccents.replace(/[^a-zA-Z\s-]/g, '').toUpperCase()
+}
+
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 export function SectionCustomers() {
   const [list, setList]           = useState(INIT_CUSTOMERS)
   const [q, setQ]                 = useState('')
@@ -250,7 +264,26 @@ export function SectionCustomers() {
               <input
                 className={`adm-input ${formErrors[k] ? 'adm-input-error' : ''}`}
                 type={t} placeholder={p} value={form[k]}
-                onChange={e => { setForm(f => ({...f,[k]:e.target.value})); if(formErrors[k]){const n={...formErrors};delete n[k];setFormErrors(n)} }}
+                onChange={e => {
+                  let value = e.target.value
+                  if (k === 'name') value = lettersOnly(value)
+                  if (k === 'phone') value = digitsOnly(value)
+                  setForm(f => ({...f,[k]:value}))
+                  if(formErrors[k]){const n={...formErrors};delete n[k];setFormErrors(n)}
+                }}
+                onKeyDown={e => {
+                  if (k === 'name') {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^[a-zA-Z-\s]$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }
+                  if (k === 'phone') {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }
+                }}
+                inputMode={k === 'phone' ? 'numeric' : undefined}
                 disabled={loading}
               />
               {formErrors[k] && <div style={{color:'var(--danger)',fontSize:'12px',marginTop:'4px'}}>{formErrors[k]}</div>}

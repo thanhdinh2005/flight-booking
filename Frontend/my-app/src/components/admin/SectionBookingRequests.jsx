@@ -3,6 +3,11 @@ import Modal from '../model'
 import { fmt } from './helpers'
 import { bookingRequestAPI } from './adminAPI'
 
+// ── Helper functions for input validation ──────────────────
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const STATUSES = ['all', 'pending', 'approved', 'rejected']
 const STATUS_LABEL = { all: 'Tất cả', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối' }
@@ -398,10 +403,16 @@ export function SectionBookingRequests() {
               <label className="adm-label">Số tiền hoàn cuối cùng</label>
               <input
                 className="adm-input"
-                type="number"
+                type="text"
                 min="0"
                 value={approveAmount}
-                onChange={e => setApproveAmount(e.target.value)}
+                onChange={e => setApproveAmount(digitsOnly(e.target.value))}
+                onKeyDown={e => {
+                  const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                  if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                  if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                }}
+                inputMode="numeric"
                 placeholder="Nhập số tiền hoàn"
               />
             </div>

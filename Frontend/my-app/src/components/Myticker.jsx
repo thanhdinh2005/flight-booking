@@ -1,7 +1,7 @@
-// src/pages/MyTickets.jsx
-// Luồng: nhập PNR + Email → POST /api/bookings/search-tickets → hiển thị vé
+// src/components/Myticker.jsx
+// Luồng: GET /api/tickets → hiển thị danh sách vé + tính năng thanh toán/cập nhật trạng thái
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/Myticker.css'
 import '../styles/Searchform.css'
@@ -78,76 +78,72 @@ async function apiFetch(path, options = {}) {
   return data
 }
 
-// ─── API: tìm vé theo PNR + Email ─────────────────────────────────────────────
-async function searchTickets(pnr, email) {
-  const payload = {
-    pnr: pnr.trim().toUpperCase(),
-    email: email.trim().toLowerCase(),
-  }
-
-  const d = await apiFetch('/bookings/search-tickets', {
-    method: 'POST',
-    body: JSON.stringify(payload),
+// ─── API: lấy danh sách vé ────────────────────────────────────────────────────
+async function fetchTickets(page = 1) {
+  const d = await apiFetch(`/tickets?page=${page}&per_page=10`, {
+    method: 'GET',
   })
 
-  const list = Array.isArray(d?.data)
-    ? d.data
-    : Array.isArray(d)
-      ? d
-      : (d?.tickets ?? d?.bookings ?? [])
+  const list = Array.isArray(d?.data) ? d.data : []
+  const meta = d?.meta || {}
 
-  if (!list.length) {
-    throw new Error('Không tìm thấy vé nào với thông tin này.')
+  return {
+    tickets: list.map(mapTicket),
+    meta,
+    totalPages: meta.last_page ?? 1,
+    currentPage: meta.current_page ?? page,
   }
+}
 
-  return list.map(mapTicket)
+
+// ─── API: cập nhật trạng thái thanh toán booking ──────────────────────────────
+async function checkPaymentStatus(bookingId) {
+  const d = await apiFetch(`/admin/booking/${bookingId}`, {
+    method: 'GET',
+  })
+  
+  const booking = d?.data ?? d
+  const status = String(booking?.status ?? '').toUpperCase()
+  
+  return {
+    status,
+    isPaid: status === 'PAID',
+    message: status === 'PAID' ? 'Thanh toán thành công!' : `Trạng thái: ${status}`,
+    booking
+  }
 }
 
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 function mapTicket(b) {
   if (!b) return {}
-  const fi      = b.flight_instance ?? b.flightInstance ?? {}
-  const route   = fi.route ?? {}
-  const depDate = fi.departure_date ?? fi.date ?? b.departure_date ?? ''
-  const passengers = Array.isArray(b.passengers)
-    ? b.passengers
-    : b.passenger
-      ? [b.passenger]
-      : Array.isArray(b.travellers)
-        ? b.travellers
-        : []
-  const passengerNames = passengers.map(p =>
-    (p.full_name ?? p.name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`).trim().toUpperCase()
-  )
-  const seats = passengers.map(p => p.seat ?? p.seat_number ?? '')
-  const flightNo =
-    fi.flight_schedule?.flight_number ??
-    fi.flightSchedule?.flight_number ??
-    fi.flight_number ??
-    b.flight_number ??
-    '—'
+  
+  // Handle new API structure
+  const flightInfo = b.flight ?? {}
+  const depDate = flightInfo.departure_time ? new Date(flightInfo.departure_time) : null
   const seatClass = b.seat_class ?? b.cabin_class ?? b.class ?? 'ECONOMY'
-
+  
   return {
-    id:          String(b.id ?? ''),
-    bookingCode: b.booking_code ?? b.pnr ?? b.code ?? `Vé #${b.id}`,
-    airline:     route.airline  ?? fi.airline ?? 'VietJett',
-    flightNo,
-    dep:         formatDisplayTime(fi.std) || (b.dep ?? ''),
-    arr:         formatDisplayTime(fi.sta) || (b.arr ?? ''),
-    date:        formatDisplayDate(depDate),
-    depCode:     route.from      ?? route.origin?.code ?? b.dep_code ?? '',
-    arrCode:     route.to        ?? route.destination?.code ?? b.arr_code ?? '',
-    depAirport:  route.from_name ?? route.origin?.name ?? b.dep_airport ?? '',
-    arrAirport:  route.to_name   ?? route.destination?.name ?? b.arr_airport ?? '',
-    price:       Number(b.ticket_price ?? b.total_price ?? b.amount ?? b.price ?? 0),
+    id:          String(b.ticket_id ?? b.id ?? ''),
+    bookingId:   String(b.booking_id ?? b.id ?? ''),
+    bookingCode: b.pnr ?? b.booking_code ?? b.code ?? `Vé #${b.ticket_id ?? b.id}`,
+    pnr:         b.pnr ?? '',
+    airline:     'VietJet Air',
+    flightNo:    b.flight_number ?? '—',
+    dep:         depDate ? depDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+    arr:         '', // Not in new API
+    date:        depDate ? depDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
+    depCode:     flightInfo.origin ?? '',
+    arrCode:     flightInfo.destination ?? '',
+    depAirport:  flightInfo.origin ?? '',
+    arrAirport:  flightInfo.destination ?? '',
+    price:       Number(b.ticket_price ?? 0),
     class:       seatClass === 'BUSINESS' ? 'Thương gia' : seatClass === 'ECONOMY' ? 'Phổ thông' : seatClass,
     seatClass,
     logoColor:   '#1a3c6e',
-    passengers:  passengerNames.length ? passengerNames : (b.passenger_names ?? []),
-    seat:        seats,
-    status:      (b.status ?? 'confirmed').toLowerCase(),
-    purchasedAt: formatDisplayDate(b.created_at ?? b.purchased_at ?? ''),
+    passengers:  [b.passenger_name ?? ''].filter(Boolean),
+    seat:        [b.seat_number ?? ''].filter(Boolean),
+    status:      (b.status ?? 'ACTIVE').toLowerCase(),
+    purchasedAt: b.booked_at ? formatDisplayDate(b.booked_at) : '',
     raw:         b,
   }
 }
@@ -155,227 +151,122 @@ function mapTicket(b) {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  confirmed:      { label: 'Đã xác nhận',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
-  cancel_pending: { label: 'Chờ duyệt hủy',    color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-  change_pending: { label: 'Chờ xác nhận đổi', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', icon: '🔄' },
-  cancelled:      { label: 'Đã hủy',            color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
-  changed:        { label: 'Đã đổi chuyến',     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: '↗' },
-  approved:       { label: 'Đã xác nhận',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
+  active:         { label: 'Hoạt động',        color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
   pending:        { label: 'Chờ xác nhận',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+  paid:           { label: 'Đã thanh toán',    color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '💳' },
+  cancelled:      { label: 'Đã hủy',            color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
+  refunded:       { label: 'Đã hoàn tiền',     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: '↩' },
+  confirmed:      { label: 'Đã xác nhận',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
   rejected:       { label: 'Bị từ chối',       color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
   used:           { label: 'Đã sử dụng',       color: '#6b7280', bg: 'rgba(107,114,128,0.12)', icon: '✈' },
+  checked_in:     { label: 'Đã checkin',      color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', icon: '📋' },
+  pending_refund: { label: 'Chờ hoàn',        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+  refunded:       { label: 'Đã hoàn',         color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '💰' },
 }
 
 const FILTER_TABS = [
-  { id: 'all',            label: 'Tất cả' },
-  { id: 'confirmed',      label: 'Xác nhận' },
-  { id: 'change_pending', label: 'Chờ đổi' },
-]
-
-// ─── Search Form ──────────────────────────────────────────────────────────────
-
-function SearchForm({ onSearch }) {
-  const [pnr,     setPnr]     = useState('')
-  const [email,   setEmail]   = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!pnr.trim() || !email.trim()) {
-      setError('Vui lòng nhập đầy đủ mã đặt chỗ và email.')
-      return
-    }
-    setLoading(true)
-    setError('')
-    try {
-      const tickets = await searchTickets(pnr, email)
-      onSearch(tickets, pnr.trim().toUpperCase(), email.trim().toLowerCase())
-    } catch (err) {
-      setError(err.message || 'Không tìm thấy vé. Vui lòng kiểm tra lại thông tin.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="mt-search-wrap">
-      <div className="mt-search-card">
-        {/* Icon */}
-        <div className="mt-search-icon">🎫</div>
-
-        <h2 className="mt-search-title">Tra cứu vé của bạn</h2>
-        <p className="mt-search-desc">
-          Nhập mã đặt chỗ (PNR) và địa chỉ email để xem tình trạng vé hoặc thực hiện hoàn vé.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-search-form" noValidate>
-          <div className="mt-search-field">
-            <label className="mt-search-label">
-              Mã đặt chỗ (PNR)
-              <span className="mt-search-required">*</span>
-            </label>
-            <input
-              className="mt-search-input"
-              type="text"
-              placeholder="VD: VB-4X9K2"
-              value={pnr}
-              onChange={e => { setPnr(e.target.value.toUpperCase()); setError('') }}
-              disabled={loading}
-              maxLength={20}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-
-          <div className="mt-search-field">
-            <label className="mt-search-label">
-              Email đặt vé
-              <span className="mt-search-required">*</span>
-            </label>
-            <input
-              className="mt-search-input"
-              type="email"
-              placeholder="VD: ten@email.com"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
-              disabled={loading}
-              autoComplete="email"
-            />
-          </div>
-
-          {error && (
-            <div className="mt-search-error">
-              <span>⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <button
-            className="mt-search-btn"
-            type="submit"
-            disabled={loading || !pnr.trim() || !email.trim()}
-          >
-            {loading ? '⏳ Đang tìm kiếm...' : '🔍 Tìm vé'}
-          </button>
-        </form>
-
-        <div className="mt-search-hint">
-          <span>💡</span>
-          <span>Mã đặt chỗ có trong email xác nhận hoặc tin nhắn khi đặt vé thành công.</span>
-        </div>
-      </div>
-    </div>
-  )
-}
+  { id: 'all', label: 'Tất cả' },
+  { id: 'active', label: 'Hoạt động' },
+  { id: 'checked_in', label: 'Đã checkin' },
+  { id: 'pending_refund', label: 'Chờ hoàn' },
+  { id: 'refunded', label: 'Đã hoàn' },
+];
 
 // ─── Component chính ──────────────────────────────────────────────────────────
 
 export default function MyTickets() {
   const navigate = useNavigate()
 
-  const [phase,    setPhase]    = useState('search')   // 'search' | 'result'
-  const [tickets,  setTickets]  = useState([])
-  const [filter,   setFilter]   = useState('all')
-  const [notif,    setNotif]    = useState(null)
-  const [expandId, setExpandId] = useState(null)
-  const [searchCtx, setSearchCtx] = useState({ pnr: '', email: '' })
-  const [accountStatus, setAccountStatus] = useState('ACTIVE')
+  const [tickets,  setTickets]   = useState([])
+  const [filter,   setFilter]    = useState('all')
+  const [loading,  setLoading]   = useState(true)
 
-  const isAccountInactive = String(accountStatus).toUpperCase() === 'INACTIVE'
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
-  async function fetchCurrentAccountStatus() {
-    const token = getToken()
-    if (!token) return 'ACTIVE'
+  const [error,    setError]     = useState(null)
+  const [notif,    setNotif]     = useState(null)
+  const [expandId, setExpandId]  = useState(null)
+  const [paymentLoading, setPaymentLoading] = useState({})
 
+  // ── Load danh sách vé khi component mount ────────────────────────────
+  const loadTickets = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const res = await apiFetch('/me')
-      const profile = res?.data ?? res
-      return String(profile?.status ?? 'ACTIVE').toUpperCase()
-    } catch {
-      return 'ACTIVE'
-    }
-  }
-
-  // ── Nhận kết quả tìm kiếm ────────────────────────────────────────────
-  async function handleSearch(data, pnr, email) {
-    const nextStatus = await fetchCurrentAccountStatus()
-    setTickets(data)
-    setSearchCtx({ pnr, email })
-    setAccountStatus(nextStatus)
-    setFilter('all')
-    setPhase('result')
-    setNotif(nextStatus === 'INACTIVE'
-      ? 'Tài khoản đang ở trạng thái tạm khóa. Bạn chỉ có thể tra cứu và xem chi tiết vé.'
-      : null)
-  }
-
-  // ── Tìm lại ──────────────────────────────────────────────────────────
-  function handleReset() {
-    setPhase('search')
-    setTickets([])
-    setNotif(null)
-    setExpandId(null)
-    setAccountStatus('ACTIVE')
-  }
-
-  // ── Làm mới (search lại với cùng PNR+email) ───────────────────────────
-  const handleRefresh = useCallback(async () => {
-    if (!searchCtx.pnr || !searchCtx.email) return
-    try {
-      const [data, nextStatus] = await Promise.all([
-        searchTickets(searchCtx.pnr, searchCtx.email),
-        fetchCurrentAccountStatus(),
-      ])
-      setTickets(data)
-      setAccountStatus(nextStatus)
-      setNotif(nextStatus === 'INACTIVE'
-        ? 'Tài khoản đang ở trạng thái tạm khóa. Bạn chỉ có thể tra cứu và xem chi tiết vé.'
-        : null)
+      const result = await fetchTickets(currentPage)
+      setTickets(result.tickets)
+      setTotalPages(result.totalPages)
+      setCurrentPage(result.currentPage)
     } catch (err) {
-      setNotif('Không thể làm mới: ' + err.message)
+      setError(err.message || 'Lỗi tải danh sách vé.')
+      console.error('Load tickets error:', err)
+    } finally {
+      setLoading(false)
     }
-  }, [searchCtx])
+  }, [currentPage])
+
+  useEffect(() => {
+    loadTickets()
+  }, [loadTickets])
+
+
+  // ── Cập nhật trạng thái thanh toán ───────────────────────────────────
+  const handleCheckPayment = useCallback(async (bookingId, ticketId) => {
+    setPaymentLoading(prev => ({ ...prev, [ticketId]: true }))
+    try {
+      const result = await checkPaymentStatus(bookingId)
+      if (result.isPaid) {
+        setNotif('✅ Thanh toán thành công!')
+        // Reload tickets to get updated status
+        await new Promise(r => setTimeout(r, 1000))
+        loadTickets()
+      } else {
+        setNotif(`⏳ ${result.message}`)
+      }
+    } catch (err) {
+      setNotif(`❌ Lỗi: ${err.message}`)
+      console.error('Check payment error:', err)
+    } finally {
+      setPaymentLoading(prev => ({ ...prev, [ticketId]: false }))
+    }
+  }, [loadTickets])
 
   // ── Filter ──────────────────────────────────────────────────────────
   const normalizeStatus = (s) => {
-    if (s === 'approved') return 'confirmed'
-    if (s === 'pending')  return 'cancel_pending'
-    return s
+    const lower = String(s).toLowerCase()
+    if (lower === 'approved' || lower === 'active') return 'active'
+    if (lower === 'checked_in') return 'checked_in'
+    if (lower.includes('pending') || lower.includes('wait') || lower.includes('cancel_pending')) return 'pending_refund'
+    if (lower.includes('refund') || lower === 'completed' || lower === 'used') return 'refunded'
+    if (lower === 'pending') return 'pending'
+    return lower
   }
+
+  // Sort: non-active first, then by booked_at desc
+  const sortedTickets = [...tickets].sort((a, b) => {
+    const aNonActive = normalizeStatus(a.status) !== 'active'
+    const bNonActive = normalizeStatus(b.status) !== 'active'
+    if (aNonActive !== bNonActive) return aNonActive ? -1 : 1
+    return new Date(b.raw?.booked_at || 0) - new Date(a.raw?.booked_at || 0)
+  })
 
   const filtered = filter === 'all'
-    ? tickets
-    : tickets.filter(t => normalizeStatus(t.status) === filter)
+    ? sortedTickets
+    : sortedTickets.filter(t => normalizeStatus(t.status) === filter)
 
-  // ── Render: Search Phase ──────────────────────────────────────────────
-  if (phase === 'search') {
-    return (
-      <div className="mt-root">
-        <div className="mt-header">
-          <div>
-            <div className="mt-header__eyebrow">Quản lý đặt chỗ</div>
-            <div className="mt-header__title">Vé của tôi</div>
-            <div className="mt-header__sub">Tra cứu và quản lý vé máy bay</div>
-          </div>
-          <button className="mt-buy-btn1" onClick={() => navigate('/home', { state: { tab: 'muave' } })}>
-            + Mua vé mới
-          </button>
-        </div>
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
 
-        <SearchForm onSearch={handleSearch} />
-      </div>
-    )
-  }
 
-  // ── Render: Result Phase ──────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="mt-root">
 
-      {/* Toast */}
+      {/* Notification Toast */}
       {notif && (
         <div className="mt-toast">
-          <span>🔔</span>
+          <span>{notif.includes('✅') ? '✅' : notif.includes('❌') ? '❌' : '🔔'}</span>
           <span>{notif}</span>
           <button onClick={() => setNotif(null)}>✕</button>
         </div>
@@ -384,26 +275,18 @@ export default function MyTickets() {
       {/* Header */}
       <div className="mt-header">
         <div>
-          <div className="mt-header__eyebrow">Mã đặt chỗ: {searchCtx.pnr}</div>
-          <div className="mt-header__title">Vé đã đặt</div>
-          <div className="mt-header__sub">
-            {tickets.length} chuyến bay · {searchCtx.email}
-          </div>
+          <div className="mt-header__eyebrow">Quản lý vé</div>
+          <div className="mt-header__title">Danh sách vé của tôi</div>
+          <div className="mt-header__sub">Tìm kiếm và cập nhật trạng thái vé máy bay</div>
         </div>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <button
             className="mt-buy-btn"
             style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)' }}
-            onClick={handleReset}
+            onClick={loadTickets}
+            disabled={loading}
           >
-            🔍 Tìm lại
-          </button>
-          <button
-            className="mt-buy-btn"
-            style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)' }}
-            onClick={handleRefresh}
-          >
-            🔄 Làm mới
+            {loading ? '⏳ Đang tải...' : '🔄 Làm mới'}
           </button>
           <button className="mt-buy-btn1" onClick={() => navigate('/home', { state: { tab: 'muave' } })}>
             + Mua vé mới
@@ -411,45 +294,94 @@ export default function MyTickets() {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="mt-filters">
-        {FILTER_TABS.map(f => (
-          <button
-            key={f.id}
-            className={`mt-filter-tab${filter === f.id ? ' active' : ''}`}
-            onClick={() => setFilter(f.id)}
-          >
-            {f.label}
-            <span className="mt-filter-count">
-              {f.id === 'all'
-                ? tickets.length
-                : tickets.filter(t => normalizeStatus(t.status) === f.id).length
-              }
-            </span>
+      {/* Error state */}
+      {error && (
+        <div style={{
+          padding: 16,
+          background: 'rgba(239,68,68,0.1)',
+          border: '1px solid #ef4444',
+          borderRadius: 8,
+          color: '#991b1b',
+          marginBottom: 16,
+          textAlign: 'center',
+          fontSize: 14,
+        }}>
+          ⚠️ {error}
+          <button onClick={loadTickets} style={{
+            marginLeft: 12,
+            padding: '6px 12px',
+            background: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: 12,
+            fontWeight: 600,
+          }}>
+            Thử lại
           </button>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && tickets.length === 0 && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          gap: 16,
+          color: '#888',
+        }}>
+          <div style={{ fontSize: 32 }}>⏳</div>
+          <p>Đang tải danh sách vé...</p>
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      {!loading && tickets.length > 0 && (
+        <div className="mt-filters">
+          {FILTER_TABS.map(f => (
+            <button
+              key={f.id}
+              className={`mt-filter-tab${filter === f.id ? ' active' : ''}`}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+              <span className="mt-filter-count">
+                {f.id === 'all'
+                  ? tickets.length
+                  : tickets.filter(t => normalizeStatus(t.status) === f.id).length
+                }
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {!loading && filtered.length === 0 && (
         <div className="mt-empty">
           <span>🎫</span>
-          <p>Không có vé nào trong danh mục này</p>
+          <p>{tickets.length === 0 ? 'Không có vé nào' : 'Không có vé nào trong danh mục này'}</p>
         </div>
       )}
 
       {/* Ticket list */}
-      {filtered.length > 0 && (
-        <div className="mt-list">
-          {filtered.map(t => {
-            const sc         = STATUS_CONFIG[normalizeStatus(t.status)] ?? STATUS_CONFIG.confirmed
-            const isExpanded = expandId === t.id
+      {!loading && filtered.length > 0 && (
+        <>
+          <div className="mt-list">
+            {filtered.map(t => {
+              const sc = STATUS_CONFIG[normalizeStatus(t.status)] ?? STATUS_CONFIG.active
+              const isExpanded = expandId === t.id
+              const isCheckingPayment = paymentLoading[t.id]
 
-            return (
-              <div
-                key={t.id}
-                className={`mt-card${isExpanded ? ' mt-card--highlight' : ''}`}
-              >
+              return (
+                <div
+                  key={t.id}
+                  className={`mt-card${isExpanded ? ' mt-card--highlighted' : ''}`}
+                >
                 {/* Status bar */}
                 <div className="mt-card__status-bar" style={{ background: sc.color }} />
 
@@ -472,7 +404,7 @@ export default function MyTickets() {
                   {/* Info */}
                   <div className="mt-card__info">
                     <div className="mt-card__flight">{t.flightNo} · {t.date}</div>
-                    <div className="mt-card__time">{t.dep} – {t.arr} · {t.class}</div>
+                    <div className="mt-card__time">{t.dep} · {t.class}</div>
                     <div className="mt-card__fare">Giá vé: <strong>{fmt(t.price)}</strong></div>
                     <div className="mt-card__pax">
                       {t.passengers.length > 0
@@ -498,88 +430,144 @@ export default function MyTickets() {
                   </div>
                 </div>
 
-                {/* Pending notice */}
-                {isExpanded && (t.status === 'cancel_pending' || t.status === 'change_pending') && (
-                  <div className="mt-card__pending-notice" style={{ borderColor: sc.color }}>
-                    <span style={{ color: sc.color }}>{sc.icon}</span>
-                    <div>
-                      <strong style={{ color: sc.color }}>{sc.label}</strong>
-                      <p>
-                        {t.status === 'cancel_pending'
-                          ? 'Yêu cầu hủy vé đã được ghi nhận. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ làm việc.'
-                          : 'Yêu cầu đổi chuyến đã được ghi nhận. Chúng tôi sẽ xác nhận trong vòng 2–4 giờ.'
-                        }
-                      </p>
-                    </div>
-                    <button className="mt-dismiss" onClick={() => setExpandId(null)}>✕</button>
-                  </div>
-                )}
-
+                {/* Expandable details */}
                 {isExpanded && (
-                  <div className="mt-card__pending-notice" style={{ borderColor: 'rgba(58,138,171,0.26)' }}>
-                    <span style={{ color: '#3a8aab' }}>ℹ️</span>
-                    <div>
-                      <strong style={{ color: '#3a8aab' }}>Chi tiết vé</strong>
-                      <p>Mã vé: {t.id} · Mã đặt chỗ: {t.bookingCode}</p>
-                      <p>Hành trình: {t.depCode} → {t.arrCode} · {t.date}</p>
-                      <p>Chuyến bay: {t.flightNo} · {t.dep} - {t.arr}</p>
-                      <p>Hạng vé: {t.class} · Trạng thái: {sc.label}</p>
+                  <div className="mt-card__details">
+                    <div className="mt-card__details-title">
+                      <span>ℹ️</span>
+                      <span>Chi tiết vé</span>
+                      <button className="mt-card__details-close" onClick={() => setExpandId(null)}>✕</button>
                     </div>
-                    <button className="mt-dismiss" onClick={() => setExpandId(null)}>✕</button>
+                    <div className="mt-card__details-grid">
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Mã vé:</span>
+                        <span className="mt-card__details-value">{t.id}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Mã đặt chỗ:</span>
+                        <span className="mt-card__details-value">{t.bookingCode}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Hành trình:</span>
+                        <span className="mt-card__details-value">{t.depCode} → {t.arrCode}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Ngày:</span>
+                        <span className="mt-card__details-value">{t.date}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Chuyến bay:</span>
+                        <span className="mt-card__details-value">{t.flightNo}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Giờ bay:</span>
+                        <span className="mt-card__details-value">{t.dep}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Hạng vé:</span>
+                        <span className="mt-card__details-value">{t.class}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Trạng thái:</span>
+                        <span className="mt-card__details-value" style={{ color: sc.color }}>{sc.label}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Đặt vào:</span>
+                        <span className="mt-card__details-value">{t.purchasedAt}</span>
+                      </div>
+                      <div className="mt-card__details-row">
+                        <span className="mt-card__details-label">Hành khách:</span>
+                        <span className="mt-card__details-value">{t.passengers.length > 0 ? t.passengers.join(' · ') : '—'}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {/* Actions */}
-                {isAccountInactive && (
-                  <div className="mt-card__actions">
-                    <button
-                      className="mt-action-btn"
-                      onClick={() => setExpandId(isExpanded ? null : t.id)}
-                    >
-                      {isExpanded ? '▲ Thu gọn' : '▼ Xem chi tiết'}
-                    </button>
-                  </div>
-                )}
-
-                {!isAccountInactive && normalizeStatus(t.status) === 'confirmed' && (
-                  <div className="mt-card__actions">
-                    <button
-                      className="mt-action-btn mt-action-btn--danger"
-                      onClick={() => navigate('/cancel-ticket', {
-                        state: {
-                          ticketId: t.id,
-                          ticket:   t,
-                          pnr:      searchCtx.pnr,
-                          email:    searchCtx.email,
-                        }
-                      })}
-                    >
-                      ↩ Hoàn vé
-                    </button>
+                <div className="mt-card__actions">
+                  {/* Payment status check button for pending tickets */}
+                  {normalizeStatus(t.status) === 'pending' && (
                     <button
                       className="mt-action-btn mt-action-btn--primary"
-                      onClick={() => navigate('/thu-tuc', { state: { ticketId: t.id, ticket: t } })}
+                      onClick={() => handleCheckPayment(t.bookingId, t.id)}
+                      disabled={isCheckingPayment}
                     >
-                      ✅ Check-in
+                      {isCheckingPayment ? '⏳ Kiểm tra...' : '💳 Cập nhật thanh toán'}
                     </button>
-                  </div>
-                )}
+                  )}
 
-                {/* Xem chi tiết nếu cancel_pending / change_pending */}
-                {!isAccountInactive && (normalizeStatus(t.status) === 'cancel_pending' || normalizeStatus(t.status) === 'change_pending') && (
-                  <div className="mt-card__actions">
+                  {/* View details / Check-in buttons */}
+                  {normalizeStatus(t.status) === 'active' && (
+                    <>
+                      <button
+                        className="mt-action-btn mt-action-btn--primary"
+                        onClick={() => navigate('/thu-tuc', { state: { ticketId: t.id, ticket: t } })}
+                      >
+                        ✅ Check-in
+                      </button>
+                      <button
+                        className="mt-action-btn"
+                        onClick={() => setExpandId(isExpanded ? null : t.id)}
+                      >
+                        {isExpanded ? '▲ Thu gọn' : '▼ Chi tiết'}
+                      </button>
+                    </>
+                  )}
+                  {['checked_in', 'pending_refund', 'refunded'].includes(normalizeStatus(t.status)) && (
+                    <button className="mt-action-btn" disabled style={{ opacity: 0.6 }}>
+                      ✓ {STATUS_CONFIG[normalizeStatus(t.status)]?.label}
+                    </button>
+                  )}
+                  {normalizeStatus(t.status) !== 'active' && !['checked_in', 'pending_refund', 'refunded', 'pending'].includes(normalizeStatus(t.status)) && (
                     <button
                       className="mt-action-btn"
                       onClick={() => setExpandId(isExpanded ? null : t.id)}
                     >
-                      {isExpanded ? '▲ Thu gọn' : '▼ Xem trạng thái'}
+                      {isExpanded ? '▲ Thu gọn' : '▼ Chi tiết'}
                     </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                  )}
+                </div>
+
+                </div>
+              )
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-pagination">
+              <button
+                className="mt-pagination__nav"
+                disabled={currentPage <= 1 || loading}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                ← Trước
+              </button>
+
+              {pageNumbers.map((page, idx) => (
+                <div key={page} className="mt-pagination__slot">
+                  {idx > 0 && pageNumbers[idx - 1] !== page - 1 && (
+                    <span className="mt-pagination__dots">…</span>
+                  )}
+                  <button
+                    className={`mt-pagination__page${page === currentPage ? ' is-active' : ''}`}
+                    onClick={() => setCurrentPage(page)}
+                    disabled={loading}
+                  >
+                    {page}
+                  </button>
+                </div>
+              ))}
+
+              <button
+                className="mt-pagination__nav"
+                disabled={currentPage >= totalPages || loading}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                Sau →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

@@ -1,19 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
-import { fmt } from './helpers'
-import { statsAPI, dashboardAPI } from './adminAPI'
-import { TOP_ROUTES } from './mockData'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { fmt, fmtNum } from './helpers'
+import { dashboardAPI } from './adminAPI'
+import { getToken, isTokenExpired } from '../../services/keycloakService'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtVND(n) {
-  if (!n && n !== 0) return '—'
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} tỷ`
-  if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(0)} tr`
-  return fmt(n)
-}
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
 function todayStr() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toISOString().slice(0, 10)
 }
 
 function firstDayOfMonth() {
@@ -21,343 +14,433 @@ function firstDayOfMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-// ─── Mini bar chart ───────────────────────────────────────────────────────────
-function BarChart({ labels = [], datasets = [] }) {
-  if (!datasets.length || !datasets[0]?.data?.length) return null
-  const values  = datasets[0].data
-  const max     = Math.max(...values, 1)
-  const days    = labels.length ? labels : values.map((_, i) => `T${i + 1}`)
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 110, paddingBottom: 20, position: 'relative' }}>
-      {values.map((v, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: 3 }}>
-          <div
-            title={`${days[i]}: ${fmtVND(v)}`}
-            style={{
-              width: '100%',
-              height: `${Math.max((v / max) * 85, 4)}%`,
-              background: 'var(--accent)',
-              borderRadius: '3px 3px 0 0',
-              opacity: 0.85,
-              transition: 'height 0.3s ease',
-              minHeight: 4,
-            }}
-          />
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%', textAlign: 'center' }}>
-            {days[i]}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
+function compactCurrency(value) {
+  const n = Number(value || 0)
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} tỷ`
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} tr`
+  return fmt(n)
 }
 
-// ─── Progress bar row ─────────────────────────────────────────────────────────
-function ProgRow({ label, value, pct, color = 'var(--accent)' }) {
+function compactAxisDate(label) {
+  const value = String(label ?? '').trim()
+  const slashMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (slashMatch) return `${slashMatch[1]}/${slashMatch[2]}`
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}`
+
+  return value
+}
+
+function parseRouteCodes(label) {
+  const parts = String(label ?? '')
+    .split('→')
+    .map(part => part.trim())
+    .filter(Boolean)
+
+  if (parts.length !== 2) return null
+  return { from: parts[0], to: parts[1] }
+}
+
+function formatAirportLabel(airport = {}) {
+  return airport.city || airport.name || airport.code || ''
+}
+
+function DashboardMetric({ label, value, note, accent }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 5 }}>
-        <span style={{ fontWeight: 500 }}>{label}</span>
-        <div style={{ display: 'flex', gap: 16 }}>
-          {value !== undefined && (
-            <span style={{ fontFamily: 'DM Mono', color: 'var(--accent)' }}>{value}</span>
-          )}
-          <span style={{ fontFamily: 'DM Mono', fontWeight: 500 }}>{pct}%</span>
-        </div>
+    <div style={{
+      borderRadius: 24,
+      padding: 20,
+      background: 'linear-gradient(180deg, rgba(16, 24, 38, 0.98) 0%, rgba(11, 18, 30, 0.98) 100%)',
+      border: '1px solid rgba(103, 183, 255, 0.14)',
+      boxShadow: '0 20px 45px rgba(2, 6, 23, 0.28)',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute',
+        inset: '0 auto auto 0',
+        width: 120,
+        height: 120,
+        background: accent,
+        opacity: 0.10,
+        filter: 'blur(18px)',
+        transform: 'translate(-20%, -35%)',
+      }} />
+      <div style={{ fontSize: 12, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10, fontWeight: 800 }}>
+        {label}
       </div>
-      <div className="adm-prog-wrap" style={{ height: 7 }}>
-        <div className="adm-prog" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
+      <div style={{ fontSize: 28, fontWeight: 800, color: '#f8fafc', marginBottom: 6 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 12, color: '#8ea0b8' }}>{note}</div>
+    </div>
+  )
+}
+
+function RevenueTrend({ labels = [], datasets = [] }) {
+  const gross = datasets.find(ds => ds.type === 'bar') ?? datasets[0] ?? { data: [] }
+  const net = datasets.find(ds => ds.type === 'line') ?? datasets[1] ?? { data: [] }
+  const max = Math.max(...gross.data, ...net.data, 1)
+  const labelStep = labels.length > 24 ? 3 : labels.length > 14 ? 2 : 1
+  const columnMinWidth = labels.length <= 7 ? 64 : labels.length <= 14 ? 42 : 18
+
+  if (!labels.length || !gross.data.length) {
+    return (
+      <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-dim)' }}>
+        Không có dữ liệu xu hướng doanh thu.
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 18 }}>
+        {datasets.map((ds, index) => (
+          <div key={`${ds.name}-${index}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-mid)' }}>
+            <span style={{
+              width: 12,
+              height: 12,
+              borderRadius: ds.type === 'line' ? 999 : 3,
+              background: ds.type === 'line' ? '#0f766e' : '#3b82f6',
+              display: 'inline-block',
+            }} />
+            {ds.name}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${labels.length}, minmax(${columnMinWidth}px, 1fr))`, gap: labels.length <= 7 ? 12 : 6, alignItems: 'end', minHeight: 260 }}>
+        {labels.map((label, index) => {
+          const grossValue = Number(gross.data?.[index] || 0)
+          const netValue = Number(net.data?.[index] || 0)
+          const grossPct = Math.max((grossValue / max) * 100, grossValue > 0 ? 6 : 2)
+          const netPct = Math.max((netValue / max) * 100, netValue > 0 ? 6 : 2)
+          const showLabel = index % labelStep === 0 || index === labels.length - 1
+          const showValue = grossValue > 0 && (labels.length <= 10 || grossValue === max || index === labels.length - 1)
+
+          return (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+              <div style={{ fontSize: 11, fontFamily: 'DM Mono', color: 'var(--text-mid)', minHeight: 16 }}>
+                {showValue ? compactCurrency(grossValue) : ''}
+              </div>
+              <div style={{
+                width: '100%',
+                height: 190,
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                position: 'relative',
+              }}>
+                <div style={{
+                  width: labels.length <= 7 ? 28 : 20,
+                  height: `${grossPct}%`,
+                  borderRadius: '14px 14px 8px 8px',
+                  background: 'linear-gradient(180deg, #60a5fa, #2563eb)',
+                  boxShadow: '0 14px 24px rgba(37, 99, 235, 0.20)',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: `${netPct}%`,
+                  transform: 'translate(-50%, 50%)',
+                  width: 14,
+                  height: 14,
+                  borderRadius: 999,
+                  background: '#0f766e',
+                  border: '3px solid #d1fae5',
+                  boxShadow: '0 0 0 6px rgba(15, 118, 110, 0.10)',
+                }} />
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#cbd5e1', minHeight: 16, whiteSpace: 'nowrap' }}>
+                {showLabel ? compactAxisDate(label) : ''}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, color = 'var(--accent)', sub }) {
+function RouteBars({ title, items = [] }) {
+  const max = Math.max(...items.map(item => item.value), 1)
+
+  if (!items.length) {
+    return (
+      <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-dim)' }}>
+        Không có dữ liệu tuyến bay.
+      </div>
+    )
+  }
+
   return (
-    <div className="adm-stat-card" style={{ '--card-color': color }}>
-      <div className="adm-stat-label">{label}</div>
-      <div className="adm-stat-val" style={{ fontSize: 26 }}>{value}</div>
-      {sub && <div className="adm-stat-delta">{sub}</div>}
+    <div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: '#e2e8f0', marginBottom: 18 }}>{title}</div>
+      <div style={{ display: 'grid', gap: 14 }}>
+        {items.map(item => {
+          const value = Number(item.value || 0)
+          const width = max > 0 ? `${Math.max((value / max) * 100, value > 0 ? 5 : 0)}%` : '0%'
+          return (
+            <div key={item.key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6, fontSize: 13 }}>
+                <span style={{ color: '#cbd5e1', fontWeight: 700 }}>{item.label}</span>
+                <span style={{ color: '#2563eb', fontWeight: 800 }}>{fmtNum(value)} vé</span>
+              </div>
+              <div style={{ height: 12, borderRadius: 999, background: 'rgba(148, 163, 184, 0.18)', overflow: 'hidden' }}>
+                <div style={{
+                  width,
+                  height: '100%',
+                  borderRadius: 999,
+                  background: 'linear-gradient(90deg, #60a5fa, #2563eb)',
+                }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export function SectionStats() {
-  // Date range — mặc định tháng hiện tại
   const [startDate, setStartDate] = useState(firstDayOfMonth())
-  const [endDate,   setEndDate]   = useState(todayStr())
+  const [endDate, setEndDate] = useState(todayStr())
+  const [summary, setSummary] = useState(null)
+  const [chart, setChart] = useState({ labels: [], datasets: [] })
+  const [topRoute, setTopRoute] = useState({ chart_title: '', labels: [], datasets: [] })
+  const [routeLookup, setRouteLookup] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState('')
+  const [exportMsg, setExportMsg] = useState('')
 
-  // Data states
-  const [summary,    setSummary]    = useState(null)
-  const [chartData,  setChartData]  = useState({ labels: [], datasets: [] })
-  const [loadFactor, setLoadFactor] = useState(null)
-  const [topRoutes,  setTopRoutes]  = useState(TOP_ROUTES)
+  const fetchRouteLookup = useCallback(async () => {
+    const token = getToken()
+    if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập hết hạn.')
 
-  const [loading,    setLoading]    = useState(true)
-  const [exporting,  setExporting]  = useState(false)
-  const [error,      setError]      = useState('')
-  const [exportMsg,  setExportMsg]  = useState('')
+    const res = await fetch(`${API_BASE}/admin/routes`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json?.success) throw new Error(json?.message || `HTTP ${res.status}`)
 
-  // ── Fetch tất cả dữ liệu ─────────────────────────────────────────────────
+    const routes = Array.isArray(json?.data) ? json.data : []
+    return routes.reduce((acc, route) => {
+      const fromCode = route.origin?.code ?? ''
+      const toCode = route.destination?.code ?? ''
+      if (fromCode && toCode) {
+        acc[`${fromCode}→${toCode}`] = {
+          from: formatAirportLabel(route.origin),
+          to: formatAirportLabel(route.destination),
+        }
+      }
+      return acc
+    }, {})
+  }, [])
+
+  const fetchTopRoutes = useCallback(async () => {
+    const token = getToken()
+    if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập hết hạn.')
+
+    const res = await fetch(`${API_BASE}/admin/top-route`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json?.success) throw new Error(json?.message || `HTTP ${res.status}`)
+
+    const data = json.data || {}
+    return {
+      chart_title: data.chart_title || 'So sánh doanh số vé giữa các tuyến bay',
+      labels: data.labels || [],
+      datasets: data.datasets || [],
+    }
+  }, [])
+
   const fetchAll = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [sumRes, chartRes, lfRes, routeRes] = await Promise.allSettled([
-        // GET /admin/dashboard/summary
+      const [summaryData, chartData, routeData, routeLookupData] = await Promise.all([
         dashboardAPI.getStats(),
-        // GET /admin/revenue-chart?start_date=&end_date=
         dashboardAPI.getRevenueChart(startDate, endDate),
-        // GET /admin/load-factor?start_date=&end_date=
-        statsAPI.getLoadFactor(startDate, endDate),
-        // GET /admin/stats/top-routes
-        statsAPI.getTopRoutes(),
+        fetchTopRoutes(),
+        fetchRouteLookup(),
       ])
 
-      if (sumRes.status === 'fulfilled')   setSummary(sumRes.value)
-      if (chartRes.status === 'fulfilled') setChartData(chartRes.value)
-      if (lfRes.status === 'fulfilled')    setLoadFactor(lfRes.value)
-      if (routeRes.status === 'fulfilled' && routeRes.value?.length) setTopRoutes(routeRes.value)
+      setSummary(summaryData)
+      setChart(chartData)
+      setTopRoute(routeData)
+      setRouteLookup(routeLookupData)
     } catch (err) {
-      setError('Lỗi tải dữ liệu: ' + err.message)
+      setError(err.message || 'Không tải được dữ liệu thống kê.')
     } finally {
       setLoading(false)
     }
-  }, [startDate, endDate])
+  }, [fetchRouteLookup, fetchTopRoutes, startDate, endDate])
 
-  useEffect(() => { fetchAll() }, [startDate, endDate])
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
 
-  // ── Export PDF ───────────────────────────────────────────────────────────
-  // GET /admin/reports/export-pdf?start_date=&end_date=
   const handleExportPDF = async () => {
     setExporting(true)
     setExportMsg('')
     try {
-      const res = await statsAPI.exportPDF(startDate, endDate)
-      // Backend có thể trả về { url } hoặc { success, message }
-      if (res?.url) {
-        window.open(res.url, '_blank')
-        setExportMsg('Đang mở file PDF...')
-      } else if (res?.download_url) {
-        window.open(res.download_url, '_blank')
-        setExportMsg('Đang mở file PDF...')
-      } else if (res?.data?.url) {
-        window.open(res.data.url, '_blank')
-        setExportMsg('Đang mở file PDF...')
-      } else {
-        setExportMsg(res?.message ?? 'Đã gửi yêu cầu xuất báo cáo.')
-      }
+      const token = getToken()
+      if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập hết hạn.')
+
+      const qs = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+      })
+
+      const res = await fetch(`${API_BASE}/admin/reports/export-pdf?${qs.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bao-cao-${startDate}-${endDate}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      setExportMsg('Đã tải báo cáo PDF về máy.')
     } catch (err) {
-      setExportMsg('Lỗi xuất PDF: ' + err.message)
+      setExportMsg(`Xuất PDF thất bại: ${err.message}`)
     } finally {
       setExporting(false)
-      setTimeout(() => setExportMsg(''), 5000)
     }
   }
 
-  // ── Derived values ────────────────────────────────────────────────────────
-  const grossRevenue    = summary?.revenue       ?? 0
-  const netRevenue      = summary?.netRevenue     ?? 0
-  const refundedAmount  = summary?.refundedAmount ?? 0
-  const totalBookings   = summary?.totalBookings  ?? 0
-  const totalFlights    = summary?.totalFlights   ?? 0
+  const metrics = useMemo(() => ([
+    {
+      label: 'Doanh thu gộp',
+      value: compactCurrency(summary?.revenue ?? 0),
+      note: `Chi tiết ${fmt(summary?.revenue ?? 0)}`,
+      accent: '#3b82f6',
+    },
+    {
+      label: 'Doanh thu thuần',
+      value: compactCurrency(summary?.netRevenue ?? 0),
+      note: `Chi tiết ${fmt(summary?.netRevenue ?? 0)}`,
+      accent: '#0f766e',
+    },
+    {
+      label: 'Tiền đã hoàn',
+      value: compactCurrency(summary?.refundedAmount ?? 0),
+      note: `Chi tiết ${fmt(summary?.refundedAmount ?? 0)}`,
+      accent: '#f59e0b',
+    },
+    {
+      label: 'Đơn đặt chỗ',
+      value: fmtNum(summary?.totalBookings ?? 0),
+      note: 'Số booking thành công',
+      accent: '#8b5cf6',
+    },
+    {
+      label: 'Chuyến khai thác',
+      value: fmtNum(summary?.totalFlights ?? 0),
+      note: 'Tổng chuyến bay đang ghi nhận',
+      accent: '#ef4444',
+    },
+  ]), [summary])
 
-  const overallLF       = loadFactor?.overall?.load_factor_percentage ?? 0
-  const totalSeats      = loadFactor?.overall?.total_seats_supplied   ?? 0
-  const totalSold       = loadFactor?.overall?.total_seats_sold       ?? 0
-
-  const routeChart      = loadFactor?.chartByRoute ?? { labels: [], datasets: [] }
-  const routeLabels     = routeChart.labels ?? []
-  const routeValues     = routeChart.datasets?.[0]?.data ?? []
+  const topRouteItems = useMemo(() => {
+    const values = topRoute.datasets?.[0]?.data || []
+    return (topRoute.labels || [])
+      .map((label, index) => {
+        const routeCodes = parseRouteCodes(label)
+        const lookupKey = routeCodes ? `${routeCodes.from}→${routeCodes.to}` : ''
+        const routeName = routeLookup[lookupKey]
+        return {
+          key: lookupKey || label || String(index),
+          label: routeName ? `${routeName.from} → ${routeName.to}` : label,
+          value: Number(values[index] || 0),
+        }
+      })
+      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+  }, [routeLookup, topRoute])
 
   return (
-    <div className="adm-fade">
-
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="adm-sec-header">
-        <div>
-          <div className="adm-sec-title">Thống kê & Báo cáo</div>
-          <div className="adm-sec-sub">
-            {loading ? '⏳ Đang tải...' : `${startDate} — ${endDate}`}
+    <div className="adm-fade" style={{ display: 'grid', gap: 18 }}>
+      <div className="adm-card" style={{
+        padding: 24,
+        background: 'linear-gradient(135deg, rgba(8, 18, 32, 0.98) 0%, rgba(12, 34, 54, 0.98) 52%, rgba(14, 55, 62, 0.96) 100%)',
+        border: '1px solid rgba(56, 189, 248, 0.14)',
+        boxShadow: '0 28px 60px rgba(2, 6, 23, 0.34)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            
+            <div style={{ fontSize: 30, fontWeight: 900, color: '#f8fafc', marginBottom: 8 }}>
+              Trung tâm thống kê kinh doanh
+            </div>
+           
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            className="adm-input"
-            type="date"
-            style={{ height: 34, padding: '5px 10px', fontSize: 13 }}
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-          />
-          <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>→</span>
-          <input
-            className="adm-input"
-            type="date"
-            style={{ height: 34, padding: '5px 10px', fontSize: 13 }}
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-          />
-          <button
-            className="adm-btn adm-btn-ghost"
-            onClick={fetchAll}
-            disabled={loading}
-          >
-            🔄 Làm mới
-          </button>
-          <button
-            className="adm-btn adm-btn-primary"
-            onClick={handleExportPDF}
-            disabled={exporting || loading}
-          >
-            {exporting ? '⏳ Đang xuất...' : '📄 Xuất PDF'}
-          </button>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input className="adm-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ height: 40 }} />
+            <input className="adm-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ height: 40 }} />
+            <button className="adm-btn adm-btn-ghost" onClick={fetchAll} disabled={loading}>
+              {loading ? '⏳ Đang tải...' : '🔄 Làm mới'}
+            </button>
+            <button className="adm-btn adm-btn-primary" onClick={handleExportPDF} disabled={exporting || loading}>
+              {exporting ? '⏳ Đang xuất...' : '📄 Xuất PDF'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Messages */}
       {error && (
-        <div style={{ backgroundColor: 'var(--danger)', color: 'white', padding: '10px 16px', borderRadius: 4, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>⚠️ {error}</span>
-          <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 18 }} onClick={() => setError('')}>✕</button>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 16, padding: '12px 16px', fontSize: 13 }}>
+          ⚠️ {error}
         </div>
       )}
+
       {exportMsg && (
-        <div style={{ backgroundColor: 'rgba(34,197,94,.12)', color: 'var(--accent)', border: '1px solid rgba(34,197,94,.25)', padding: '10px 16px', borderRadius: 4, marginBottom: 14, fontSize: 13 }}>
-          ✅ {exportMsg}
+        <div style={{ background: 'rgba(15,118,110,.08)', border: '1px solid rgba(15,118,110,.20)', color: '#0f766e', borderRadius: 16, padding: '12px 16px', fontSize: 13 }}>
+          {exportMsg}
         </div>
       )}
 
-      {/* ── Stat cards — từ /admin/dashboard/summary ───────────────────── */}
-      <div className="adm-stat-grid" style={{ marginBottom: 20 }}>
-        <StatCard label="Doanh thu gộp"   value={fmtVND(grossRevenue)}   color="var(--accent)"  sub="Gross Revenue" />
-        <StatCard label="Doanh thu thuần" value={fmtVND(netRevenue)}     color="var(--accent2)" sub="Net Revenue" />
-        <StatCard label="Tiền đã hoàn"    value={fmtVND(refundedAmount)} color="var(--warn)"    sub="Refunds" />
-        <StatCard label="Tổng booking"    value={totalBookings}          color="var(--purple)"  sub="Bookings" />
-        <StatCard label="Chuyến bay"      value={totalFlights}           color="var(--accent)"  sub="Flights" />
-        <StatCard
-          label="Tỷ lệ lấp đầy"
-          value={`${Number(overallLF).toFixed(1)}%`}
-          color={overallLF >= 80 ? 'var(--danger)' : overallLF >= 60 ? 'var(--warn)' : 'var(--accent2)'}
-          sub={`${totalSold} / ${totalSeats} ghế`}
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        {metrics.map(item => (
+          <DashboardMetric key={item.label} {...item} />
+        ))}
       </div>
 
-      <div className="adm-2col" style={{ gap: 18 }}>
-
-        {/* ── Biểu đồ doanh thu — từ /admin/revenue-chart ────────────── */}
-        <div className="adm-card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="adm-sec-title" style={{ margin: 0 }}>Doanh thu theo ngày</div>
-            {chartData?.datasets?.[0] && (
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                {chartData.datasets[0].name ?? 'Doanh thu gộp'}
-              </span>
-            )}
-          </div>
-
-          {chartData?.datasets?.length ? (
-            <BarChart labels={chartData.labels} datasets={chartData.datasets} />
-          ) : (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-dim)', fontSize: 13 }}>
-              {loading ? '⏳ Đang tải...' : 'Không có dữ liệu biểu đồ'}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18 }}>
+        <div className="adm-card" style={{ padding: 24, background: 'linear-gradient(180deg, rgba(15, 22, 34, 0.98) 0%, rgba(10, 16, 26, 0.98) 100%)', border: '1px solid rgba(103, 183, 255, 0.14)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 21, fontWeight: 900, color: '#f8fafc' }}>Phân tích tài chính</div>
+           
             </div>
-          )}
-
-          <div style={{ textAlign: 'center', fontSize: 10, fontFamily: 'DM Mono', color: 'var(--text-dim)', marginTop: 4 }}>
-            Đơn vị: VNĐ — di chuột vào cột để xem giá trị
           </div>
-
-          {/* Nếu có dataset thứ 2 (net revenue), hiển thị dạng legend */}
-          {chartData?.datasets?.length > 1 && (
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 10, fontSize: 11 }}>
-              {chartData.datasets.map((ds, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: i === 0 ? 'var(--accent)' : 'var(--accent2)', opacity: 0.85 }} />
-                  <span style={{ color: 'var(--text-mid)' }}>{ds.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <RevenueTrend labels={chart.labels} datasets={chart.datasets} />
         </div>
 
-        {/* ── Tỷ lệ lấp đầy theo tuyến — từ /admin/load-factor ─────── */}
-        <div className="adm-card" style={{ padding: '18px 20px' }}>
-          <div className="adm-sec-title" style={{ marginBottom: 14 }}>
-            Tỷ lệ lấp đầy theo tuyến
-            {loading && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>⏳</span>}
-          </div>
-
-          {routeLabels.length > 0 ? (
-            routeLabels.map((label, i) => {
-              const pct = Math.round(routeValues[i] ?? 0)
-              const color = pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warn)' : 'var(--accent)'
-              return (
-                <ProgRow key={i} label={label} pct={pct} color={color} />
-              )
-            })
-          ) : topRoutes.length > 0 ? (
-            topRoutes.map((r, i) => (
-              <ProgRow key={i} label={r.route} value={fmtVND(r.rev)} pct={r.pct} />
-            ))
-          ) : (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-dim)', fontSize: 13 }}>
-              {loading ? '⏳ Đang tải...' : 'Không có dữ liệu'}
-            </div>
-          )}
+        <div className="adm-card" style={{ padding: 24, background: 'linear-gradient(180deg, rgba(15, 22, 34, 0.98) 0%, rgba(10, 16, 26, 0.98) 100%)', border: '1px solid rgba(103, 183, 255, 0.14)' }}>
+          <RouteBars
+            title={topRoute.chart_title || 'So sánh doanh số vé giữa các tuyến bay'}
+            items={topRouteItems}
+          />
         </div>
       </div>
-
-      {/* ── Tuyến bay phổ biến — từ /admin/stats/top-routes ───────────── */}
-      {topRoutes.length > 0 && (
-        <div className="adm-card" style={{ padding: 20, marginTop: 18 }}>
-          <div className="adm-sec-title" style={{ marginBottom: 16 }}>
-            Tuyến bay phổ biến
-            {loading && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>⏳</span>}
-          </div>
-          {topRoutes.map((r, i) => (
-            <ProgRow key={i} label={r.route} value={fmtVND(r.rev)} pct={r.pct} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Tóm tắt kỳ báo cáo ────────────────────────────────────────── */}
-      <div className="adm-card" style={{ padding: 20, marginTop: 18 }}>
-        <div className="adm-sec-title" style={{ marginBottom: 14 }}>Tóm tắt kỳ báo cáo</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {[
-            { label: 'Kỳ báo cáo',      value: `${startDate} → ${endDate}` },
-            { label: 'Tổng doanh thu',   value: fmtVND(grossRevenue) },
-            { label: 'Doanh thu thuần',  value: fmtVND(netRevenue) },
-            { label: 'Hoàn tiền',        value: fmtVND(refundedAmount) },
-            { label: 'Tổng booking',     value: totalBookings },
-            { label: 'Tổng chuyến bay',  value: totalFlights },
-            { label: 'Tỷ lệ lấp đầy',   value: `${Number(overallLF).toFixed(1)}%` },
-            { label: 'Ghế đã bán',       value: `${totalSold} / ${totalSeats}` },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>{label}</div>
-              <div style={{ fontWeight: 500, fontSize: 14, fontFamily: typeof value === 'number' ? 'DM Mono' : 'inherit' }}>
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            className="adm-btn adm-btn-primary"
-            onClick={handleExportPDF}
-            disabled={exporting || loading}
-            style={{ gap: 6 }}
-          >
-            {exporting ? '⏳ Đang xuất...' : '📄 Xuất báo cáo PDF'}
-          </button>
-        </div>
-      </div>
-
     </div>
   )
 }

@@ -17,6 +17,10 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Removed auto-redirect logic to allow accessing login page anytime
+  // Users can stay on login page to switch accounts (optional)
+  // If you want to redirect authenticated users, uncomment below:
+  /*
   useEffect(() => {
     if (!isAuthenticated()) return
     const token = getToken()
@@ -24,6 +28,7 @@ export default function AdminLogin() {
     if (!user) return
     redirectByRole(user.roles || [], navigate)
   }, [navigate])
+  */
 
   function handleChange(e) {
     const { name, value } = e.target

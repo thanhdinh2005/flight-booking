@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getToken, isTokenExpired } from '../services/keycloakService';
+import PaymentSuccessModal from './PaymentSuccessModal';
 import '../styles/Passenger.css';
 import '../styles/Refundpolicy.css';
 
@@ -28,8 +29,8 @@ function digitsOnly(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
-function lettersOnly(value) {
-  return String(value ?? '').replace(/[0-9]/g, '');
+function nameOnly(value) {
+  return String(value ?? '').replace(/[^\p{L}\s-]/gu, '')
 }
 
 function preventNonDigitKeyDown(e) {
@@ -49,14 +50,22 @@ function handleDigitPaste(e, applyValue, maxLength = Infinity) {
 }
 
 function preventDigitKeyDown(e) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (/^\d$/.test(e.key)) e.preventDefault();
+  const allowKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ',
+  ];
+  
+  if (e.ctrlKey || e.metaKey || e.altKey || allowKeys.includes(e.key)) return;
+  // Block digits and special characters, allow only letters
+  if (!/^[\p{L}\s-]$/u.test(e.key) && e.key.length === 1) {
+    e.preventDefault();
+  }
 }
 
 function handleTextPasteWithoutDigits(e, applyValue) {
   e.preventDefault();
   const pasted = e.clipboardData?.getData('text') ?? '';
-  applyValue(lettersOnly(pasted));
+  applyValue(nameOnly(pasted));
 }
 
 function parseDate(raw) {
@@ -388,6 +397,7 @@ export default function PassengerForm({
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [paymentStatus, setPaymentStatus]   = useState(null);
   const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const paymentWindowRef = useRef(null);
 const [openCalIndex, setOpenCalIndex] = useState(null);
   function updForm(i, field, val) {
@@ -399,42 +409,71 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
     setApiError('');
     setPaymentStatus(null);
 
-    return await new Promise(resolve => {
-      window.setTimeout(() => {
-        if (!vnpayReturnPayload) {
-          setPaymentStatus({
-            type: 'pending',
-            message: 'Chưa nhận được dữ liệu trả về từ VNPay Sandbox. Vui lòng hoàn tất thanh toán ở cửa sổ VNPay trước.',
-          });
-          setCheckingStatus(false);
-          resolve(false);
-          return;
-        }
+    try {
+      // Gọi API để kiểm tra trạng thái thanh toán
+      const token = getToken();
+      if (!token || isTokenExpired()) {
+        throw new Error('TOKEN_MISSING');
+      }
 
-        if (vnpayReturnPayload.success) {
-          setBooking(prev => prev ? {
-            ...prev,
-            ...(vnpayReturnPayload.data || {}),
-            status: 'PAID',
-            expires_at: null,
-          } : prev);
-          setPaymentStatus({
-            type: 'success',
-            message: vnpayReturnPayload.message || 'Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
-          });
-          setCheckingStatus(false);
-          resolve(true);
-          return;
-        }
+      console.log('[Payment] Checking booking status for PNR:', booking?.pnr);
 
+      const res = await fetch(`${API_BASE}/booking?pnr=${booking?.pnr}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('[Payment] Response status:', res.status);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      console.log('[Payment] Response data:', json);
+
+      if (!json.success) {
+        throw new Error(json.message || 'Không thể kiểm tra trạng thái');
+      }
+
+      const bookingData = json.data;
+      console.log('[Payment] Booking status:', bookingData.status);
+
+      if (bookingData.status === 'PAID') {
+        // Thanh toán thành công
+        setBooking(prev => prev ? {
+          ...prev,
+          ...bookingData,
+          status: 'PAID',
+          expires_at: null,
+        } : prev);
         setPaymentStatus({
-          type: 'error',
-          message: vnpayReturnPayload.message || 'Thanh toán thất bại.',
+          type: 'success',
+          message: '✅ Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
         });
+        setShowSuccessModal(true);
         setCheckingStatus(false);
-        resolve(false);
-      }, 250);
-    });
+        return true;
+      }
+
+      // Chưa thanh toán
+      setPaymentStatus({
+        type: 'pending',
+        message: '⏳ Thanh toán chưa được ghi nhận. Vui lòng đảm bảo thanh toán đã hoàn tất ở VNPay.',
+      });
+      setCheckingStatus(false);
+      return false;
+    } catch (err) {
+      console.error('[Payment] Error:', err);
+      setApiError(err.message === 'TOKEN_MISSING' 
+        ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+        : `❌ ${err.message || 'Lỗi khi kiểm tra trạng thái'}`
+      );
+      setCheckingStatus(false);
+      return false;
+    }
   }
 
   useEffect(() => {
@@ -753,7 +792,7 @@ function StepBar({ active }) {
                           if (apiError) setApiError('')
                         })}
                         onChange={e => {
-                          updForm(i, 'last_name', lettersOnly(e.target.value))
+                          updForm(i, 'last_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
@@ -766,7 +805,7 @@ function StepBar({ active }) {
                           if (apiError) setApiError('')
                         })}
                         onChange={e => {
-                          updForm(i, 'first_name', lettersOnly(e.target.value))
+                          updForm(i, 'first_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
@@ -1186,6 +1225,11 @@ function StepBar({ active }) {
           }
         }
       `}</style>
+      <PaymentSuccessModal 
+        isOpen={showSuccessModal}
+        onViewTickets={() => setShowSuccessModal(false)}
+        onGoBack={() => setShowSuccessModal(false)}
+      />
     </>
   );
 }

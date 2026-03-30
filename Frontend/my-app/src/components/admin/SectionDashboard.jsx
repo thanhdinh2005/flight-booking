@@ -1,104 +1,114 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmt, fmtNum } from './helpers'
-import { dashboardAPI, flightAPI } from './adminAPI'
-import { INIT_FLIGHTS } from './mockData'
+import { dashboardAPI } from './adminAPI'
+
+function OverviewCard({ title, value, sub, color }) {
+  return (
+    <div className="adm-card" style={{
+      padding: 22,
+      border: '1px solid rgba(103, 183, 255, 0.16)',
+      boxShadow: '0 18px 40px rgba(2, 6, 23, 0.28)',
+      background: 'linear-gradient(180deg, rgba(16, 24, 38, 0.98) 0%, rgba(11, 18, 30, 0.98) 100%)',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 999,
+        background: color,
+        opacity: 0.10,
+        filter: 'blur(22px)',
+        top: -60,
+        right: -50,
+      }} />
+      <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: '#94a3b8', marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 30, fontWeight: 900, color: '#f8fafc', marginBottom: 6 }}>{value}</div>
+      <div style={{ fontSize: 13, color: '#8ea0b8' }}>{sub}</div>
+    </div>
+  )
+}
 
 export function SectionDashboard() {
-  const [stats,   setStats]   = useState({ revenue: 0, netRevenue: 0, totalBookings: 0, totalFlights: 0, refundedAmount: 0 })
-  const [chart,   setChart]   = useState({ labels: ['T2','T3','T4','T5','T6','T7','CN'], datasets: [{ data: [320,410,290,480,560,390,510] }] })
-  const [flights, setFlights] = useState(INIT_FLIGHTS)
+  const [stats, setStats] = useState({ revenue: 0, netRevenue: 0, totalBookings: 0, totalFlights: 0, refundedAmount: 0, period: {} })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    Promise.all([
-      // GET /admin/dashboard/summary
-      dashboardAPI.getStats().then(d => setStats(d)),
-      // GET /admin/revenue-chart?start_date=&end_date= (không truyền = 7 ngày gần nhất)
-      dashboardAPI.getRevenueChart().then(d => {
-        if (d?.datasets?.length) setChart(d)
-      }),
-      // Lấy danh sách chuyến để hiển thị fill rate
-      flightAPI.getAll().then(d => { if (d.length) setFlights(d) }),
-    ]).finally(() => setLoading(false))
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const summaryData = await dashboardAPI.getStats()
+      setStats(summaryData)
+    } catch (err) {
+      setError(err.message || 'Không tải được dữ liệu dashboard.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  // Lấy dataset đầu tiên (gross revenue) để vẽ bar chart
-  const bars   = chart.datasets?.[0]?.data ?? []
-  const labels = chart.labels ?? ['T2','T3','T4','T5','T6','T7','CN']
-  const max    = Math.max(...bars, 1)
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
 
-  const CARDS = [
-    { label: 'Doanh thu tháng',  value: fmt(stats.revenue),         delta: '↑ 12.4% vs T2',  icon: '💰', color: 'var(--accent)'  },
-    { label: 'Doanh thu thuần',  value: fmt(stats.netRevenue),      delta: 'Net Revenue',      icon: '💵', color: 'var(--accent2)' },
-    { label: 'Chuyến bay',       value: stats.totalFlights,         delta: 'Tháng này',        icon: '✈️', color: 'var(--purple)'  },
-    { label: 'Tổng booking',     value: fmtNum(stats.totalBookings),delta: 'Đặt chỗ',          icon: '🎫', color: 'var(--accent)'  },
-    { label: 'Đã hoàn tiền',     value: fmt(stats.refundedAmount),  delta: 'Refunds',           icon: '↩️', color: 'var(--warn)'    },
-  ]
+  const cards = useMemo(() => ([
+    {
+      title: 'Doanh thu gộp',
+      value: fmt(stats.revenue),
+      sub: 'Tổng tiền vé ghi nhận',
+      color: '#3b82f6',
+    },
+    {
+      title: 'Doanh thu thuần',
+      value: fmt(stats.netRevenue),
+      sub: 'Sau hoàn tiền và điều chỉnh',
+      color: '#10b981',
+    },
+    {
+      title: 'Đơn đặt chỗ',
+      value: fmtNum(stats.totalBookings),
+      sub: 'Tổng booking thành công',
+      color: '#8b5cf6',
+    },
+    {
+      title: 'Số tiền hoàn',
+      value: fmt(stats.refundedAmount),
+      sub: 'Giá trị refund đã xử lý',
+      color: '#f59e0b',
+    },
+  ]), [stats])
 
   return (
-    <div className="adm-fade">
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '8px 0 16px', color: 'var(--text-dim)', fontSize: 13 }}>
-          ⏳ Đang tải dữ liệu...
+    <div className="adm-fade" style={{ display: 'grid', gap: 18 }}>
+      <div className="adm-card" style={{
+        padding: 24,
+        background: 'linear-gradient(135deg, rgba(8, 18, 32, 0.98) 0%, rgba(12, 51, 73, 0.98) 52%, rgba(18, 90, 88, 0.95) 100%)',
+        border: '1px solid rgba(56, 189, 248, 0.16)',
+        boxShadow: '0 24px 50px rgba(2, 6, 23, 0.34)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.12em', color: '#7dd3fc', fontWeight: 800, marginBottom: 10 }}>
+              Executive Dashboard
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', marginBottom: 8 }}>
+              Bảng điều khiển vận hành kinh doanh
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 16, padding: '12px 16px', fontSize: 13 }}>
+          ⚠️ {error}
         </div>
       )}
 
-      <div className="adm-stat-grid">
-        {CARDS.map(c => (
-          <div className="adm-stat-card" key={c.label} style={{ '--card-color': c.color }}>
-            <div className="adm-stat-icon">{c.icon}</div>
-            <div className="adm-stat-label">{c.label}</div>
-            <div className="adm-stat-val">{c.value}</div>
-            <div className="adm-stat-delta">{c.delta}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="adm-2col" style={{ gap: 18 }}>
-        <div className="adm-card" style={{ padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="adm-sec-title" style={{ margin: 0 }}>Doanh thu 7 ngày qua</div>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-              {chart.datasets?.[0]?.name ?? 'Doanh thu gộp'}
-            </span>
-          </div>
-          <div className="adm-bars">
-            {bars.map((b, i) => (
-              <div className="adm-bar-col" key={i}>
-                <div className="adm-bar" style={{ height: `${(b / max) * 100}%` }} title={`${labels[i]}: ${fmt(b)}`} />
-                <div className="adm-bar-label">{labels[i]}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 10, fontFamily: 'DM Mono', color: 'var(--text-dim)' }}>
-            Đơn vị: VNĐ
-          </div>
-        </div>
-
-        <div className="adm-card" style={{ padding: '18px 20px' }}>
-          <div className="adm-sec-title" style={{ marginBottom: 14 }}>Tỷ lệ lấp đầy</div>
-          {flights.slice(0, 8).map(f => {
-            const pct = f.seats > 0 ? Math.round(f.sold / f.seats * 100) : 0
-            const bc  = pct >= 100 ? 'var(--danger)' : pct > 70 ? 'var(--warn)' : 'var(--accent)'
-            return (
-              <div key={f.id} style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                  <span style={{ fontFamily: 'DM Mono', color: 'var(--accent2)' }}>{f.flight_number || f.id}</span>
-                  <span style={{ color: 'var(--text-mid)' }}>{f.from}→{f.to}</span>
-                  <span style={{ fontFamily: 'DM Mono', fontWeight: 700 }}>{pct}%</span>
-                </div>
-                <div className="adm-prog-wrap">
-                  <div className="adm-prog" style={{ width: `${pct}%`, background: bc }} />
-                </div>
-              </div>
-            )
-          })}
-          {flights.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 13, padding: '20px 0' }}>
-              Không có dữ liệu chuyến bay
-            </div>
-          )}
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        {cards.map(card => <OverviewCard key={card.title} {...card} />)}
       </div>
     </div>
   )
