@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Badge from '../badge'
 import Modal from '../model'
+import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
 import { flightAPI, flightFilterAPI } from './adminAPI'
 import { INIT_FLIGHTS } from './mockData'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
@@ -134,6 +135,19 @@ export function SectionFlights() {
   const applyFilter = () => { setPage(1); fetchFlights(1) }
   const clearFilter = () => { setStatusFilter('ALL'); setFromDate(''); setToDate(''); setPage(1) }
   const changeStatus = (s) => { setStatusFilter(s); setPage(1) }
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value)
+    if (toDate && isBeforeIsoDate(toDate, value)) setToDate(value)
+  }
+
+  const handleToDateChange = (value) => {
+    if (fromDate && isBeforeIsoDate(value, fromDate)) {
+      setToDate(fromDate)
+      return
+    }
+    setToDate(value)
+  }
 
   // ── Client-side search ─────────────────────────────────────────────────
   const filtered = list.filter(f => {
@@ -298,23 +312,11 @@ export function SectionFlights() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Từ ngày:</label>
-              <input
-                className="adm-input"
-                type="date"
-                style={{ padding: '5px 10px', fontSize: 13, height: 34 }}
-                value={fromDate}
-                onChange={e => setFromDate(e.target.value)}
-              />
+              <DatePicker value={fromDate} onChange={handleFromDateChange} placeholder="Từ ngày" theme="admin" triggerStyle={{ minWidth: 150, height: 34, padding: '6px 10px', fontSize: 13 }} />
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Đến ngày:</label>
-              <input
-                className="adm-input"
-                type="date"
-                style={{ padding: '5px 10px', fontSize: 13, height: 34 }}
-                value={toDate}
-                onChange={e => setToDate(e.target.value)}
-              />
+              <DatePicker value={toDate} onChange={handleToDateChange} minDate={fromDate || undefined} placeholder="Đến ngày" theme="admin" triggerStyle={{ minWidth: 150, height: 34, padding: '6px 10px', fontSize: 13 }} />
             </div>
             {hasActiveFilter && (
               <button
@@ -425,7 +427,7 @@ export function SectionFlights() {
           </div>
           <div className="adm-field">
             <label className="adm-label">Ngày bay</label>
-            <input className="adm-input" type="date" value={gen.date} onChange={e => setGen(g => ({ ...g, date: e.target.value }))} />
+            <DatePicker value={gen.date} onChange={value => setGen(g => ({ ...g, date: value }))} placeholder="Chọn ngày bay" theme="admin" />
           </div>
           <div className="adm-2col">
             <div className="adm-field">

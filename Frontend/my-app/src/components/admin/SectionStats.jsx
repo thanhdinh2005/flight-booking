@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmt, fmtNum } from './helpers'
 import { dashboardAPI } from './adminAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
+import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
@@ -215,6 +216,21 @@ export function SectionStats() {
   const [error, setError] = useState('')
   const [exportMsg, setExportMsg] = useState('')
 
+  function handleStartDateChange(value) {
+    setStartDate(value)
+    if (endDate && isBeforeIsoDate(endDate, value)) {
+      setEndDate(value)
+    }
+  }
+
+  function handleEndDateChange(value) {
+    if (startDate && isBeforeIsoDate(value, startDate)) {
+      setEndDate(startDate)
+      return
+    }
+    setEndDate(value)
+  }
+
   const fetchRouteLookup = useCallback(async () => {
     const token = getToken()
     if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập hết hạn.')
@@ -393,8 +409,8 @@ export function SectionStats() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input className="adm-input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ height: 40 }} />
-            <input className="adm-input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ height: 40 }} />
+            <DatePicker value={startDate} onChange={handleStartDateChange} placeholder="Từ ngày" theme="admin" triggerStyle={{ minWidth: 160, height: 40, padding: '9px 14px' }} />
+            <DatePicker value={endDate} onChange={handleEndDateChange} minDate={startDate || undefined} placeholder="Đến ngày" theme="admin" triggerStyle={{ minWidth: 160, height: 40, padding: '9px 14px' }} />
             <button className="adm-btn adm-btn-ghost" onClick={fetchAll} disabled={loading}>
               {loading ? '⏳ Đang tải...' : '🔄 Làm mới'}
             </button>

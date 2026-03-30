@@ -5,6 +5,7 @@ import '../styles/Topbar.css';
 import timkiem from '../assets/tìm kiếm.png';
 import avata   from '../assets/avata.png';
 import ProfileModal from './Profilemodal';
+import DatePicker from './common/DatePicker';
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
 
@@ -15,9 +16,6 @@ const ADVANCED_FIELDS = [
   { id: 'departure_date', label: 'Ngày đi', placeholder: '',      width: 'medium', kind: 'date' },
   { id: 'return_date',    label: 'Ngày về', placeholder: '',      width: 'medium', kind: 'date' },
 ];
-
-const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-const DOWS = ['CN','T2','T3','T4','T5','T6','T7'];
 
 function getTodayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -83,88 +81,6 @@ function buildFlightSearchParams({ origin, destination, departure_date, return_d
   return params;
 }
 
-function MiniCalendar({ value, onChange, onClose }) {
-  const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const initial = value ? new Date(`${value}T00:00:00`) : todayOnly;
-  const [year, setYear] = useState(initial.getFullYear());
-  const [month, setMonth] = useState(initial.getMonth());
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  const pad = cells.length % 7 ? 7 - (cells.length % 7) : 0;
-  for (let i = 0; i < pad; i++) cells.push(null);
-
-  const selected = value ? new Date(`${value}T00:00:00`) : null;
-
-  function moveMonth(delta) {
-    if (month + delta < 0) {
-      setMonth(11);
-      setYear(y => y - 1);
-      return;
-    }
-    if (month + delta > 11) {
-      setMonth(0);
-      setYear(y => y + 1);
-      return;
-    }
-    setMonth(m => m + delta);
-  }
-
-  function pick(day) {
-    if (!day) return;
-    const picked = new Date(year, month, day);
-    if (picked < todayOnly) return;
-    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    onChange(iso);
-    onClose();
-  }
-
-  function cellClass(day) {
-    if (!day) return 'topbar-cal__cell topbar-cal__cell--empty';
-    const current = new Date(year, month, day);
-    const isPast = current < todayOnly;
-    const isToday = current.getTime() === todayOnly.getTime();
-    const isSelected = selected && current.getTime() === selected.getTime();
-    return [
-      'topbar-cal__cell',
-      isPast && 'topbar-cal__cell--past',
-      isToday && 'topbar-cal__cell--today',
-      isSelected && 'topbar-cal__cell--selected',
-    ].filter(Boolean).join(' ');
-  }
-
-  return (
-    <div className="topbar-cal">
-      <div className="topbar-cal__nav">
-        <button type="button" className="topbar-cal__nav-btn" onClick={() => moveMonth(-1)}>‹</button>
-        <div className="topbar-cal__title">{MONTHS[month]} {year}</div>
-        <button type="button" className="topbar-cal__nav-btn" onClick={() => moveMonth(1)}>›</button>
-      </div>
-      <div className="topbar-cal__dow">
-        {DOWS.map(d => <div key={d}>{d}</div>)}
-      </div>
-      <div className="topbar-cal__grid">
-        {cells.map((day, index) => (
-          <button
-            key={`${day ?? 'e'}-${index}`}
-            type="button"
-            className={cellClass(day)}
-            onClick={() => pick(day)}
-            disabled={!day}
-          >
-            {day || ''}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
   const navigate = useNavigate();
   const [avatarOpen,     setAvatarOpen]     = useState(false);
@@ -174,7 +90,6 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
   const [advancedValues, setAdvancedValues] = useState(() => buildDefaultAdvancedValues());
   const [airports, setAirports]             = useState([]);
   const [airportsError, setAirportsError]   = useState('');
-  const [calendarOpen, setCalendarOpen]     = useState(null);
   const [searchingFlights, setSearchingFlights] = useState(false);
   const [searchError, setSearchError]       = useState('');
   const dropRef   = useRef(null);
@@ -282,7 +197,6 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
         },
       });
       setIsExpanded(false);
-      setCalendarOpen(null);
       setSearchError('');
     } catch (err) {
       console.error('[Topbar] searchFlights failed:', err);
@@ -391,32 +305,19 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                         </select>
                       ) : field.kind === 'date' ? (
                         <div className="topbar-date-field">
-                          <button
-                            type="button"
-                            className={`field-input topbar-date-trigger${calendarOpen === field.id ? ' topbar-date-trigger--open' : ''}`}
-                            onClick={() => setCalendarOpen(open => open === field.id ? null : field.id)}
-                          >
-                            <span>
-                              {advancedValues[field.id]
-                                ? advancedValues[field.id].split('-').reverse().join('/')
-                                : field.id === 'departure_date'
-                                  ? 'Chọn ngày đi'
-                                  : 'Chọn ngày về'}
-                            </span>
-                            <span className="topbar-date-trigger__icon">📅</span>
-                          </button>
-                          {calendarOpen === field.id && (
-                            <MiniCalendar
-                              value={advancedValues[field.id]}
-                              onChange={value => {
-                                handleAdvancedChange(field.id, value);
-                                if (field.id === 'departure_date' && advancedValues.return_date && advancedValues.return_date < value) {
-                                  handleAdvancedChange('return_date', '');
-                                }
-                              }}
-                              onClose={() => setCalendarOpen(null)}
-                            />
-                          )}
+                          <DatePicker
+                            value={advancedValues[field.id]}
+                            placeholder={field.id === 'departure_date' ? 'Chọn ngày đi' : 'Chọn ngày về'}
+                            minDate={field.id === 'return_date' ? advancedValues.departure_date : undefined}
+                            onChange={value => {
+                              handleAdvancedChange(field.id, value);
+                              if (field.id === 'departure_date' && advancedValues.return_date && advancedValues.return_date < value) {
+                                handleAdvancedChange('return_date', '');
+                              }
+                            }}
+                            theme="light"
+                            triggerClassName="field-input topbar-date-trigger"
+                          />
                         </div>
                       ) : (
                         <input
@@ -441,7 +342,6 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                     className="btn-secondary"
                     onClick={() => {
                       setAdvancedValues(buildDefaultAdvancedValues(airports));
-                      setCalendarOpen(null);
                       setSearchError('');
                     }}
                   >

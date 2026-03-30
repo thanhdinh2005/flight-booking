@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import DatePicker from '../common/DatePicker'
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
@@ -947,13 +948,12 @@ export default function TabTraCuu({ initialDestination }) {
 
           <div className="form-row">
             <div className="form-field">
-              <label className="form-field__label">📅 Ngày đi</label>
-              <input
-                className="form-field__input"
-                type="date"
+              <DatePicker
+                label="📅 Ngày đi"
                 value={date}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
+                theme="light"
+                className="form-field"
               />
             </div>
 

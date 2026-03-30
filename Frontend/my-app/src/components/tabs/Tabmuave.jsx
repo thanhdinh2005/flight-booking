@@ -5,6 +5,7 @@ import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
 import PaymentSuccessModal from '../PaymentSuccessModal'
+import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
 import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
 import '../../styles/SearchPanel.css'
@@ -456,91 +457,6 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
   )
 }
 
-// ─── Mini Calendar ──────────────────────────────────────────────────────────
-function MiniCalendar({ value, onChange, onClose }) {
-  const today = new Date()
-  const init = value ? new Date(value) : today
-  const [yr, setYr] = useState(init.getFullYear())
-  const [mo, setMo] = useState(init.getMonth())
-
-  const firstDay = new Date(yr, mo, 1).getDay()
-  const daysInMonth = new Date(yr, mo + 1, 0).getDate()
-  const cells = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
-  const pad = cells.length % 7 ? 7 - (cells.length % 7) : 0
-  for (let i = 0; i < pad; i++) cells.push(null)
-
-  const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
-                  'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12']
-  const DOWS   = ['CN','T2','T3','T4','T5','T6','T7']
-
-  function prev() { mo === 0 ? (setYr(y => y-1), setMo(11)) : setMo(m => m-1) }
-  function next() { mo === 11 ? (setYr(y => y+1), setMo(0)) : setMo(m => m+1) }
-
-  function pick(d) {
-    if (!d) return
-    const date = new Date(yr, mo, d)
-    if (date < new Date(today.toDateString())) return
-    const iso = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    onChange(iso)
-    onClose()
-  }
-
-  const selD = value ? new Date(value) : null
-
-  function cls(d) {
-    if (!d) return 'cal-day cal-day--empty'
-    const date = new Date(yr, mo, d)
-    const isPast = date < new Date(today.toDateString())
-    const isSel  = selD && selD.getFullYear()===yr && selD.getMonth()===mo && selD.getDate()===d
-    const isToday= today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d
-    return ['cal-day', isPast&&'cal-day--past', isSel&&'cal-day--selected', (!isSel&&isToday)&&'cal-day--today'].filter(Boolean).join(' ')
-  }
-
-  return (
-    <div className="cal-wrap" onClick={e => e.stopPropagation()}>
-      <div className="cal-nav">
-        <button className="cal-nav__btn" onClick={prev}>‹</button>
-        <span className="cal-nav__label">{MONTHS[mo]} {yr}</span>
-        <button className="cal-nav__btn" onClick={next}>›</button>
-      </div>
-      <div className="cal-grid">
-        {DOWS.map(d => <div key={d} className="cal-dow">{d}</div>)}
-        {cells.map((d, i) => (
-          <div key={i} className={cls(d)} onClick={() => pick(d)}>{d || ''}</div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DateField({ label, value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const display = value ? value.split('-').reverse().join('/') : 'Chọn ngày'
-
-  return (
-    <div className="form-field" style={{ position: 'relative' }}>
-      <label className="form-field__label">{label}</label>
-      <div
-        className="form-field__input"
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span>📅</span>
-        <span style={{ color: value ? 'inherit' : '#9ca3af' }}>{display}</span>
-      </div>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
-          <MiniCalendar value={value} onChange={onChange} onClose={() => setOpen(false)} />
-        </>
-      )}
-    </div>
-  )
-}
-
 // ─── Airport Search ───────────────────────────────────────────────────────────
 function AirportSearch({ label, value, onChange, placeholder, inputRef }) {
   const [query, setQuery] = useState('')
@@ -673,9 +589,32 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
     setToCity(fromCity)
   }
 
+  useEffect(() => {
+    if (tripType !== 'round' && retDate) setRetDate('')
+  }, [tripType, retDate])
+
+  function handleDepartureDateChange(value) {
+    setDepDate(value)
+    if (retDate && isBeforeIsoDate(retDate, value)) {
+      setRetDate(value)
+    }
+  }
+
+  function handleReturnDateChange(value) {
+    if (depDate && isBeforeIsoDate(value, depDate)) {
+      setRetDate(depDate)
+      return
+    }
+    setRetDate(value)
+  }
+
   function handleSearch() {
     if (!toCity)  { alert('⚠️ Vui lòng chọn điểm đến!'); return }
     if (!depDate) { alert('⚠️ Vui lòng chọn ngày đi!');  return }
+    if (tripType === 'round' && retDate && isBeforeIsoDate(retDate, depDate)) {
+      alert('⚠️ Ngày về không được bé hơn ngày đi!')
+      return
+    }
     onSearch({
       from:      extractCode(fromCity),
       to:        extractCode(toCity),
@@ -737,9 +676,9 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
       )}
 
       <div className="form-row">
-        <DateField label="📅 Ngày đi" value={depDate} onChange={setDepDate} />
+        <DatePicker label="📅 Ngày đi" value={depDate} onChange={handleDepartureDateChange} theme="light" className="form-field" />
         {tripType === 'round' && (
-          <DateField label="📅 Ngày về" value={retDate} onChange={setRetDate} />
+          <DatePicker label="📅 Ngày về" value={retDate} onChange={handleReturnDateChange} minDate={depDate || undefined} theme="light" className="form-field" />
         )}
         <div className="form-field">
           <label className="form-field__label">👥 Hành khách</label>
