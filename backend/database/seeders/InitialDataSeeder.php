@@ -12,30 +12,10 @@ class InitialDataSeeder extends Seeder
         DB::transaction(function () {
 
             $airports = [
-                [
-                    'code' => 'HAN',
-                    'name' => 'Noi Bai International Airport',
-                    'city' => 'Ha Noi',
-                    'status' => true,
-                ],
-                [
-                    'code' => 'SGN',
-                    'name' => 'Tan Son Nhat International Airport',
-                    'city' => 'Ho Chi Minh City',
-                    'status' => true,
-                ],
-                [
-                    'code' => 'DAD',
-                    'name' => 'Da Nang International Airport',
-                    'city' => 'Da Nang',
-                    'status' => true,
-                ],
-                [
-                    'code' => 'PXU',
-                    'name' => 'Pleiku Airport',
-                    'city' => 'Gia Lai',
-                    'status' => true,
-                ],
+                ['code' => 'HAN', 'name' => 'Noi Bai International Airport', 'city' => 'Ha Noi', 'status' => true],
+                ['code' => 'SGN', 'name' => 'Tan Son Nhat International Airport', 'city' => 'Ho Chi Minh City', 'status' => true],
+                ['code' => 'DAD', 'name' => 'Da Nang International Airport', 'city' => 'Da Nang', 'status' => true],
+                ['code' => 'PXU', 'name' => 'Pleiku Airport', 'city' => 'Gia Lai', 'status' => true],
             ];
 
             foreach ($airports as $airport) {
@@ -45,8 +25,7 @@ class InitialDataSeeder extends Seeder
                 );
             }
 
-            $airportIds = DB::table('airports')
-                ->pluck('id', 'code');
+            $airportIds = DB::table('airports')->pluck('id', 'code');
 
             $aircrafts = [
                 [
@@ -63,13 +42,6 @@ class InitialDataSeeder extends Seeder
                     'total_business_seats' => 28,
                     'status' => SystemStatus::ACTIVE->value,
                 ],
-                [
-                    'model' => 'Airbus A320',
-                    'registration_number' => 'VN-A610',
-                    'total_economy_seats' => 140,
-                    'total_business_seats' => 12,
-                    'status' => SystemStatus::MAINTENANCE->value,
-                ],
             ];
 
             foreach ($aircrafts as $aircraft) {
@@ -79,39 +51,29 @@ class InitialDataSeeder extends Seeder
                 );
             }
 
-            $routes = [
-                [
-                    'origin_airport_id' => $airportIds['HAN'],
-                    'destination_airport_id' => $airportIds['SGN'],
-                    'flight_duration_minutes' => 120,
-                ],
-                [
-                    'origin_airport_id' => $airportIds['SGN'],
-                    'destination_airport_id' => $airportIds['HAN'],
-                    'flight_duration_minutes' => 120,
-                ],
-                [
-                    'origin_airport_id' => $airportIds['HAN'],
-                    'destination_airport_id' => $airportIds['DAD'],
-                    'flight_duration_minutes' => 80,
-                ],
-                [
-                    'origin_airport_id' => $airportIds['DAD'],
-                    'destination_airport_id' => $airportIds['HAN'],
-                    'flight_duration_minutes' => 80,
-                ],
-                [
-                    'origin_airport_id' => $airportIds['SGN'],
-                    'destination_airport_id' => $airportIds['PXU'],
-                    'flight_duration_minutes' => 60,
-                ],
-                [
-                    'origin_airport_id' => $airportIds['PXU'],
-                    'destination_airport_id' => $airportIds['SGN'],
-                    'flight_duration_minutes' => 60,
-                ],
-            ];
-            
+            $routes = [];
+
+            foreach ($airportIds as $originCode => $originId) {
+                foreach ($airportIds as $destinationCode => $destinationId) {
+
+                    if ($originId === $destinationId) {
+                        continue;
+                    }
+
+                    $duration = match ([$originCode, $destinationCode]) {
+                        ['HAN', 'SGN'], ['SGN', 'HAN'] => 120,
+                        ['HAN', 'DAD'], ['DAD', 'HAN'] => 80,
+                        ['SGN', 'DAD'], ['DAD', 'SGN'] => 90,
+                        default => 60,
+                    };
+
+                    $routes[] = [
+                        'origin_airport_id' => $originId,
+                        'destination_airport_id' => $destinationId,
+                        'flight_duration_minutes' => $duration,
+                    ];
+                }
+            }
 
             foreach ($routes as $route) {
                 DB::table('routes')->updateOrInsert(

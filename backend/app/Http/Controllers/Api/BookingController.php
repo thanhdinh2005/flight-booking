@@ -85,8 +85,13 @@ class BookingController extends Controller
     );
     }
 
-    public function getById($id) {
-        $data = Booking::find($id);
+    public function getByPnr(Request $request) {
+        $pnr = $request->str('pnr', null);
+        if(!$pnr) throw new BusinessException("Vui lòng nhập PNR");
+
+        $data = Booking::where(['pnr' => $pnr])
+        ->first();
+
         if (!$data) throw new BusinessException("Không tìm thấy hóa đơn");
 
         return ApiResponse::success($data);
