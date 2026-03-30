@@ -38,7 +38,7 @@ Route::get('payments/vnpay-return', [PaymentController::class, 'vnpayReturn']);
 Route::put('/forgot-password', [AdminDashboardController::class, 'forgotPassword']);
 //Route::get('/vnpay-ipn', [PaymentController::class, 'vnpayIpn']);
 
-Route::get('/booking/{id}', [BookingController::class, 'getById']);
+Route::get('/booking', [BookingController::class, 'getByPnr']);
 
 Route::middleware('auth.keycloak') -> group(function () {
 	Route::get('/test', function () {
@@ -110,5 +110,5 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf']);
         Route::get('/dashboard/summary', [AdminDashboardController::class, 'getSummary']);
         Route::get('/revenue-chart', [AdminDashboardController::class, 'getChart']);
-        Route::get('/load-factor', [AdminDashboardController::class, 'loadFactor']);
+        Route::get('/top-route', [ReportController::class, 'getRouteChartData']);
 });
