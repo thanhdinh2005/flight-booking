@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import '../../styles/DatePicker.css'
 
 const MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
@@ -21,7 +22,7 @@ function formatDisplayDate(value) {
   return value ? value.split('-').reverse().join('/') : ''
 }
 
-function CalendarPanel({ value, onChange, onClose, minDate, maxDate, theme }) {
+function CalendarPanel({ value, onChange, onClose, minDate, maxDate, theme, style }) {
   const today = new Date()
   const initial = parseIsoDate(value) ?? parseIsoDate(minDate) ?? parseIsoDate(maxDate) ?? today
   const [year, setYear] = useState(initial.getFullYear())
@@ -41,6 +42,12 @@ function CalendarPanel({ value, onChange, onClose, minDate, maxDate, theme }) {
   ]
   const pad = cells.length % 7 ? 7 - (cells.length % 7) : 0
   for (let i = 0; i < pad; i++) cells.push(null)
+
+  useEffect(() => {
+    const next = parseIsoDate(value) ?? parseIsoDate(minDate) ?? parseIsoDate(maxDate) ?? today
+    setYear(next.getFullYear())
+    setMonth(next.getMonth())
+  }, [value, minDate, maxDate])
 
   function moveMonth(delta) {
     if (month + delta < 0) {
@@ -80,7 +87,7 @@ function CalendarPanel({ value, onChange, onClose, minDate, maxDate, theme }) {
   }
 
   return (
-    <div className={`ui-cal ui-cal--${theme}`} onClick={e => e.stopPropagation()}>
+    <div className={`ui-cal ui-cal--${theme}`} style={style} onClick={e => e.stopPropagation()}>
       <div className="ui-cal__nav">
         <button type="button" className="ui-cal__nav-btn" onClick={() => moveMonth(-1)}>‹</button>
         <div className="ui-cal__selects">
@@ -132,7 +139,40 @@ export default function DatePicker({
   triggerStyle,
 }) {
   const [open, setOpen] = useState(false)
+  const [panelStyle, setPanelStyle] = useState({})
+  const triggerRef = useRef(null)
   const display = formatDisplayDate(value)
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    function updatePosition() {
+      const trigger = triggerRef.current
+      if (!trigger) return
+
+      const rect = trigger.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const panelWidth = Math.min(320, viewportWidth - 16)
+      const left = Math.min(Math.max(8, rect.left), Math.max(8, viewportWidth - panelWidth - 8))
+
+      setPanelStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        left,
+        width: panelWidth,
+        zIndex: 1400,
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
 
   return (
     <div className={`ui-date ui-date--${theme} ${className}`.trim()} style={style}>
@@ -141,12 +181,13 @@ export default function DatePicker({
         type="button"
         className={`ui-date__trigger ${triggerClassName}`.trim()}
         style={triggerStyle}
+        ref={triggerRef}
         onClick={() => setOpen(prev => !prev)}
       >
         <span className="ui-date__icon">📅</span>
         <span className={`ui-date__text${display ? '' : ' is-placeholder'}`}>{display || placeholder}</span>
       </button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <>
           <div className="ui-date__overlay" onClick={() => { setOpen(false); onClose?.() }} />
           <CalendarPanel
@@ -156,8 +197,10 @@ export default function DatePicker({
             minDate={minDate}
             maxDate={maxDate}
             theme={theme}
+            style={panelStyle}
           />
-        </>
+        </>,
+        document.body
       )}
     </div>
   )

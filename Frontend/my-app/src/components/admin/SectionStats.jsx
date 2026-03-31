@@ -80,13 +80,25 @@ function DashboardMetric({ label, value, note, accent }) {
 }
 
 function RevenueTrend({ labels = [], datasets = [] }) {
-  const gross = datasets.find(ds => ds.type === 'bar') ?? datasets[0] ?? { data: [] }
-  const net = datasets.find(ds => ds.type === 'line') ?? datasets[1] ?? { data: [] }
-  const max = Math.max(...gross.data, ...net.data, 1)
-  const labelStep = labels.length > 24 ? 3 : labels.length > 14 ? 2 : 1
-  const columnMinWidth = labels.length <= 7 ? 64 : labels.length <= 14 ? 42 : 18
+  const filteredIndexes = labels.reduce((acc, _label, index) => {
+    const hasValue = datasets.some(ds => Number(ds.data?.[index] || 0) > 0)
+    if (hasValue) acc.push(index)
+    return acc
+  }, [])
 
-  if (!labels.length || !gross.data.length) {
+  const visibleLabels = filteredIndexes.map(index => labels[index])
+  const visibleDatasets = datasets.map(ds => ({
+    ...ds,
+    data: filteredIndexes.map(index => Number(ds.data?.[index] || 0)),
+  }))
+
+  const gross = visibleDatasets.find(ds => ds.type === 'bar') ?? visibleDatasets[0] ?? { data: [] }
+  const net = visibleDatasets.find(ds => ds.type === 'line') ?? visibleDatasets[1] ?? { data: [] }
+  const max = Math.max(...gross.data, ...net.data, 1)
+  const columnMinWidth = visibleLabels.length <= 3 ? 120 : visibleLabels.length <= 7 ? 88 : visibleLabels.length <= 14 ? 60 : 28
+  const columnGap = visibleLabels.length <= 3 ? 28 : visibleLabels.length <= 7 ? 20 : visibleLabels.length <= 14 ? 12 : 8
+
+  if (!visibleLabels.length || !gross.data.length) {
     return (
       <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-dim)' }}>
         Không có dữ liệu xu hướng doanh thu.
@@ -97,7 +109,7 @@ function RevenueTrend({ labels = [], datasets = [] }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 18 }}>
-        {datasets.map((ds, index) => (
+        {visibleDatasets.map((ds, index) => (
           <div key={`${ds.name}-${index}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-mid)' }}>
             <span style={{
               width: 12,
@@ -111,14 +123,13 @@ function RevenueTrend({ labels = [], datasets = [] }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${labels.length}, minmax(${columnMinWidth}px, 1fr))`, gap: labels.length <= 7 ? 12 : 6, alignItems: 'end', minHeight: 260 }}>
-        {labels.map((label, index) => {
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleLabels.length}, minmax(${columnMinWidth}px, 1fr))`, gap: columnGap, alignItems: 'end', minHeight: 260 }}>
+        {visibleLabels.map((label, index) => {
           const grossValue = Number(gross.data?.[index] || 0)
           const netValue = Number(net.data?.[index] || 0)
           const grossPct = Math.max((grossValue / max) * 100, grossValue > 0 ? 6 : 2)
           const netPct = Math.max((netValue / max) * 100, netValue > 0 ? 6 : 2)
-          const showLabel = index % labelStep === 0 || index === labels.length - 1
-          const showValue = grossValue > 0 && (labels.length <= 10 || grossValue === max || index === labels.length - 1)
+          const showValue = grossValue > 0 && (visibleLabels.length <= 10 || grossValue === max || index === visibleLabels.length - 1)
 
           return (
             <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
@@ -134,7 +145,7 @@ function RevenueTrend({ labels = [], datasets = [] }) {
                 position: 'relative',
               }}>
                 <div style={{
-                  width: labels.length <= 7 ? 28 : 20,
+                  width: visibleLabels.length <= 3 ? 36 : visibleLabels.length <= 7 ? 30 : 20,
                   height: `${grossPct}%`,
                   borderRadius: '14px 14px 8px 8px',
                   background: 'linear-gradient(180deg, #60a5fa, #2563eb)',
@@ -154,7 +165,7 @@ function RevenueTrend({ labels = [], datasets = [] }) {
                 }} />
               </div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#cbd5e1', minHeight: 16, whiteSpace: 'nowrap' }}>
-                {showLabel ? compactAxisDate(label) : ''}
+                {compactAxisDate(label)}
               </div>
             </div>
           )

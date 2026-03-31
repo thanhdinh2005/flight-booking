@@ -306,9 +306,20 @@ export const dashboardAPI = {
       if (endDate)   qs.set('end_date',   endDate)
       const d         = await apiFetch('GET', `/admin/revenue-chart?${qs.toString()}`)
       const chartData = d.data ?? d
+      const labels = Array.isArray(chartData.labels) ? chartData.labels : []
+      const datasets = Array.isArray(chartData.datasets) ? chartData.datasets : []
+      const visibleIndexes = labels.reduce((acc, _label, index) => {
+        const hasValue = datasets.some(ds => Number(ds?.data?.[index] || 0) > 0)
+        if (hasValue) acc.push(index)
+        return acc
+      }, [])
+
       return {
-        labels:   chartData.labels   ?? [],
-        datasets: chartData.datasets ?? [],
+        labels: visibleIndexes.map(index => labels[index]),
+        datasets: datasets.map(ds => ({
+          ...ds,
+          data: visibleIndexes.map(index => Number(ds?.data?.[index] || 0)),
+        })),
       }
     } catch (err) {
       console.warn('[dashboardAPI.getRevenueChart] mock:', err.message)
