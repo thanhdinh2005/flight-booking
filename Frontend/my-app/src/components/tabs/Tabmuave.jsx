@@ -458,7 +458,7 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
 }
 
 // ─── Airport Search ───────────────────────────────────────────────────────────
-function AirportSearch({ label, value, onChange, placeholder, inputRef }) {
+function AirportSearch({ label, value, onChange, placeholder, inputRef, excludeValue = '' }) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
@@ -470,7 +470,10 @@ function AirportSearch({ label, value, onChange, placeholder, inputRef }) {
         setLoading(true)
         try {
           const results = await searchAirports(query)
-          setSuggestions(results.map(a => `${a.display_name} - ${a.city}`))
+          const nextSuggestions = results
+            .map(a => `${a.display_name} - ${a.city}`)
+            .filter(item => extractCode(item) !== extractCode(excludeValue))
+          setSuggestions(nextSuggestions)
         } catch {
           // ignore
         } finally {
@@ -571,6 +574,8 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   const panelRef = useRef(null)
   const fromInputRef = useRef(null)
   const toInputRef = useRef(null)
+  const depDateRef = useRef(null)
+  const retDateRef = useRef(null)
 
   useEffect(() => {
     if (!initialDestination) return
@@ -589,9 +594,19 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
     setToCity(fromCity)
   }
 
+  function focusDateField(ref) {
+    ref.current?.querySelector('button')?.focus?.()
+  }
+
   useEffect(() => {
     if (tripType !== 'round' && retDate) setRetDate('')
   }, [tripType, retDate])
+
+  useEffect(() => {
+    if (fromCity && toCity && extractCode(fromCity) === extractCode(toCity)) {
+      setToCity('')
+    }
+  }, [fromCity, toCity])
 
   function handleDepartureDateChange(value) {
     setDepDate(value)
@@ -609,10 +624,29 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   }
 
   function handleSearch() {
-    if (!toCity)  { alert('⚠️ Vui lòng chọn điểm đến!'); return }
-    if (!depDate) { alert('⚠️ Vui lòng chọn ngày đi!');  return }
+    if (!fromCity) {
+      alert('⚠️ Vui lòng chọn điểm đi!')
+      fromInputRef.current?.focus?.()
+      return
+    }
+    if (!toCity)  {
+      alert('⚠️ Vui lòng chọn điểm đến!')
+      toInputRef.current?.focus?.()
+      return
+    }
+    if (extractCode(fromCity) === extractCode(toCity)) {
+      alert('⚠️ Điểm đi và điểm đến không được trùng nhau!')
+      toInputRef.current?.focus?.()
+      return
+    }
+    if (!depDate) {
+      alert('⚠️ Vui lòng chọn ngày đi!')
+      focusDateField(depDateRef)
+      return
+    }
     if (tripType === 'round' && retDate && isBeforeIsoDate(retDate, depDate)) {
       alert('⚠️ Ngày về không được bé hơn ngày đi!')
+      focusDateField(retDateRef)
       return
     }
     onSearch({
@@ -627,7 +661,7 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
     })
   }
 
-  const isValid = toCity && depDate
+  const isValid = fromCity && toCity && depDate && extractCode(fromCity) !== extractCode(toCity)
   const airportOptions = airports.length > 0 ? airports : FALLBACK_AIRPORTS
 
   return (
@@ -644,12 +678,12 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
 
       <div className="form-row">
         {useLiveSearch ? (
-          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." inputRef={fromInputRef} />
+          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." inputRef={fromInputRef} excludeValue={toCity} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">✈️ Từ</label>
             <select ref={fromInputRef} className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
-              {airportOptions.map(a => <option key={a} value={a}>{a}</option>)}
+              {airportOptions.filter(a => a !== toCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
@@ -657,7 +691,7 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
         <button className="swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
         {useLiveSearch ? (
-          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." inputRef={toInputRef} />
+          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." inputRef={toInputRef} excludeValue={fromCity} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">🛬 Đến</label>
@@ -676,9 +710,13 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
       )}
 
       <div className="form-row">
-        <DatePicker label="📅 Ngày đi" value={depDate} onChange={handleDepartureDateChange} theme="light" className="form-field" />
+        <div ref={depDateRef}>
+          <DatePicker label="📅 Ngày đi" value={depDate} onChange={handleDepartureDateChange} theme="light" className="form-field" />
+        </div>
         {tripType === 'round' && (
-          <DatePicker label="📅 Ngày về" value={retDate} onChange={handleReturnDateChange} minDate={depDate || undefined} theme="light" className="form-field" />
+          <div ref={retDateRef}>
+            <DatePicker label="📅 Ngày về" value={retDate} onChange={handleReturnDateChange} minDate={depDate || undefined} theme="light" className="form-field" />
+          </div>
         )}
         <div className="form-field">
           <label className="form-field__label">👥 Hành khách</label>

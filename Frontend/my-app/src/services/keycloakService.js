@@ -3,6 +3,14 @@ const REALM        = import.meta.env.VITE_KEYCLOAK_REALM || 'flight-booking-real
 const CLIENT_ID    = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend-client'
 const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE || 'https://backend.test/api'
 
+const AUTH_STORAGE_KEYS = ['access_token', 'refresh_token', 'token_expiry']
+
+function clearLegacyLocalAuth() {
+  AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
+}
+
+clearLegacyLocalAuth()
+
 // ─── Token Storage ────────────────────────────────────────────────────────────
 export function saveToken(tokenData) {
   const expiry = tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : ''
@@ -12,30 +20,24 @@ export function saveToken(tokenData) {
   console.log('expires_in:', tokenData.expires_in || 'missing')
   console.log('access token preview:', tokenData.access_token ? `${tokenData.access_token.slice(0, 20)}...${tokenData.access_token.slice(-12)}` : 'missing')
   console.groupEnd()
-  ;[
-    sessionStorage,
-    localStorage,
-  ].forEach((storage) => {
-    storage.setItem('access_token', tokenData.access_token || '')
-    storage.setItem('refresh_token', tokenData.refresh_token || '')
-    if (expiry) {
-      storage.setItem('token_expiry', expiry)
-    } else {
-      storage.removeItem('token_expiry')
-    }
-  })
+  clearLegacyLocalAuth()
+  sessionStorage.setItem('access_token', tokenData.access_token || '')
+  sessionStorage.setItem('refresh_token', tokenData.refresh_token || '')
+  if (expiry) {
+    sessionStorage.setItem('token_expiry', expiry)
+  } else {
+    sessionStorage.removeItem('token_expiry')
+  }
 }
 
 export function getToken() {
   const sessionToken = sessionStorage.getItem('access_token')
-  const localToken = localStorage.getItem('access_token')
-  const token = sessionToken || localToken
   console.log('[Auth] getToken ->', {
-    source: sessionToken ? 'sessionStorage' : localToken ? 'localStorage' : 'none',
-    hasToken: !!token,
-    preview: token ? `${token.slice(0, 16)}...${token.slice(-10)}` : 'missing',
+    source: sessionToken ? 'sessionStorage' : 'none',
+    hasToken: !!sessionToken,
+    preview: sessionToken ? `${sessionToken.slice(0, 16)}...${sessionToken.slice(-10)}` : 'missing',
   })
-  return token
+  return sessionToken
 }
 
 export function getAccessToken() {
@@ -44,18 +46,14 @@ export function getAccessToken() {
 
 
 export function clearToken() {
-  ;[
-    sessionStorage,
-    localStorage,
-  ].forEach((storage) => {
-    storage.removeItem('access_token')
-    storage.removeItem('refresh_token')
-    storage.removeItem('token_expiry')
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key)
+    localStorage.removeItem(key)
   })
 }
 
 export function isTokenExpired() {
-  const expiry = sessionStorage.getItem('token_expiry') || localStorage.getItem('token_expiry')
+  const expiry = sessionStorage.getItem('token_expiry')
   if (!expiry) return false
   return Date.now() > parseInt(expiry, 10)
 }

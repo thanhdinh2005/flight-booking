@@ -13,7 +13,7 @@ import QRCode from 'https://esm.sh/qrcode@1.5.3'
 // ─── Auth & API helpers ───────────────────────────────────────────────────────
 
 function getToken() {
-  return sessionStorage.getItem('access_token') || localStorage.getItem('access_token')
+  return sessionStorage.getItem('access_token')
 }
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'

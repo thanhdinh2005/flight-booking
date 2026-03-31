@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DatePicker from '../common/DatePicker'
 
@@ -793,6 +793,9 @@ export default function TabTraCuu({ initialDestination }) {
   const [results, setResults] = useState([])
   const [sortBy, setSortBy] = useState('departure')
   const [selectedFlight, setSelectedFlight] = useState(null)
+  const fromRef = useRef(null)
+  const toRef = useRef(null)
+  const dateRef = useRef(null)
 
   useEffect(() => {
     if (initialDestination?.from) setFrom(initialDestination.from)
@@ -849,9 +852,31 @@ export default function TabTraCuu({ initialDestination }) {
     setTo(currentFrom)
   }
 
+  useEffect(() => {
+    if (from && to && extractCode(from) === extractCode(to)) {
+      setTo('')
+    }
+  }, [from, to])
+
   const runSearch = async () => {
+    if (!from) {
+      setError('Vui lòng chọn điểm đi.')
+      fromRef.current?.focus?.()
+      return
+    }
     if (!to) {
       setError('Vui lòng chọn điểm đến.')
+      toRef.current?.focus?.()
+      return
+    }
+    if (extractCode(from) === extractCode(to)) {
+      setError('Điểm đi và điểm đến không được trùng nhau.')
+      toRef.current?.focus?.()
+      return
+    }
+    if (!date) {
+      setError('Vui lòng chọn ngày bay.')
+      dateRef.current?.querySelector('button')?.focus?.()
       return
     }
 
@@ -917,12 +942,13 @@ export default function TabTraCuu({ initialDestination }) {
             <div className="form-field">
               <label className="form-field__label">✈️ Điểm đi</label>
               <select
+                ref={fromRef}
                 className="form-field__input"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
                 disabled={airportsLoading}
               >
-                {airportOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                {airportOptions.filter(item => item !== to).map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
 
@@ -931,6 +957,7 @@ export default function TabTraCuu({ initialDestination }) {
             <div className="form-field">
               <label className="form-field__label">🛬 Điểm đến</label>
               <select
+                ref={toRef}
                 className="form-field__input"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
@@ -948,13 +975,15 @@ export default function TabTraCuu({ initialDestination }) {
 
           <div className="form-row">
             <div className="form-field">
-              <DatePicker
-                label="📅 Ngày đi"
-                value={date}
-                onChange={setDate}
-                theme="light"
-                className="form-field"
-              />
+              <div ref={dateRef}>
+                <DatePicker
+                  label="📅 Ngày đi"
+                  value={date}
+                  onChange={setDate}
+                  theme="light"
+                  className="form-field"
+                />
+              </div>
             </div>
 
             <button type="button" className="btn-primary" onClick={runSearch} disabled={loading}>

@@ -399,7 +399,21 @@ export default function PassengerForm({
   const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const paymentWindowRef = useRef(null);
-const [openCalIndex, setOpenCalIndex] = useState(null);
+  const fieldRefs = useRef({});
+  const [openCalIndex, setOpenCalIndex] = useState(null);
+
+  function setFieldRef(key, node) {
+    fieldRefs.current[key] = node;
+  }
+
+  function focusField(key) {
+    const node = fieldRefs.current[key];
+    node?.focus?.();
+  }
+
+  function focusDateOfBirth(index) {
+    fieldRefs.current[`date_of_birth_${index}`]?.click?.();
+  }
   function updForm(i, field, val) {
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
@@ -523,21 +537,21 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
   }, [vnpayUrl, checkingStatus, paymentStatus?.type, vnpayReturnPayload?.success]);
 
   function getFormValidationError() {
-    if (!contact.email.trim()) return 'Vui lòng nhập email nhận vé.'
-    if (!contact.phone.trim()) return 'Vui lòng nhập số điện thoại.'
+    if (!contact.email.trim()) return { message: 'Vui lòng nhập email nhận vé.', field: 'contact_email' }
+    if (!contact.phone.trim()) return { message: 'Vui lòng nhập số điện thoại.', field: 'contact_phone' }
 
     for (let i = 0; i < forms.length; i += 1) {
       const f = forms[i]
       const index = i + 1
 
-      if (!f.last_name.trim()) return `Vui lòng nhập họ cho hành khách ${index}.`
-      if (!f.first_name.trim()) return `Vui lòng nhập tên cho hành khách ${index}.`
-      if (!f.date_of_birth) return `Vui lòng chọn ngày sinh cho hành khách ${index}.`
-      if (!f.id_number.trim()) return `Vui lòng nhập căn cước công dân cho hành khách ${index}.`
-      if (!f.gender) return `Vui lòng chọn giới tính cho hành khách ${index}.`
+      if (!f.last_name.trim()) return { message: `Vui lòng nhập họ cho hành khách ${index}.`, field: `last_name_${i}` }
+      if (!f.first_name.trim()) return { message: `Vui lòng nhập tên cho hành khách ${index}.`, field: `first_name_${i}` }
+      if (!f.date_of_birth) return { message: `Vui lòng chọn ngày sinh cho hành khách ${index}.`, field: `date_of_birth_${i}` }
+      if (!f.id_number.trim()) return { message: `Vui lòng nhập căn cước công dân cho hành khách ${index}.`, field: `id_number_${i}` }
+      if (!f.gender) return { message: `Vui lòng chọn giới tính cho hành khách ${index}.`, field: `gender_${i}` }
     }
 
-    return ''
+    return null
   }
 
   const formFieldsValid = !getFormValidationError()
@@ -546,11 +560,17 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
   async function handleCreateBooking() {
     const validationError = getFormValidationError()
     if (validationError) {
-      setApiError(validationError)
+      setApiError(validationError.message)
+      if (validationError.field.startsWith('date_of_birth_')) {
+        focusDateOfBirth(validationError.field.replace('date_of_birth_', ''))
+      } else {
+        focusField(validationError.field)
+      }
       return
     }
     if (!policyRead) {
       setApiError('Vui lòng đọc và đồng ý với chính sách hoàn vé trước khi tiếp tục.');
+      focusField('policy_button');
       return;
     }
     setSubmitting(true);
@@ -744,6 +764,7 @@ function StepBar({ active }) {
                   <div className="pf-field">
                     <label>Email nhận vé <span className="pf-req">*</span></label>
                     <input
+                      ref={node => setFieldRef('contact_email', node)}
                       type="email" placeholder="email@example.com"
                       value={contact.email}
                       onChange={e => {
@@ -755,6 +776,7 @@ function StepBar({ active }) {
                   <div className="pf-field">
                     <label>Số điện thoại <span className="pf-req">*</span></label>
                     <input
+                      ref={node => setFieldRef('contact_phone', node)}
                       type="text" placeholder="09xxxxxxxx"
                       inputMode="numeric"
                       pattern="[0-9]*"
@@ -785,7 +807,7 @@ function StepBar({ active }) {
                   <div className="pf-grid-2">
                     <div className="pf-field">
                       <label>Họ <span className="pf-req">*</span></label>
-                      <input placeholder="VD: Nguyễn" value={f.last_name}
+                      <input ref={node => setFieldRef(`last_name_${i}`, node)} placeholder="VD: Nguyễn" value={f.last_name}
                         onKeyDown={preventDigitKeyDown}
                         onPaste={e => handleTextPasteWithoutDigits(e, value => {
                           updForm(i, 'last_name', value)
@@ -798,7 +820,7 @@ function StepBar({ active }) {
                     </div>
                     <div className="pf-field">
                       <label>Tên <span className="pf-req">*</span></label>
-                      <input placeholder="VD: Văn A" value={f.first_name}
+                      <input ref={node => setFieldRef(`first_name_${i}`, node)} placeholder="VD: Văn A" value={f.first_name}
                         onKeyDown={preventDigitKeyDown}
                         onPaste={e => handleTextPasteWithoutDigits(e, value => {
                           updForm(i, 'first_name', value)
@@ -813,6 +835,7 @@ function StepBar({ active }) {
                 <label>Ngày sinh <span className="pf-req">*</span></label>
 
                 <div
+                  ref={node => setFieldRef(`date_of_birth_${i}`, node)}
                   className="form-field__input"
                   style={{
                     cursor: 'pointer',
@@ -856,6 +879,7 @@ function StepBar({ active }) {
                     <div className="pf-field">
                       <label>Căn cước công dân <span className="pf-req">*</span></label>
                       <input
+                        ref={node => setFieldRef(`id_number_${i}`, node)}
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
@@ -875,7 +899,7 @@ function StepBar({ active }) {
                     </div>
                     <div className="pf-field">
                       <label>Giới tính <span className="pf-req">*</span></label>
-                      <select value={f.gender}
+                      <select ref={node => setFieldRef(`gender_${i}`, node)} value={f.gender}
                         onChange={e => {
                           updForm(i, 'gender', e.target.value)
                           if (apiError) setApiError('')
@@ -891,6 +915,7 @@ function StepBar({ active }) {
               {/* Chính sách */}
               <div className="pf-policy-row">
                 <button className={`pf-policy-btn${policyRead ? " read" : ""}`}
+                  ref={node => setFieldRef('policy_button', node)}
                   onClick={() => {
                     if (apiError) setApiError('')
                     setShowPolicy(true)

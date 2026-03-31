@@ -45,18 +45,19 @@ function getAdminToken() {
 export function saveKeycloakToken(kcResponse) {
   if (kcResponse?.access_token) {
     sessionStorage.setItem('access_token', kcResponse.access_token)
-    localStorage.setItem('access_token', kcResponse.access_token)
     if (kcResponse.refresh_token) {
       sessionStorage.setItem('refresh_token', kcResponse.refresh_token)
-      localStorage.setItem('refresh_token', kcResponse.refresh_token)
     }
-    console.log('%c[Token] Saved to localStorage.access_token', 'color:#22c55e')
+    console.log('%c[Token] Saved to sessionStorage.access_token', 'color:#22c55e')
   }
 }
 
 /** Xóa token khi logout */
 export function clearToken() {
-  ;['access_token', 'refresh_token', 'token', 'kc_token'].forEach(k => localStorage.removeItem(k))
+  ;['access_token', 'refresh_token', 'token', 'kc_token', 'token_expiry'].forEach(k => {
+    sessionStorage.removeItem(k)
+    localStorage.removeItem(k)
+  })
   console.log('[Token] Cleared')
 }
 

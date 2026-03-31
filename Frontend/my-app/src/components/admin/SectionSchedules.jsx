@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from '../model'
 import { scheduleAPI } from './adminAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
@@ -56,6 +56,7 @@ export function SectionSchedules() {
   const [lookupError, setLookupError] = useState('')
   const [routeOptions, setRouteOptions] = useState([])
   const [aircraftOptions, setAircraftOptions] = useState([])
+  const createRefs = useRef({})
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (p = page) => {
@@ -204,6 +205,7 @@ export function SectionSchedules() {
     const e = {}
     if (!data.from_airport)  e.from_airport  = 'Bắt buộc'
     if (!data.to_airport)    e.to_airport    = 'Bắt buộc'
+    if (data.from_airport && data.to_airport && data.from_airport === data.to_airport) e.to_airport = 'Điểm đến không được trùng điểm đi'
     if (!data.route_id)      e.route_id      = 'Chưa tìm thấy route phù hợp'
     if (!data.flight_number) e.flight_number = 'Bắt buộc'
     if (!data.aircraft_id)   e.aircraft_id   = 'Bắt buộc'
@@ -215,7 +217,11 @@ export function SectionSchedules() {
   const handleCreate = async () => {
     const errors = validateCreate(createForm)
     setCreateErrors(errors)
-    if (Object.keys(errors).length > 0) return
+    if (Object.keys(errors).length > 0) {
+      const firstErrorKey = ['from_airport', 'to_airport', 'flight_number', 'aircraft_id', 'departure_time'].find(key => errors[key])
+      if (firstErrorKey) createRefs.current[firstErrorKey]?.focus?.()
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -450,12 +456,15 @@ export function SectionSchedules() {
               <label className="adm-label">Điểm đi <span style={{ color: 'var(--danger)' }}>*</span></label>
               <select
                 className={`adm-input ${createErrors.from_airport ? 'adm-input-error' : ''}`}
+                ref={node => { createRefs.current.from_airport = node }}
                 value={createForm.from_airport}
                 disabled={lookupLoading}
-                onChange={e => setCreateForm(f => ({ ...f, from_airport: e.target.value, route_id: '' }))}
+                onChange={e => setCreateForm(f => ({ ...f, from_airport: e.target.value, to_airport: f.to_airport === e.target.value ? '' : f.to_airport, route_id: '' }))}
               >
                 <option value="">{lookupLoading ? 'Đang tải...' : '— Chọn sân bay đi —'}</option>
-                {[...new Map(routeOptions.map(route => [route.from, { code: route.from, city: route.fromCity }])).values()].map(ap => (
+                {[...new Map(routeOptions.map(route => [route.from, { code: route.from, city: route.fromCity }])).values()]
+                  .filter(ap => ap.code !== createForm.to_airport)
+                  .map(ap => (
                   <option key={ap.code} value={ap.code}>{ap.code} - {ap.city}</option>
                 ))}
               </select>
@@ -465,6 +474,7 @@ export function SectionSchedules() {
               <label className="adm-label">Điểm đến <span style={{ color: 'var(--danger)' }}>*</span></label>
               <select
                 className={`adm-input ${createErrors.to_airport ? 'adm-input-error' : ''}`}
+                ref={node => { createRefs.current.to_airport = node }}
                 value={createForm.to_airport}
                 disabled={lookupLoading}
                 onChange={e => setCreateForm(f => ({ ...f, to_airport: e.target.value, route_id: '' }))}
@@ -489,6 +499,7 @@ export function SectionSchedules() {
               <label className="adm-label">Mã chuyến bay <span style={{ color: 'var(--danger)' }}>*</span></label>
               <input
                 className={`adm-input ${createErrors.flight_number ? 'adm-input-error' : ''}`}
+                ref={node => { createRefs.current.flight_number = node }}
                 type="text" placeholder="VN26"
                 value={createForm.flight_number}
                 onChange={e => setCreateForm(f => ({ ...f, flight_number: e.target.value.toUpperCase() }))}
@@ -511,6 +522,7 @@ export function SectionSchedules() {
               <label className="adm-label">Aircraft ID <span style={{ color: 'var(--danger)' }}>*</span></label>
               <select
                 className={`adm-input ${createErrors.aircraft_id ? 'adm-input-error' : ''}`}
+                ref={node => { createRefs.current.aircraft_id = node }}
                 value={createForm.aircraft_id}
                 onChange={e => setCreateForm(f => ({ ...f, aircraft_id: e.target.value }))}
                 disabled={lookupLoading}
@@ -530,6 +542,7 @@ export function SectionSchedules() {
               <label className="adm-label">Giờ đi <span style={{ color: 'var(--danger)' }}>*</span></label>
               <input
                 className={`adm-input ${createErrors.departure_time ? 'adm-input-error' : ''}`}
+                ref={node => { createRefs.current.departure_time = node }}
                 type="time"
                 value={createForm.departure_time}
                 onChange={e => setCreateForm(f => ({ ...f, departure_time: e.target.value }))}
