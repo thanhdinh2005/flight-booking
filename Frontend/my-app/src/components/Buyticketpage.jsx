@@ -1,9 +1,10 @@
 // src/pages/BuyTicketPage.jsx
 // Luồng đầy đủ: PassengerForm → AddonsService → Thanh toán VNPay
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PassengerForm from '../components/Passengerform';
 import AddonsService from '../components/checkin/AddonsService';
+import PaymentSuccessModal from '../components/PaymentSuccessModal';
 import { getToken, isTokenExpired } from '../services/keycloakService';
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
@@ -20,19 +21,144 @@ function getAuthHeaders() {
 function fmt(n) { return Number(n || 0).toLocaleString('vi-VN') + '₫'; }
 
 // ── Màn thanh toán VNPay ─────────────────────────────────────────────────────
-function PaymentStep({ booking, addonTotal = 0, onBack }) {
+function PaymentStep({ booking, addonTotal = 0, onBack, onPaymentSuccess }) {
   const [paying,   setPaying]   = useState(false);
   const [vnpayUrl, setVnpayUrl] = useState(null);
   const [apiError, setApiError] = useState('');
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState('');
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const paymentWindowRef = useRef(null);
+  const checkStartTimeRef = useRef(null);
+  const checkIntervalRef = useRef(null);
 
   const grandTotal = (booking.total_amount || 0) + addonTotal;
+
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data;
+      if (!message || message.type !== 'VNPAY_RETURN') return;
+
+      setVnpayReturnPayload(message.payload || null);
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage);
+    return () => {
+      window.removeEventListener('message', handleVnpayReturnMessage);
+      // Cleanup interval on unmount
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+    };
+  }, []);
+
+  async function checkBookingStatus() {
+    try {
+      const token = getToken();
+      if (!token || isTokenExpired()) {
+        throw new Error('TOKEN_MISSING');
+      }
+
+      console.log('[API] Checking booking status for PNR:', booking.pnr);
+      
+      const res = await fetch(`${API_BASE}/booking?pnr=${booking.pnr}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('[API] Response status:', res.status);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      console.log('[API] Response data:', json);
+      
+      if (!json.success) {
+        throw new Error(json.message || 'Không thể kiểm tra trạng thái');
+      }
+
+      const bookingData = json.data;
+      console.log('[API] Booking status:', bookingData.status);
+      return bookingData;
+    } catch (err) {
+      console.error('[API] Error:', err.message);
+      throw err;
+    }
+  }
+
+  async function handleRefreshPaymentStatus() {
+    console.log('[Payment] handleRefreshPaymentStatus called');
+    console.log('[Payment] Current booking:', booking);
+    
+    setCheckingStatus(true);
+    setApiError('');
+    setPaymentStatusMessage('');
+
+    const startTime = Date.now();
+    const maxDuration = 60000; // 1 phút = 60 giây
+
+    checkStartTimeRef.current = startTime;
+
+    const checkPaymentLoop = async () => {
+      const elapsedTime = Date.now() - startTime;
+
+      // Kiểm tra nếu quá 1 phút
+      if (elapsedTime > maxDuration) {
+        clearInterval(checkIntervalRef.current);
+        setCheckingStatus(false);
+        setApiError('❌ Thanh toán vẫn chưa hoàn tất sau 1 phút. Vui lòng tải lại trang hoặc thử lại.');
+        // Auto reload after 3 seconds
+        setTimeout(() => window.location.reload(), 3000);
+        return;
+      }
+
+      try {
+        const bookingData = await checkBookingStatus();
+
+        if (bookingData.status === 'PAID') {
+          // Thanh toán thành công
+          clearInterval(checkIntervalRef.current);
+          setCheckingStatus(false);
+          setShowSuccessModal(true);
+          return;
+        }
+
+        // Chưa thanh toán, hiển thị thời gian đã chờ
+        const secondsWaited = Math.floor(elapsedTime / 1000);
+        console.log(`[Payment] Waiting for payment... ${secondsWaited}s / 60s`);
+        setPaymentStatusMessage(`⏳ Đang chờ thanh toán... (${secondsWaited}s / 60s)`);
+      } catch (err) {
+        console.error('[Payment] Error in loop:', err);
+        // Tiếp tục kiểm tra nếu có lỗi API, không dừng luôn
+      }
+    };
+
+    // Check immediately
+    console.log('[Payment] Starting payment check loop');
+    await checkPaymentLoop();
+
+    // Set interval to check every 2 seconds
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+    }
+    checkIntervalRef.current = setInterval(checkPaymentLoop, 2000);
+  }
 
   async function handleVNPayRedirect() {
     if (!booking?.id) return;
     setPaying(true);
     setApiError('');
+    setPaymentStatusMessage('');
+    setVnpayReturnPayload(null);
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800');
+    paymentWindowRef.current = popup;
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -43,8 +169,16 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
       const url = json.data;
       if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ');
       setVnpayUrl(url);
-      setTimeout(() => window.open(url, '_blank'), 800);
+      setPaymentStatusMessage('Hoàn tất thanh toán trên cửa sổ VNPay, sau đó bấm "Cập nhật trạng thái" để kiểm tra kết quả.');
+
+      if (popup) {
+        popup.location.href = url;
+        popup.focus();
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -54,48 +188,19 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
     }
   }
 
-  async function handleRefreshPaymentStatus() {
-    if (!booking?.pnr || !booking?.contact_email) {
-      setApiError('Không đủ thông tin để tải lại tình trạng thanh toán.');
+  function handleReopenPaymentWindow() {
+    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+      paymentWindowRef.current.focus();
       return;
     }
 
-    setCheckingStatus(true);
-    setApiError('');
-    setPaymentStatusMessage('');
-
-    try {
-      const res = await fetch(`${API_BASE}/bookings/search-tickets`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pnr: booking.pnr,
-          email: booking.contact_email,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || `Lỗi ${res.status}`);
-      }
-
-      const tickets = Array.isArray(json?.data) ? json.data : [];
-      if (tickets.length > 0) {
-        setPaymentStatusMessage('Đã ghi nhận thanh toán thành công. Vé của bạn đã khả dụng.');
-      } else {
-        setPaymentStatusMessage('Chưa ghi nhận thay đổi trạng thái thanh toán. Vui lòng thử lại sau ít phút.');
-      }
-    } catch (err) {
-      setApiError(err.message || 'Chưa thể tải lại tình trạng thanh toán.');
-    } finally {
-      setCheckingStatus(false);
+    if (vnpayUrl) {
+      paymentWindowRef.current = window.open(vnpayUrl, 'vnpay-payment', 'width=1200,height=800');
     }
   }
 
   return (
+    <>
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px', fontFamily: 'sans-serif' }}>
       {/* PNR */}
       <div style={{
@@ -163,7 +268,7 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button
-              onClick={() => window.open(vnpayUrl, '_blank')}
+              onClick={handleReopenPaymentWindow}
               style={{
                 background: '#009B8D', color: '#fff', border: 'none',
                 borderRadius: 8, padding: '10px 20px', fontSize: 13,
@@ -181,7 +286,7 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
                 fontWeight: 700, cursor: checkingStatus ? 'not-allowed' : 'pointer',
               }}
             >
-              {checkingStatus ? 'Đang tải lại...' : 'Tải lại tình trạng thanh toán'}
+              {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
             </button>
           </div>
           {paymentStatusMessage && (
@@ -233,6 +338,13 @@ function PaymentStep({ booking, addonTotal = 0, onBack }) {
         🔒 Bạn sẽ được chuyển đến trang thanh toán an toàn của VNPay Sandbox.
       </p>
     </div>
+    
+    <PaymentSuccessModal 
+      isOpen={showSuccessModal}
+      onViewTickets={() => setShowSuccessModal(false)}
+      onGoBack={() => setShowSuccessModal(false)}
+    />
+    </>
   );
 }
 
@@ -247,6 +359,45 @@ export default function BuyTicketPage() {
   const [screen,     setScreen]     = useState('passenger');
   const [booking,    setBooking]    = useState(null);
   const [addonTotal, setAddonTotal] = useState(0);
+  
+  // Check user status for locked account
+  const [userStatus, setUserStatus] = useState(null);
+  const [userCheckError, setUserCheckError] = useState('');
+
+  // Check user account status on mount
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      try {
+        const token = getToken();
+        if (!token || isTokenExpired()) return;
+        
+        const res = await fetch(`${API_BASE}/me`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data) {
+          const status = json.data.status;
+          setUserStatus(status);
+          
+          // If locked, show error and redirect
+          if (status === 'INACTIVE' || status === 'LOCKED' || status === 'DISABLED') {
+            setUserCheckError('❌ Tài khoản của bạn đã bị khóa. Không thể tiếp tục đặt vé. Vui lòng liên hệ hỗ trợ.');
+            setTimeout(() => {
+              navigate('/home', { replace: true });
+            }, 2000);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user status:', err);
+      }
+    };
+    
+    fetchUserStatus();
+  }, [navigate]);
 
   if (!flight || !searchData) {
     return (
@@ -266,6 +417,32 @@ export default function BuyTicketPage() {
           }}
         >
           ← Về trang tìm kiếm
+        </button>
+      </div>
+    );
+  }
+
+  // Show error if account is locked
+  if (userCheckError) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: '60vh', gap: 16,
+        fontFamily: 'sans-serif', color: '#555', padding: '20px',
+      }}>
+        <div style={{ fontSize: 48 }}>🔒</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: '#991b1b' }}>Tài khoản bị khóa</div>
+        <div style={{ fontSize: 14, color: '#991b1b', textAlign: 'center', maxWidth: 400 }}>
+          {userCheckError}
+        </div>
+        <button
+          onClick={() => navigate('/home', { replace: true })}
+          style={{
+            marginTop: 8, padding: '10px 24px', background: '#dc2626',
+            color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14,
+          }}
+        >
+          ← Quay về trang chủ
         </button>
       </div>
     );

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import DatePicker from '../common/DatePicker'
 
 const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api'
 
@@ -595,7 +597,51 @@ function formatDuration(std, sta) {
   return `${hours}h ${mins.toString().padStart(2, '0')}m`
 }
 
+function pickNumeric(...values) {
+  for (const value of values) {
+    const num = Number(value)
+    if (Number.isFinite(num) && num > 0) return num
+  }
+  return 0
+}
+
+function resolveFlightPrices(flight) {
+  const economy = pickNumeric(
+    flight?.prices?.ECONOMY,
+    flight?.prices?.economy,
+    flight?.fare?.economy,
+    flight?.fare?.economy_price,
+    flight?.fare_class_prices?.ECONOMY,
+    flight?.seat_prices?.ECONOMY,
+    flight?.price,
+    flight?.base_price,
+    flight?.ticket_price,
+    flight?.adult_price,
+    flight?.adult_fare,
+    flight?.amount,
+    flight?.fare_amount,
+    flight?.raw?.price,
+  )
+
+  const business = pickNumeric(
+    flight?.prices?.BUSINESS,
+    flight?.prices?.business,
+    flight?.fare?.business,
+    flight?.fare?.business_price,
+    flight?.fare_class_prices?.BUSINESS,
+    flight?.seat_prices?.BUSINESS,
+    economy > 0 ? economy * 3 : 0,
+  )
+
+  return {
+    ECONOMY: economy,
+    BUSINESS: business,
+  }
+}
+
 function mapSearchFlight(groupDate, flight) {
+  const prices = resolveFlightPrices(flight)
+
   return {
     id: flight.id,
     date: groupDate || flight?.std?.slice(0, 10) || '',
@@ -614,6 +660,24 @@ function mapSearchFlight(groupDate, flight) {
     destinationCity: flight.destination?.city || '',
     aircraftModel: flight.aircraft?.model || 'Chưa rõ',
     registration: flight.aircraft?.registration || '—',
+    airline: 'Vietnam Airlines',
+    code: 'VN',
+    seat_class: 'ECONOMY',
+    class: 'Phổ thông',
+    dep: formatTime(flight.std),
+    arr: formatTime(flight.sta),
+    depCode: flight.origin?.code || '',
+    arrCode: flight.destination?.code || '',
+    price: prices.ECONOMY,
+    prices,
+    baggage: 'Theo điều kiện hạng vé',
+    checkin: 'Theo điều kiện hạng vé',
+    meal: 'Chưa bao gồm',
+    wifi: 'Tùy chuyến bay',
+    refund: 'Theo điều kiện hạng vé',
+    exchange: 'Áp dụng theo quy định',
+    logoColor: '#0f6cbd',
+    logoText: '#ffffff',
     raw: flight,
   }
 }
@@ -717,6 +781,7 @@ function DetailModal({ flight, onClose }) {
 }
 
 export default function TabTraCuu({ initialDestination }) {
+  const navigate = useNavigate()
   const [from, setFrom] = useState(initialDestination?.from || 'Nội Bài (HAN) – Hà Nội')
   const [to, setTo] = useState(initialDestination?.to || '')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -813,6 +878,24 @@ export default function TabTraCuu({ initialDestination }) {
     }
   }
 
+  const handleSelectFlight = (flight) => {
+    navigate('/buy-ticket', {
+      state: {
+        flight,
+        searchData: {
+          from: extractCode(from),
+          to: extractCode(to),
+          fromLabel: from,
+          toLabel: to,
+          date,
+          retDate: '',
+          passengers: '1',
+          tripType: 'one',
+        },
+      },
+    })
+  }
+
   return (
     <>
       <style>{css}</style>
@@ -865,13 +948,12 @@ export default function TabTraCuu({ initialDestination }) {
 
           <div className="form-row">
             <div className="form-field">
-              <label className="form-field__label">📅 Ngày đi</label>
-              <input
-                className="form-field__input"
-                type="date"
+              <DatePicker
+                label="📅 Ngày đi"
                 value={date}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
+                theme="light"
+                className="form-field"
               />
             </div>
 
@@ -988,7 +1070,7 @@ export default function TabTraCuu({ initialDestination }) {
                         <button type="button" className="ttc-btn ttc-btn--ghost" onClick={() => setSelectedFlight(flight)}>
                           Xem chi tiết
                         </button>
-                        <button type="button" className="ttc-btn ttc-btn--primary" onClick={() => setSelectedFlight(flight)}>
+                        <button type="button" className="ttc-btn ttc-btn--primary" onClick={() => handleSelectFlight(flight)}>
                           Chọn chuyến bay
                         </button>
                       </div>

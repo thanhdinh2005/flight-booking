@@ -47,7 +47,7 @@ const PAGE_META = {
   schedules: { eyebrow: 'Lịch vận hành', sub: 'Quản lý lịch bay theo từng chặng và giai đoạn khai thác' },
   bookings:  { eyebrow: 'Xử lý yêu cầu', sub: 'Duyệt và theo dõi các yêu cầu hoàn vé từ khách hàng' },
   tickets:   { eyebrow: 'Quản lý vé', sub: 'Tra cứu và xử lý các vé đã phát hành' },
-  stats:     { eyebrow: 'Báo cáo kinh doanh', sub: 'Tổng hợp doanh thu, tỷ lệ lấp đầy và biến động' },
+  stats:     { eyebrow: 'Báo cáo kinh doanh', sub: 'Tổng hợp tài chính, booking và so sánh hiệu quả tuyến bay' },
   logs:      { eyebrow: 'Nhật ký hệ thống', sub: 'Theo dõi truy vết thay đổi trong hệ thống' },
 }
 

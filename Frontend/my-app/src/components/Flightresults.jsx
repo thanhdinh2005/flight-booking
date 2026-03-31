@@ -1,8 +1,11 @@
 // FlightResults.jsx — Kết quả tìm kiếm chuyến bay
 // Khi click vào card → mở panel chọn hạng vé (Economy / Business)
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { getToken, isTokenExpired } from "../services/keycloakService";
 import '../styles/Flightresult.css';
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
 
 
 const MOCK_FLIGHTS = [
@@ -462,20 +465,64 @@ export default function FlightResults({
   // Panel chọn hạng vé
   const [classFlight, setClassFlight] = useState(null);
   
+  // Check user status
+  const [userStatus, setUserStatus] = useState(null);
+  const [statusError, setStatusError] = useState("");
 
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const isCheckin      = mode === "checkin";
   const pax            = parseInt(searchData.passengers) || 1;
 
+  // Fetch user status on mount
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      try {
+        const token = getToken();
+        if (!token || isTokenExpired()) return;
+        
+        const res = await fetch(`${API_BASE}/me`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data) {
+          setUserStatus(json.data.status);
+        }
+      } catch (err) {
+        console.error('Error fetching user status:', err);
+      }
+    };
+    
+    fetchUserStatus();
+  }, []);
+
   // Mở panel chọn hạng vé
   function openClassPanel(f, e) {
     e?.stopPropagation();
+    
+    // Check if user is locked
+    if (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') {
+      setStatusError('❌ Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.');
+      setTimeout(() => setStatusError(""), 4000);
+      return;
+    }
+    
     setClassFlight(f);
   }
 
   // Người dùng đã chọn hạng vé → build flight object → chuyển sang PassengerForm
   function handleSelectClass(f, seatClass) {
+    // Check if user is locked before proceeding
+    if (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') {
+      setStatusError('❌ Tài khoản của bạn đã bị khóa. Không thể đặt vé. Vui lòng liên hệ hỗ trợ.');
+      setTimeout(() => setStatusError(""), 5000);
+      return;
+    }
+    
     const price = f.prices?.[seatClass] ?? f.price ?? 0;
     const classCfg = SEAT_CLASSES[seatClass];
 
@@ -633,6 +680,26 @@ export default function FlightResults({
 
   return (
     <>
+      {/* Error Toast */}
+      {statusError && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '16px 24px',
+          borderRadius: 8,
+          border: '2px solid #ef4444',
+          fontWeight: 600,
+          zIndex: 9999,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {statusError}
+        </div>
+      )}
+
       {/* Seat Class Panel */}
       {classFlight && (
         <SeatClassPanel
@@ -710,9 +777,12 @@ export default function FlightResults({
               <div
                 key={f.id}
                 className="fr-card fr-card--clickable"
-                style={{ opacity: isPending ? 0.65 : 1 }}
+                style={{ 
+                  opacity: isPending ? 0.65 : 1,
+                  pointerEvents: (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') ? 'none' : 'auto',
+                }}
                 // Click vào bất kỳ vùng nào của card → mở panel chọn hạng vé
-                onClick={!isCheckin ? () => openClassPanel(f) : undefined}
+                onClick={!isCheckin && !(userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') ? () => openClassPanel(f) : undefined}
               >
                 <div className="fr-card__index">{String(i + 1).padStart(2, "0")}</div>
 
@@ -784,9 +854,16 @@ export default function FlightResults({
                     <button
                       className="fr-btn-buy"
                       type="button"
+                      disabled={userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED'}
+                      style={{
+                        opacity: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 0.5 : 1,
+                        cursor: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 'not-allowed' : 'pointer',
+                        background: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? '#cbd5e1' : '',
+                      }}
                       onClick={e => { e.stopPropagation(); openClassPanel(f); }}
+                      title={userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 'Tài khoản đã bị khóa' : ''}
                     >
-                      Chọn hạng ghế →
+                      {userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? '🔒 Bị khóa' : 'Chọn hạng ghế →'}
                     </button>
                   ) : isPending ? (
                     <button className="fr-btn-buy fr-btn-disabled" disabled>

@@ -8,13 +8,18 @@ export default function Modal({
   footer,
   overlayClassName = '',
   modalClassName = '',
+  closeOnOverlay = true,
 }) {
   const modalContent = (
     <div
       className={`adm-overlay ${overlayClassName}`.trim()}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onMouseDown={e => closeOnOverlay && e.target === e.currentTarget && onClose()}
     >
-      <div className={`adm-modal adm-fade ${modalClassName}`.trim()}>
+      <div
+        className={`adm-modal adm-fade ${modalClassName}`.trim()}
+        onMouseDown={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="adm-modal-head">
           <div className="adm-modal-heading">
             <div className="adm-modal-title">{title}</div>

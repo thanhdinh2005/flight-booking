@@ -4,6 +4,20 @@ import Modal from '../model'
 import { INIT_CUSTOMERS } from './mockData'
 import { customerAPI } from './adminAPI'
 
+// ── Helper functions for input validation ──────────────────
+function removeAccents(text) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function lettersOnly(value) {
+  const noAccents = removeAccents(value)
+  return noAccents.replace(/[^a-zA-Z\s-]/g, '').toUpperCase()
+}
+
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 export function SectionCustomers() {
   const [list, setList]           = useState(INIT_CUSTOMERS)
   const [q, setQ]                 = useState('')
@@ -11,9 +25,9 @@ export function SectionCustomers() {
   const [editModal, setEditModal] = useState(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+  const [success, setSuccess]     = useState('')
 
   const [form, setForm]             = useState({ name: '', email: '', password: '', phone: '', role: 'customer' })
-  const [editErrors, setEditErrors] = useState({})
   const [formErrors, setFormErrors] = useState({})
 
   const getCreateInitialForm = () => ({ name: '', email: '', password: '', phone: '', role: 'customer' })
@@ -26,6 +40,7 @@ export function SectionCustomers() {
       const data = await customerAPI.getAll()
       setList(data)
       setError('')
+      setSuccess('')
     } catch (err) {
       setError('Lỗi tải danh sách: ' + err.message)
     } finally {
@@ -40,6 +55,7 @@ export function SectionCustomers() {
   )
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const isActiveStatus = (status) => String(status ?? '').trim().toLowerCase() === 'active'
 
   const validateForm = (data) => {
     const errors = {}
@@ -59,18 +75,19 @@ export function SectionCustomers() {
     if (parts.length === 0) return { first_name: '', last_name: '' }
     if (parts.length === 1) return { first_name: parts[0], last_name: parts[0] }
     return {
-      first_name: parts[0],
-      last_name: parts.slice(1).join(' '),
+      first_name: parts.slice(1).join(' '),
+      last_name: parts[0],
     }
   }
 
   const toggle = async (id, currentStatus) => {
     setLoading(true)
     setError('')
+    setSuccess('')
     try {
       await customerAPI.toggleStatus(id, currentStatus)
       setList(l => l.map(c => c.id === id
-        ? { ...c, status: c.status === 'active' ? 'disabled' : 'active' }
+        ? { ...c, status: isActiveStatus(c.status) ? 'disabled' : 'active' }
         : c
       ))
     } catch (err) {
@@ -86,6 +103,7 @@ export function SectionCustomers() {
     if (Object.keys(errors).length > 0) return
     setLoading(true)
     setError('')
+    setSuccess('')
     const { first_name, last_name } = splitNameForApi(form.name)
     const payload = {
       email: form.email.trim(),
@@ -117,25 +135,25 @@ export function SectionCustomers() {
       phone: customer.phone,
       role:  customer.role ?? 'customer',
     })
-    setEditErrors({})
     setError('')
+    setSuccess('')
   }
 
   const handleSaveEdit = async () => {
     if (!editModal) return
-    const errors = validateForm({ name: editModal.name, email: editModal.email, phone: editModal.phone })
-    setEditErrors(errors)
-    if (Object.keys(errors).length > 0) return
     setLoading(true)
     setError('')
-    const payload = { name: editModal.name.trim(), email: editModal.email.trim(), phone: editModal.phone.trim(), role: editModal.role }
+    setSuccess('')
     try {
-      await customerAPI.updateProfile(editModal.id, payload)
-      setList(l => l.map(c => c.id === editModal.id ? { ...c, ...payload } : c))
+      const response = await customerAPI.updateRole(editModal.id, editModal.role)
+      setList(l => l.map(c => c.id === editModal.id ? {
+        ...c,
+        role: editModal.role,
+      } : c))
+      setSuccess(response?.message || 'Cập nhật role thành công')
       setEditModal(null)
-      setEditErrors({})
     } catch (err) {
-      setError('Cập nhật thất bại: ' + err.message)
+      setError(err.message || 'Cập nhật role thất bại')
     } finally {
       setLoading(false)
     }
@@ -169,6 +187,13 @@ export function SectionCustomers() {
         <div style={{ backgroundColor: 'var(--danger)', color: 'white', padding: '12px 16px', borderRadius: '4px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>⚠️ {error}</span>
           <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '18px' }} onClick={() => setError('')}>✕</button>
+        </div>
+      )}
+
+      {success && (
+        <div style={{ backgroundColor: 'var(--success)', color: 'white', padding: '12px 16px', borderRadius: '4px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>✓ {success}</span>
+          <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '18px' }} onClick={() => setSuccess('')}>✕</button>
         </div>
       )}
 
@@ -208,8 +233,8 @@ export function SectionCustomers() {
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => openEdit(c)} disabled={loading} title="Sửa thông tin">✏️ Sửa</button>
-                        <button className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => toggle(c.id, c.status)} disabled={loading} title={c.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}>
-                          {c.status === 'active' ? '🔒 Khóa' : '🔓 Mở'}
+                        <button className="adm-btn adm-btn-ghost adm-btn-sm" onClick={() => toggle(c.id, c.status)} disabled={loading} title={isActiveStatus(c.status) ? 'Khóa tài khoản' : 'Mở tài khoản'}>
+                          {isActiveStatus(c.status) ? '🔒 Khóa' : '🔓 Mở'}
                         </button>
                       </div>
                     </td>
@@ -239,7 +264,26 @@ export function SectionCustomers() {
               <input
                 className={`adm-input ${formErrors[k] ? 'adm-input-error' : ''}`}
                 type={t} placeholder={p} value={form[k]}
-                onChange={e => { setForm(f => ({...f,[k]:e.target.value})); if(formErrors[k]){const n={...formErrors};delete n[k];setFormErrors(n)} }}
+                onChange={e => {
+                  let value = e.target.value
+                  if (k === 'name') value = lettersOnly(value)
+                  if (k === 'phone') value = digitsOnly(value)
+                  setForm(f => ({...f,[k]:value}))
+                  if(formErrors[k]){const n={...formErrors};delete n[k];setFormErrors(n)}
+                }}
+                onKeyDown={e => {
+                  if (k === 'name') {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^[a-zA-Z-\s]$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }
+                  if (k === 'phone') {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }
+                }}
+                inputMode={k === 'phone' ? 'numeric' : undefined}
                 disabled={loading}
               />
               {formErrors[k] && <div style={{color:'var(--danger)',fontSize:'12px',marginTop:'4px'}}>{formErrors[k]}</div>}
@@ -259,24 +303,24 @@ export function SectionCustomers() {
       {editModal && (
         <Modal
           title="Chỉnh sửa tài khoản" sub={`Mã TK: ${editModal.id}`}
-          onClose={() => { setEditModal(null); setEditErrors({}) }}
+          onClose={() => { setEditModal(null) }}
           footer={
             <>
-              <button className="adm-btn adm-btn-ghost" onClick={() => { setEditModal(null); setEditErrors({}) }} disabled={loading}>Hủy</button>
+              <button className="adm-btn adm-btn-ghost" onClick={() => { setEditModal(null) }} disabled={loading}>Hủy</button>
               <button className="adm-btn adm-btn-primary" onClick={handleSaveEdit} disabled={loading}>{loading ? '⏳ Đang lưu...' : 'Lưu'}</button>
             </>
           }
         >
           {[['name','Họ tên','text'],['email','Email','email'],['phone','Điện thoại','text']].map(([k,l,t]) => (
             <div className="adm-field" key={k}>
-              <label className="adm-label">{l}{(k==='name'||k==='email')&&<span style={{color:'var(--danger)'}}>*</span>}</label>
+              <label className="adm-label">{l}</label>
               <input
-                className={`adm-input ${editErrors[k] ? 'adm-input-error' : ''}`}
+                className="adm-input"
                 type={t} value={editModal[k] ?? ''}
-                onChange={e => { setEditModal(m => ({...m,[k]:e.target.value})); if(editErrors[k]){const n={...editErrors};delete n[k];setEditErrors(n)} }}
-                disabled={loading}
+                readOnly
+                disabled
+                style={{ opacity: 0.72, cursor: 'not-allowed' }}
               />
-              {editErrors[k] && <div style={{color:'var(--danger)',fontSize:'12px',marginTop:'4px'}}>{editErrors[k]}</div>}
             </div>
           ))}
           <div className="adm-field">

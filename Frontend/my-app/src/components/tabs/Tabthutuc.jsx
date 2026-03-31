@@ -102,6 +102,22 @@ function formatDateInput(value) {
   return normalized
 }
 
+// ── Helper: Remove accents and keep only letters ────────────────────────
+function removeAccents(text) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function filterNameInput(value) {
+  // Remove accents, keep only letters and spaces, convert to uppercase
+  const noAccents = removeAccents(value)
+  return noAccents.replace(/[^a-zA-Z\s]/g, '').toUpperCase()
+}
+
+function filterNumberInput(value) {
+  // Keep only digits (0-9)
+  return value.replace(/[^0-9]/g, '')
+}
+
 function normalizeSeatMapRows(payload) {
   if (!Array.isArray(payload)) return []
 
@@ -382,7 +398,15 @@ function LookupScreen({ onSuccess }) {
             <input className="ci-input" placeholder="VD: HFD8QM" maxLength={8}
               value={pnr}
               onChange={e => { setPnr(e.target.value.toUpperCase()); setError('') }}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSubmit()
+                  return
+                }
+                if (!/^[a-zA-Z0-9]$/.test(e.key) && ![' ', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) && e.key.length === 1) {
+                  e.preventDefault()
+                }
+              }}
               disabled={loading}
               style={{ textTransform:'uppercase' }}
             />
@@ -512,7 +536,6 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                       className="tk-actions"
                       style={{ gridTemplateColumns: '1fr' }}
                     >
-                    {showRefundOnly && (
                       <button
                         className="ci-btn ci-btn--primary"
                         style={{ fontSize:13 }}
@@ -520,16 +543,6 @@ function ChooseScreen({ booking, tickets, onCheckin, onRefund, onBack }) {
                       >
                         ✈️ Check-in
                       </button>
-                    )}
-                    {!showRefundOnly && (
-                      <button
-                        className="ci-btn ci-btn--warn"
-                        style={{ fontSize:13 }}
-                        onClick={e => { e.stopPropagation(); onRefund(t) }}
-                      >
-                        ↩ Hoàn vé
-                      </button>
-                    )}
                     </div>
                   </>
                 )}
@@ -663,7 +676,13 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
               <label className="ci-label">Họ (Last name) *</label>
               <input className="ci-input" placeholder="VD: LE THI"
                 value={form.last_name}
-                onChange={e => set('last_name', e.target.value.toUpperCase())}
+                onChange={e => set('last_name', filterNameInput(e.target.value))}
+                onKeyDown={e => {
+                  // Block digits and special characters
+                  if (/[0-9!@#$%^&*()_+=\-\[\]{};:'",.<>?/\\|`~]/.test(e.key) && e.key.length === 1) {
+                    e.preventDefault()
+                  }
+                }}
                 disabled={loading}
               />
             </div>
@@ -671,7 +690,13 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
               <label className="ci-label">Tên (First name) *</label>
               <input className="ci-input" placeholder="VD: HOA"
                 value={form.first_name}
-                onChange={e => set('first_name', e.target.value.toUpperCase())}
+                onChange={e => set('first_name', filterNameInput(e.target.value))}
+                onKeyDown={e => {
+                  // Block digits and special characters
+                  if (/[0-9!@#$%^&*()_+=\-\[\]{};:'",.<>?/\\|`~]/.test(e.key) && e.key.length === 1) {
+                    e.preventDefault()
+                  }
+                }}
                 disabled={loading}
               />
             </div>
@@ -681,22 +706,27 @@ function VerifyScreen({ ticket, onSuccess, onBack }) {
             <label className="ci-label">CMND / Hộ chiếu *</label>
             <input className="ci-input" placeholder="VD: 001122334455"
               value={form.id_number}
-              onChange={e => set('id_number', e.target.value)}
+              onChange={e => set('id_number', filterNumberInput(e.target.value))}
+              onKeyDown={e => {
+                // Block letters and special characters, only allow digits and control keys
+                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) && e.key.length === 1) {
+                  e.preventDefault()
+                }
+              }}
               disabled={loading}
+              inputMode="numeric"
             />
           </div>
 
           <div className="ci-field">
             <label className="ci-label">Ngày sinh *</label>
-            <input className="ci-input" type="text" placeholder="YYYY-MM-DD"
+            <input className="ci-input" type="date"
               value={form.date_of_birth}
               onChange={e => set('date_of_birth', e.target.value)}
-              onBlur={() => {
-                if (!form.date_of_birth) return
-                set('date_of_birth', formatDateInput(form.date_of_birth))
-              }}
               disabled={loading}
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
             />
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Định dạng: YYYY-MM-DD</div>
           </div>
 
           <div className="ci-bar">

@@ -3,6 +3,15 @@ import '../styles/signup.css'
 
 const REGION_PREFIX = { VN: '+84', US: '+1', JP: '+81' }
 
+// ── Helper functions for input validation ──────────────────
+function nameOnly(value) {
+  return String(value ?? '').replace(/[^\p{L}\s-]/gu, '')
+}
+
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 export default function RegisterForm({ onNavigate, onRegister }) {
   const [step, setStep] = useState(1)
   const [info, setInfo] = useState({ email: '', phone: '', username: '', region: 'VN' })
@@ -16,7 +25,12 @@ export default function RegisterForm({ onNavigate, onRegister }) {
   /* ── Step 1 ── */
   const handleInfo = (e) => {
     const { name, value } = e.target
-    setInfo(f => ({ ...f, [name]: value }))
+    let processedValue = value
+    // Apply validation for phone field
+    if (name === 'phone') {
+      processedValue = digitsOnly(value)
+    }
+    setInfo(f => ({ ...f, [name]: processedValue }))
   }
 
   const submitStep1 = (e) => {
@@ -32,7 +46,11 @@ export default function RegisterForm({ onNavigate, onRegister }) {
   /* ── Step 2 ── */
   const handleForm = (e) => {
     const { name, value, type, checked } = e.target
-    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }))
+    let processedValue = value
+    if (name === 'firstName' || name === 'lastName') {
+      processedValue = nameOnly(value)
+    }
+    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : processedValue }))
   }
 
   const pwChecks = {
@@ -72,7 +90,6 @@ export default function RegisterForm({ onNavigate, onRegister }) {
         throw new Error(data.message || `Lỗi ${res.status}`)
       }
       setSuccess(true)
-      window.location.reload()
     } catch (err) {
       setError(err.message || 'Đăng ký thất bại, vui lòng thử lại.')
     } finally {
@@ -109,7 +126,16 @@ export default function RegisterForm({ onNavigate, onRegister }) {
           <div className="rg-success">
             <div className="rg-success-icon">✓</div>
             <h2>Đăng ký thành công!</h2>
-            <p>Đang chuyển về trang đăng nhập...</p>
+            <p>Tài khoản của bạn đã được tạo thành công. Bạn có thể quay về để đăng nhập ngay.</p>
+            <div className="rg-actions" style={{ justifyContent: 'center', marginTop: 20 }}>
+              <button
+                type="button"
+                className="rg-btn rg-btn-primary"
+                onClick={() => onRegister?.()}
+              >
+                Trở về đăng nhập
+              </button>
+            </div>
           </div>
 
         ) : step === 1 ? (
@@ -122,7 +148,13 @@ export default function RegisterForm({ onNavigate, onRegister }) {
                   <input
                     name="lastName" className="rg-input"
                     placeholder="Vd: Nguyễn"
-                    value={form.lastName} onChange={handleForm} required
+                    value={form.lastName} onChange={handleForm}
+                    onKeyDown={e => {
+                      const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ']
+                      if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                      if (!/^[\p{L}\s-]$/u.test(e.key) && e.key.length === 1) e.preventDefault()
+                    }}
+                    required
                   />
                 </div>
                 <div className="rg-field">
@@ -130,7 +162,13 @@ export default function RegisterForm({ onNavigate, onRegister }) {
                   <input
                     name="firstName" className="rg-input"
                     placeholder="Vd: Văn A"
-                    value={form.firstName} onChange={handleForm} required
+                    value={form.firstName} onChange={handleForm}
+                    onKeyDown={e => {
+                      const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ']
+                      if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                      if (!/^[\p{L}\s-]$/u.test(e.key) && e.key.length === 1) e.preventDefault()
+                    }}
+                    required
                   />
                 </div>
               </div>
@@ -148,9 +186,15 @@ export default function RegisterForm({ onNavigate, onRegister }) {
               <div className="rg-row">
                 <div className="rg-field">
                   <input
-                    name="phone" type="tel" className="rg-input"
+                    name="phone" type="tel" className="rg-input" inputMode="numeric"
                     placeholder="Vd: 0x xxx xxxx"
-                    value={info.phone} onChange={handleInfo} required
+                    value={info.phone} onChange={handleInfo}
+                    onKeyDown={e => {
+                      const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                      if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                      if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                    }}
+                    required
                   />
                 </div>
               </div>

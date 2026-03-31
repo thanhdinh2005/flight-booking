@@ -1,8 +1,9 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
 // Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getToken, isTokenExpired } from '../services/keycloakService';
+import PaymentSuccessModal from './PaymentSuccessModal';
 import '../styles/Passenger.css';
 import '../styles/Refundpolicy.css';
 
@@ -28,8 +29,8 @@ function digitsOnly(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
-function lettersOnly(value) {
-  return String(value ?? '').replace(/[0-9]/g, '');
+function nameOnly(value) {
+  return String(value ?? '').replace(/[^\p{L}\s-]/gu, '')
 }
 
 function preventNonDigitKeyDown(e) {
@@ -49,14 +50,22 @@ function handleDigitPaste(e, applyValue, maxLength = Infinity) {
 }
 
 function preventDigitKeyDown(e) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (/^\d$/.test(e.key)) e.preventDefault();
+  const allowKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ',
+  ];
+  
+  if (e.ctrlKey || e.metaKey || e.altKey || allowKeys.includes(e.key)) return;
+  // Block digits and special characters, allow only letters
+  if (!/^[\p{L}\s-]$/u.test(e.key) && e.key.length === 1) {
+    e.preventDefault();
+  }
 }
 
 function handleTextPasteWithoutDigits(e, applyValue) {
   e.preventDefault();
   const pasted = e.clipboardData?.getData('text') ?? '';
-  applyValue(lettersOnly(pasted));
+  applyValue(nameOnly(pasted));
 }
 
 function parseDate(raw) {
@@ -279,9 +288,9 @@ function MiniCalendar({ value, onChange, onClose }) {
       <div className="vnp-waiting__content">
         <div className="vnp-waiting__title">Đang chờ thanh toán...</div>
         <div className="vnp-waiting__sub">
-          Trang thanh toán VNPay đã được mở trong tab mới.
+          Trang thanh toán VNPay đã được mở trong cửa sổ mới.
           <br />
-          Trang này sẽ tự cập nhật sau khi bạn hoàn tất.
+          Sau khi hoàn tất, bấm Cập nhật trạng thái để nhận kết quả từ VNPay Sandbox.
         </div>
       </div>
 
@@ -330,7 +339,7 @@ function MiniCalendar({ value, onChange, onClose }) {
           onClick={onRefreshStatus}
           disabled={checkingStatus}
         >
-          {checkingStatus ? 'Đang tải lại...' : 'Tải lại trạng thái thanh toán'}
+          {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
         </button>
 
         <button
@@ -387,60 +396,97 @@ export default function PassengerForm({
   const [vnpayUrl, setVnpayUrl]     = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [paymentStatus, setPaymentStatus]   = useState(null);
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const paymentWindowRef = useRef(null);
 const [openCalIndex, setOpenCalIndex] = useState(null);
   function updForm(i, field, val) {
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
 
   async function refreshPaymentStatus() {
-    if (!booking?.pnr || !booking?.contact_email) {
-      setApiError('Không đủ thông tin để tải lại trạng thái thanh toán.');
-      return false;
-    }
-
     setCheckingStatus(true);
     setApiError('');
     setPaymentStatus(null);
 
     try {
-      const res = await fetch(`${API_BASE}/bookings/search-tickets`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pnr: booking.pnr,
-          email: booking.contact_email,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok && json?.success) {
-        const tickets = Array.isArray(json?.data) ? json.data : [];
-        if (tickets.length > 0) {
-          setBooking(prev => prev ? { ...prev, status: 'PAID', expires_at: null, tickets } : prev);
-          setPaymentStatus({
-            type: 'success',
-            message: 'Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
-          });
-          return true;
-        }
+      // Gọi API để kiểm tra trạng thái thanh toán
+      const token = getToken();
+      if (!token || isTokenExpired()) {
+        throw new Error('TOKEN_MISSING');
       }
 
+      console.log('[Payment] Checking booking status for PNR:', booking?.pnr);
+
+      const res = await fetch(`${API_BASE}/booking?pnr=${booking?.pnr}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('[Payment] Response status:', res.status);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      console.log('[Payment] Response data:', json);
+
+      if (!json.success) {
+        throw new Error(json.message || 'Không thể kiểm tra trạng thái');
+      }
+
+      const bookingData = json.data;
+      console.log('[Payment] Booking status:', bookingData.status);
+
+      if (bookingData.status === 'PAID') {
+        // Thanh toán thành công
+        setBooking(prev => prev ? {
+          ...prev,
+          ...bookingData,
+          status: 'PAID',
+          expires_at: null,
+        } : prev);
+        setPaymentStatus({
+          type: 'success',
+          message: '✅ Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
+        });
+        setShowSuccessModal(true);
+        setCheckingStatus(false);
+        return true;
+      }
+
+      // Chưa thanh toán
       setPaymentStatus({
         type: 'pending',
-        message: 'Chưa ghi nhận thay đổi trạng thái thanh toán. Vui lòng thử lại sau ít phút.',
+        message: '⏳ Thanh toán chưa được ghi nhận. Vui lòng đảm bảo thanh toán đã hoàn tất ở VNPay.',
       });
+      setCheckingStatus(false);
       return false;
     } catch (err) {
-      setApiError(err.message || 'Chưa thể tải lại trạng thái thanh toán.');
-      return false;
-    } finally {
+      console.error('[Payment] Error:', err);
+      setApiError(err.message === 'TOKEN_MISSING' 
+        ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+        : `❌ ${err.message || 'Lỗi khi kiểm tra trạng thái'}`
+      );
       setCheckingStatus(false);
+      return false;
     }
   }
+
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data;
+      if (!message || message.type !== 'VNPAY_RETURN') return;
+
+      setVnpayReturnPayload(message.payload || null);
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage);
+    return () => window.removeEventListener('message', handleVnpayReturnMessage);
+  }, []);
 
   useEffect(() => {
     if (!booking?.id) return;
@@ -467,14 +513,14 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
   }, [booking?.id]);
 
   useEffect(() => {
-    if (!vnpayUrl || !booking?.pnr || checkingStatus || paymentStatus?.type === 'success') return;
+    if (!vnpayUrl || checkingStatus || paymentStatus?.type === 'success' || !vnpayReturnPayload?.success) return;
 
     const timer = window.setInterval(() => {
       refreshPaymentStatus();
     }, 15000);
 
     return () => window.clearInterval(timer);
-  }, [vnpayUrl, booking?.pnr, checkingStatus, paymentStatus?.type]);
+  }, [vnpayUrl, checkingStatus, paymentStatus?.type, vnpayReturnPayload?.success]);
 
   function getFormValidationError() {
     if (!contact.email.trim()) return 'Vui lòng nhập email nhận vé.'
@@ -555,6 +601,11 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
     if (!booking?.id) return;
     setPaying(true);
     setApiError('');
+    setVnpayReturnPayload(null);
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800');
+    paymentWindowRef.current = popup;
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -569,11 +620,17 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
       setVnpayUrl(url);
       setPaymentStatus({
         type: 'pending',
-        message: 'Sau khi thanh toán xong ở tab VNPay, bấm "Tải lại trạng thái thanh toán" để cập nhật.',
+        message: 'Sau khi thanh toán xong ở cửa sổ VNPay, bấm "Cập nhật trạng thái" để cập nhật.',
       });
-      // Mở VNPay sandbox trong tab mới, trang hiện tại giữ nguyên chờ kết quả
-      setTimeout(() => { window.open(url, '_blank'); }, 800);
+
+      if (popup) {
+        popup.location.href = url;
+        popup.focus();
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -735,7 +792,7 @@ function StepBar({ active }) {
                           if (apiError) setApiError('')
                         })}
                         onChange={e => {
-                          updForm(i, 'last_name', lettersOnly(e.target.value))
+                          updForm(i, 'last_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
@@ -748,7 +805,7 @@ function StepBar({ active }) {
                           if (apiError) setApiError('')
                         })}
                         onChange={e => {
-                          updForm(i, 'first_name', lettersOnly(e.target.value))
+                          updForm(i, 'first_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
@@ -1168,6 +1225,11 @@ function StepBar({ active }) {
           }
         }
       `}</style>
+      <PaymentSuccessModal 
+        isOpen={showSuccessModal}
+        onViewTickets={() => setShowSuccessModal(false)}
+        onGoBack={() => setShowSuccessModal(false)}
+      />
     </>
   );
 }

@@ -1,9 +1,10 @@
 // src/components/Login.jsx
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   loginKeycloak,
   saveToken,
+  clearToken,
   getToken,
   isAuthenticated,
   getUserFromToken,
@@ -16,6 +17,7 @@ export default function Login({ onNavigate }) {
   const [form,    setForm]    = useState({ email: '', password: '' })
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -23,11 +25,27 @@ export default function Login({ onNavigate }) {
     const token = getToken()
     const user = token ? getUserFromToken(token) : null
     if (!user) return
+
+    if (user.roles?.includes('ADMIN')) {
+      clearToken()
+      setError('Tài khoản quản trị không đăng nhập tại đây. ')
+      return
+    }
+
     redirectByRole(user.roles || [], navigate)
   }, [navigate])
 
+  useEffect(() => {
+    const authMessage = location.state?.authMessage
+    if (!authMessage) return
+
+    setError(authMessage)
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location.pathname, location.state, navigate])
+
   const handleChange = (e) => {
     const { name, value } = e.target
+    if (error) setError('')
     setForm((f) => ({ ...f, [name]: value }))
   }
 
@@ -37,9 +55,14 @@ export default function Login({ onNavigate }) {
     setLoading(true)
     try {
       const tokenData = await loginKeycloak(form.email, form.password)
-      saveToken(tokenData)
       const user = getUserFromToken(tokenData.access_token)
 
+      if (user?.roles?.includes('ADMIN')) {
+        clearToken()
+        throw new Error('Tài khoản quản trị không đăng nhập tại đây')
+      }
+
+      saveToken(tokenData)
       redirectByRole(user?.roles || [], navigate)
     } catch (err) {
       setError(err.message)

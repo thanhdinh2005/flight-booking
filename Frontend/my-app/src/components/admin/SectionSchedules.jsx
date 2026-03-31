@@ -52,10 +52,10 @@ export function SectionSchedules() {
   const [createModal, setCreateModal] = useState(false)
   const [createForm, setCreateForm]   = useState({ from_airport: '', to_airport: '', route_id: '', flight_number: '', departure_time: '', days_of_week: [1], aircraft_id: '' })
   const [createErrors, setCreateErrors] = useState({})
-  const [airports, setAirports] = useState([])
-  const [airportsLoading, setAirportsLoading] = useState(false)
-  const [airportsError, setAirportsError] = useState('')
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError] = useState('')
   const [routeOptions, setRouteOptions] = useState([])
+  const [aircraftOptions, setAircraftOptions] = useState([])
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (p = page) => {
@@ -74,13 +74,13 @@ export function SectionSchedules() {
 
   useEffect(() => { fetchData(page) }, [page])
 
-  const fetchAirports = useCallback(async () => {
-    setAirportsLoading(true)
-    setAirportsError('')
+  const fetchRouteOptions = useCallback(async () => {
+    setLookupLoading(true)
+    setLookupError('')
     try {
       const token = getToken()
       if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập admin đã hết hạn')
-      const res = await fetch(`${API_BASE}/airports`, {
+      const res = await fetch(`${API_BASE}/admin/routes`, {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
@@ -88,55 +88,80 @@ export function SectionSchedules() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`)
-      setAirports(Array.isArray(data) ? data : (data.data ?? []))
+      const routes = Array.isArray(data) ? data : (data.data ?? [])
+      setRouteOptions(routes.map(route => ({
+        route_id: route.id,
+        from: route.origin?.code ?? '',
+        fromCity: route.origin?.city ?? '',
+        to: route.destination?.code ?? '',
+        toCity: route.destination?.city ?? '',
+      })))
     } catch (err) {
-      setAirportsError(err.message || 'Không tải được danh sách sân bay')
+      setLookupError(err.message || 'Không tải được danh sách tuyến bay')
     } finally {
-      setAirportsLoading(false)
+      setLookupLoading(false)
     }
   }, [])
 
-  const fetchRouteOptions = useCallback(async () => {
+  const fetchAircraftOptions = useCallback(async () => {
+    setLookupLoading(true)
+    setLookupError('')
     try {
-      const first = await scheduleAPI.getAll({ page: 1, per_page: 100 })
-      const pages = first?.meta?.last_page ?? 1
-      let all = first?.data ?? []
-
-      for (let p = 2; p <= pages; p += 1) {
-        const next = await scheduleAPI.getAll({ page: p, per_page: 100 })
-        all = all.concat(next?.data ?? [])
-      }
-
-      const seen = new Map()
-      all.forEach(item => {
-        const key = `${item.from}__${item.to}`
-        if (!item.routeId || !item.from || !item.to || seen.has(key)) return
-        seen.set(key, {
-          route_id: item.routeId,
-          from: item.from,
-          to: item.to,
-        })
+      const token = getToken()
+      if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập admin đã hết hạn')
+      const res = await fetch(`${API_BASE}/admin/aircraft`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       })
-      setRouteOptions(Array.from(seen.values()))
-    } catch {}
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`)
+      setAircraftOptions(Array.isArray(data) ? data : (data.data ?? []))
+    } catch (err) {
+      setLookupError(err.message || 'Không tải được danh sách máy bay')
+    } finally {
+      setLookupLoading(false)
+    }
   }, [])
 
   useEffect(() => {
     if (!createModal) return
-    if (airports.length === 0) fetchAirports()
     if (routeOptions.length === 0) fetchRouteOptions()
-  }, [createModal, airports.length, routeOptions.length, fetchAirports, fetchRouteOptions])
+    if (aircraftOptions.length === 0) fetchAircraftOptions()
+  }, [createModal, routeOptions.length, aircraftOptions.length, fetchRouteOptions, fetchAircraftOptions])
 
   useEffect(() => {
     const matchedRoute = routeOptions.find(route =>
       route.from === createForm.from_airport && route.to === createForm.to_airport
     )
 
-    setCreateForm(prev => {
+    const loadRouteDetail = async () => {
       const nextRouteId = matchedRoute?.route_id ? String(matchedRoute.route_id) : ''
-      if (prev.route_id === nextRouteId) return prev
-      return { ...prev, route_id: nextRouteId }
-    })
+      if (!nextRouteId) {
+        setCreateForm(prev => prev.route_id ? { ...prev, route_id: '' } : prev)
+        return
+      }
+
+      try {
+        const token = getToken()
+        if (!token || isTokenExpired()) throw new Error('Phiên đăng nhập admin đã hết hạn')
+        const res = await fetch(`${API_BASE}/admin/routes/${nextRouteId}`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`)
+        const routeId = data?.data?.id ? String(data.data.id) : nextRouteId
+        setCreateForm(prev => prev.route_id === routeId ? prev : { ...prev, route_id: routeId })
+      } catch (err) {
+        setLookupError(err.message || 'Không lấy được chi tiết tuyến bay')
+      }
+    }
+
+    loadRouteDetail()
   }, [createForm.from_airport, createForm.to_airport, routeOptions])
 
   const filtered = list.filter(s => {
@@ -232,7 +257,7 @@ export function SectionSchedules() {
           <button className="adm-btn adm-btn-ghost" onClick={() => fetchData(page)} disabled={loading}>🔄 Làm mới</button>
           <button
             className="adm-btn adm-btn-primary"
-            onClick={() => { setCreateModal(true); setCreateErrors({}) }}
+            onClick={() => { setCreateModal(true); setCreateErrors({}); setLookupError('') }}
             disabled={loading}
           >
             + Tạo lịch bay
@@ -426,12 +451,12 @@ export function SectionSchedules() {
               <select
                 className={`adm-input ${createErrors.from_airport ? 'adm-input-error' : ''}`}
                 value={createForm.from_airport}
-                disabled={airportsLoading}
+                disabled={lookupLoading}
                 onChange={e => setCreateForm(f => ({ ...f, from_airport: e.target.value, route_id: '' }))}
               >
-                <option value="">{airportsLoading ? 'Đang tải...' : '— Chọn sân bay đi —'}</option>
-                {airports.map(ap => (
-                  <option key={ap.id} value={ap.city}>{ap.code} - {ap.city}</option>
+                <option value="">{lookupLoading ? 'Đang tải...' : '— Chọn sân bay đi —'}</option>
+                {[...new Map(routeOptions.map(route => [route.from, { code: route.from, city: route.fromCity }])).values()].map(ap => (
+                  <option key={ap.code} value={ap.code}>{ap.code} - {ap.city}</option>
                 ))}
               </select>
               {createErrors.from_airport && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{createErrors.from_airport}</div>}
@@ -441,22 +466,22 @@ export function SectionSchedules() {
               <select
                 className={`adm-input ${createErrors.to_airport ? 'adm-input-error' : ''}`}
                 value={createForm.to_airport}
-                disabled={airportsLoading}
+                disabled={lookupLoading}
                 onChange={e => setCreateForm(f => ({ ...f, to_airport: e.target.value, route_id: '' }))}
               >
-                <option value="">{airportsLoading ? 'Đang tải...' : '— Chọn sân bay đến —'}</option>
-                {airports
-                  .filter(ap => ap.city !== createForm.from_airport)
+                <option value="">{lookupLoading ? 'Đang tải...' : '— Chọn sân bay đến —'}</option>
+                {[...new Map(routeOptions.map(route => [route.to, { code: route.to, city: route.toCity }])).values()]
+                  .filter(ap => ap.code !== createForm.from_airport)
                   .map(ap => (
-                    <option key={ap.id} value={ap.city}>{ap.code} - {ap.city}</option>
+                    <option key={ap.code} value={ap.code}>{ap.code} - {ap.city}</option>
                   ))}
               </select>
               {createErrors.to_airport && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{createErrors.to_airport}</div>}
             </div>
           </div>
-          {airportsError && (
+          {lookupError && (
             <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: -6, marginBottom: 10 }}>
-              {airportsError}
+              {lookupError}
             </div>
           )}
           <div className="adm-2col">
@@ -484,12 +509,21 @@ export function SectionSchedules() {
           <div className="adm-2col">
             <div className="adm-field">
               <label className="adm-label">Aircraft ID <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input
+              <select
                 className={`adm-input ${createErrors.aircraft_id ? 'adm-input-error' : ''}`}
-                type="number" min={1} placeholder="1"
                 value={createForm.aircraft_id}
                 onChange={e => setCreateForm(f => ({ ...f, aircraft_id: e.target.value }))}
-              />
+                disabled={lookupLoading}
+              >
+                <option value="">{lookupLoading ? 'Đang tải...' : '— Chọn máy bay —'}</option>
+                {aircraftOptions
+                  .filter(item => String(item.status ?? '').toUpperCase() === 'ACTIVE')
+                  .map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.id} - {item.model} ({item.registration_number})
+                    </option>
+                  ))}
+              </select>
               {createErrors.aircraft_id && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{createErrors.aircraft_id}</div>}
             </div>
             <div className="adm-field">
