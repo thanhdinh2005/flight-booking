@@ -355,7 +355,7 @@ export function SectionSchedules() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', padding: 16, borderTop: '1px solid var(--border)' }}>
-            <button className="adm-btn adm-btn-ghost" disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)}>← Trước</button>
+            <button className="adm-btn adm-btn-ghost" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))}>← Trước</button>
             {pageNumbers.map((p, idx) => (
               <>
                 {idx > 0 && pageNumbers[idx - 1] !== p - 1 && (
@@ -372,7 +372,7 @@ export function SectionSchedules() {
                 </button>
               </>
             ))}
-            <button className="adm-btn adm-btn-ghost" disabled={page >= totalPages || loading} onClick={() => setPage(p => p + 1)}>Sau →</button>
+            <button className="adm-btn adm-btn-ghost" disabled={page >= totalPages || loading} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Sau →</button>
           </div>
         )}
       </div>

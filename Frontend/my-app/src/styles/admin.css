@@ -226,6 +226,18 @@
 .adm-btn-danger  { background: transparent; color: var(--danger); border: 1px solid rgba(255,92,92,.3); }
 .adm-btn-danger:hover { background: rgba(255,92,92,.08); }
 .adm-btn-sm { padding: 5px 10px; font-size: 13px; border-radius: 6px; }
+.adm-btn:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+.adm-btn-ghost:disabled {
+  color: rgba(148, 163, 184, 0.55);
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.04);
+}
 
 /* ───────────── BADGE ───────────── */
 .adm-badge {
