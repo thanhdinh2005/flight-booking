@@ -94,6 +94,9 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
   const [searchError, setSearchError]       = useState('');
   const dropRef   = useRef(null);
   const searchRef = useRef(null);
+  const originRef = useRef(null);
+  const destinationRef = useRef(null);
+  const departureDateRef = useRef(null);
 
   const isLoggedIn = !!currentUser;
 
@@ -154,10 +157,14 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
 
     if (!origin || !destination || !departure_date) {
       setSearchError('Vui lòng chọn đầy đủ điểm đi, điểm đến và ngày đi.');
+      if (!origin) originRef.current?.focus?.();
+      else if (!destination) destinationRef.current?.focus?.();
+      else departureDateRef.current?.querySelector('button')?.focus?.();
       return;
     }
     if (origin === destination) {
       setSearchError('Điểm đi và điểm đến không được trùng nhau.');
+      destinationRef.current?.focus?.();
       return;
     }
     if (return_date && return_date < departure_date) {
@@ -208,7 +215,12 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
 
   function handleAdvancedChange(fieldId, value) {
     setSearchError('');
-    setAdvancedValues(prev => ({ ...prev, [fieldId]: value }));
+    setAdvancedValues(prev => {
+      const next = { ...prev, [fieldId]: value };
+      if (fieldId === 'origin' && next.destination === value) next.destination = '';
+      if (fieldId === 'destination' && next.origin === value) next.origin = '';
+      return next;
+    });
   }
 
   function handleLogout() {
@@ -292,6 +304,7 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                       <label className="field-label">{field.label}</label>
                       {field.kind === 'airport' ? (
                         <select
+                          ref={field.id === 'origin' ? originRef : destinationRef}
                           className="field-input"
                           value={advancedValues[field.id]}
                           onChange={e => handleAdvancedChange(field.id, e.target.value)}
@@ -305,19 +318,21 @@ export default function Topbar({ currentUser, onLogout, onMenuToggle }) {
                         </select>
                       ) : field.kind === 'date' ? (
                         <div className="topbar-date-field">
-                          <DatePicker
-                            value={advancedValues[field.id]}
-                            placeholder={field.id === 'departure_date' ? 'Chọn ngày đi' : 'Chọn ngày về'}
-                            minDate={field.id === 'return_date' ? advancedValues.departure_date : undefined}
-                            onChange={value => {
-                              handleAdvancedChange(field.id, value);
-                              if (field.id === 'departure_date' && advancedValues.return_date && advancedValues.return_date < value) {
-                                handleAdvancedChange('return_date', '');
-                              }
-                            }}
-                            theme="light"
-                            triggerClassName="field-input topbar-date-trigger"
-                          />
+                          <div ref={field.id === 'departure_date' ? departureDateRef : undefined}>
+                            <DatePicker
+                              value={advancedValues[field.id]}
+                              placeholder={field.id === 'departure_date' ? 'Chọn ngày đi' : 'Chọn ngày về'}
+                              minDate={field.id === 'return_date' ? advancedValues.departure_date : undefined}
+                              onChange={value => {
+                                handleAdvancedChange(field.id, value);
+                                if (field.id === 'departure_date' && advancedValues.return_date && advancedValues.return_date < value) {
+                                  handleAdvancedChange('return_date', '');
+                                }
+                              }}
+                              theme="light"
+                              triggerClassName="field-input topbar-date-trigger"
+                            />
+                          </div>
                         </div>
                       ) : (
                         <input

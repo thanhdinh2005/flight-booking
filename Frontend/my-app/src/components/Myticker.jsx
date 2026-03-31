@@ -45,13 +45,13 @@ function formatDisplayTime(value) {
 function getToken() {
   const RAW = ['access_token', 'token', 'kc_token', 'auth_token']
   for (const k of RAW) {
-    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    const v = sessionStorage.getItem(k)
     if (v && v.startsWith('ey')) return v
   }
   try {
     const JSON_KEYS = ['kc_auth', 'keycloak', 'auth', 'user', 'session']
     for (const k of JSON_KEYS) {
-      const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+      const raw = sessionStorage.getItem(k)
       if (!raw) continue
       const p = JSON.parse(raw)
       const t = p?.access_token ?? p?.token ?? null
@@ -152,7 +152,7 @@ function mapTicket(b) {
 
 const STATUS_CONFIG = {
   active:         { label: 'Hoạt động',        color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: '✓' },
-  pending:        { label: 'Chờ xác nhận',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+  pending:        { label: 'Chưa thanh toán',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
   paid:           { label: 'Đã thanh toán',    color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '💳' },
   cancelled:      { label: 'Đã hủy',            color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✗' },
   refunded:       { label: 'Đã hoàn tiền',     color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: '↩' },
@@ -167,6 +167,7 @@ const STATUS_CONFIG = {
 const FILTER_TABS = [
   { id: 'all', label: 'Tất cả' },
   { id: 'active', label: 'Hoạt động' },
+  { id: 'pending', label: 'Chưa thanh toán' },
   { id: 'checked_in', label: 'Đã checkin' },
   { id: 'pending_refund', label: 'Chờ hoàn' },
   { id: 'refunded', label: 'Đã hoàn' },
@@ -235,11 +236,11 @@ export default function MyTickets() {
   // ── Filter ──────────────────────────────────────────────────────────
   const normalizeStatus = (s) => {
     const lower = String(s).toLowerCase()
+    if (lower === 'pending') return 'pending'
     if (lower === 'approved' || lower === 'active') return 'active'
     if (lower === 'checked_in') return 'checked_in'
     if (lower.includes('pending') || lower.includes('wait') || lower.includes('cancel_pending')) return 'pending_refund'
     if (lower.includes('refund') || lower === 'completed' || lower === 'used') return 'refunded'
-    if (lower === 'pending') return 'pending'
     return lower
   }
 

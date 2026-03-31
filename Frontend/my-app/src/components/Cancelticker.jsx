@@ -11,7 +11,7 @@ import '../styles/Searchform.css'
 function getToken() {
   const RAW = ['access_token', 'token', 'kc_token', 'auth_token']
   for (const k of RAW) {
-    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    const v = sessionStorage.getItem(k)
     if (v && v.startsWith('ey')) return v
   }
   return null

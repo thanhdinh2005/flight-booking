@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Badge from '../badge'
 import Modal from '../model'
 import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
@@ -91,12 +91,12 @@ export function SectionFlights() {
   const [perPage]         = useState(10)
 
   // Generate form
-  const [gen, setGen] = useState({ from: '', to: '', date: '2026-03-20', count: 2 })
-
-  // Airport list
-  const [airports, setAirports]           = useState([])
-  const [airportsLoading, setAirportsLoading] = useState(false)
-  const [airportsError, setAirportsError]     = useState('')
+  const [gen, setGen] = useState({ from: '', to: '', route_id: '', aircraft_id: '', date: '2026-03-20', time: '10:00' })
+  const [routeOptions, setRouteOptions]   = useState([])
+  const [aircraftOptions, setAircraftOptions] = useState([])
+  const [modalLoading, setModalLoading]   = useState(false)
+  const [modalError, setModalError]       = useState('')
+  const genRefs = useRef({})
 
   // ── Fetch với filter ───────────────────────────────────────────────────
   const fetchFlights = useCallback(async (p = page) => {
@@ -160,92 +160,116 @@ export function SectionFlights() {
     )
   })
 
-  // ── Airports ──────────────────────────────────────────────────────────
-  const fetchAirports = async () => {
-    setAirportsLoading(true)
-    setAirportsError('')
+  // ── Modal resources ───────────────────────────────────────────────────
+  const fetchModalResources = useCallback(async () => {
+    setModalLoading(true)
+    setModalError('')
     try {
       const token = getToken()
       if (!token || isTokenExpired()) {
         throw new Error('Phiên đăng nhập admin đã hết hạn')
       }
-      const res = await fetch(`${API_BASE}/airports`, {
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      setAirports(Array.isArray(data) ? data : (data.data ?? []))
+      const [routeRes, aircraftRes] = await Promise.all([
+        fetch(`${API_BASE}/admin/routes`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        fetch(`${API_BASE}/admin/aircraft`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ])
+
+      const routeData = await routeRes.json().catch(() => ({}))
+      const aircraftData = await aircraftRes.json().catch(() => ({}))
+
+      if (!routeRes.ok) throw new Error(routeData?.message || `HTTP ${routeRes.status}`)
+      if (!aircraftRes.ok) throw new Error(aircraftData?.message || `HTTP ${aircraftRes.status}`)
+
+      const routes = Array.isArray(routeData) ? routeData : (routeData.data ?? [])
+      const aircraft = Array.isArray(aircraftData) ? aircraftData : (aircraftData.data ?? [])
+
+      setRouteOptions(routes.map(route => ({
+        id: String(route.id ?? ''),
+        from: route.origin?.code ?? '',
+        fromCity: route.origin?.city ?? route.origin?.name ?? '',
+        to: route.destination?.code ?? '',
+        toCity: route.destination?.city ?? route.destination?.name ?? '',
+      })).filter(route => route.id && route.from && route.to))
+      setAircraftOptions(aircraft)
     } catch (err) {
-      setAirportsError(err.message || 'Không tải được danh sách sân bay')
+      setModalError(err.message || 'Không tải được dữ liệu tạo chuyến bay')
     } finally {
-      setAirportsLoading(false)
+      setModalLoading(false)
     }
+  }, [])
+
+  const openGenerateModal = async () => {
+    if (routeOptions.length === 0 || aircraftOptions.length === 0) {
+      await fetchModalResources()
+    }
+    const activeAircraft = aircraftOptions.find(item => String(item.status ?? '').toUpperCase() === 'ACTIVE') ?? aircraftOptions[0]
+    setGen(prev => ({
+      ...prev,
+      aircraft_id: prev.aircraft_id || String(activeAircraft?.id ?? ''),
+    }))
+    setModal(true)
   }
 
-  useEffect(() => { if (modal && airports.length === 0) fetchAirports() }, [modal])
-
-  const AirportSelect = ({ field, label }) => {
-    if (airportsLoading) return (
-      <div className="adm-field">
-        <label className="adm-label">{label}</label>
-        <input className="adm-input" value={gen[field]} disabled placeholder="Đang tải..." />
-      </div>
-    )
-    if (airportsError || airports.length === 0) return (
-      <div className="adm-field">
-        <label className="adm-label">{label}</label>
-        <input
-          className="adm-input"
-          value={gen[field]}
-          maxLength={3}
-          onChange={e => setGen(g => ({ ...g, [field]: e.target.value.toUpperCase() }))}
-          placeholder={field === 'from' ? 'HAN' : 'SGN'}
-        />
-        {airportsError && <span style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, display: 'block' }}>{airportsError} — nhập mã thủ công</span>}
-      </div>
-    )
-    return (
-      <div className="adm-field">
-        <label className="adm-label">{label}</label>
-        <select
-          className="adm-input"
-          value={gen[field]}
-          onChange={e => setGen(g => ({ ...g, [field]: e.target.value }))}
-          onMouseDown={e => e.stopPropagation()}
-          onClick={e => e.stopPropagation()}
-          onFocus={e => e.stopPropagation()}
-          style={{ cursor: 'pointer' }}
-        >
-          <option value="">— Chọn sân bay —</option>
-          {airports.map(ap => {
-            const code = ap.iata_code ?? ap.code ?? ap.id ?? ''
-            const name = ap.name ?? ap.city ?? code
-            const otherField = field === 'from' ? 'to' : 'from'
-            if (!code || code === gen[otherField]) return null
-            return <option key={code} value={code}>{code} – {name}</option>
-          })}
-        </select>
-      </div>
-    )
-  }
+  useEffect(() => {
+    const matchedRoute = routeOptions.find(route => route.from === gen.from && route.to === gen.to)
+    const nextRouteId = matchedRoute?.id ?? ''
+    setGen(prev => prev.route_id === nextRouteId ? prev : { ...prev, route_id: nextRouteId })
+  }, [gen.from, gen.to, routeOptions])
 
   // ── Generate ──────────────────────────────────────────────────────────
   const generate = async () => {
     setLoading(true)
     setError('')
     try {
-      const result = await flightAPI.generate({
-        from: gen.from, to: gen.to, date: gen.date,
-        count: +gen.count,
+      if (!gen.from) {
+        genRefs.current.from?.focus?.()
+        throw new Error('Vui lòng chọn điểm đi')
+      }
+      if (!gen.to) {
+        genRefs.current.to?.focus?.()
+        throw new Error('Vui lòng chọn điểm đến')
+      }
+      if (gen.from === gen.to) {
+        genRefs.current.to?.focus?.()
+        throw new Error('Điểm đi và điểm đến không được trùng nhau')
+      }
+      if (!gen.route_id) throw new Error('Không tìm thấy tuyến bay phù hợp')
+      if (!gen.aircraft_id) {
+        genRefs.current.aircraft_id?.focus?.()
+        throw new Error('Vui lòng chọn Aircraft ID')
+      }
+      if (!gen.date) {
+        genRefs.current.date?.querySelector('button')?.focus?.()
+        throw new Error('Vui lòng chọn ngày bay')
+      }
+      if (!gen.time) {
+        genRefs.current.time?.focus?.()
+        throw new Error('Vui lòng chọn giờ bay')
+      }
+
+      await flightAPI.create({
+        route_id: Number(gen.route_id),
+        aircraft_id: Number(gen.aircraft_id),
+        flight_number: `VN${Math.floor(100 + Math.random() * 900)}`,
+        departure_date: gen.date,
+        departure_time: gen.time,
       })
-      const newPage = 1 // về trang 1 sau khi tạo
+      const newPage = 1 
       setPage(newPage)
       setStatusFilter('ALL')
       setFromDate('')
       setToDate('')
+      setGen(prev => ({ ...prev, aircraft_id: prev.aircraft_id, time: '10:00' }))
       await fetchFlights(newPage)
     } catch (err) {
       setError('Lỗi tạo chuyến bay: ' + err.message)
@@ -269,13 +293,15 @@ export function SectionFlights() {
 
       {/* Header */}
       <div className="adm-sec-header">
-        <div>
-          <div className="adm-sec-title">Quản lý chuyến bay</div>
-          <div className="adm-sec-sub">{total} chuyến · Trang {page}/{totalPages}</div>
-        </div>
+          <div>
+            <div className="adm-sec-title">Quản lý chuyến bay</div>
+            <div className="adm-sec-sub">{total} chuyến · Trang {page}/{totalPages}</div>
+          </div>
         <div className="adm-row" style={{ gap: 8 }}>
           <button className="adm-btn adm-btn-ghost" onClick={() => fetchFlights(page)} disabled={loading}>🔄 Làm mới</button>
-          <button className="adm-btn adm-btn-ghost" onClick={() => setModal(true)} disabled={loading}>⚡ Sinh tự động</button>
+          <button className="adm-btn adm-btn-ghost" onClick={openGenerateModal} disabled={loading || modalLoading}>
+            {modalLoading ? '⏳ Đang chuẩn bị...' : '✈ Tạo chuyến bay'}
+          </button>
         </div>
       </div>
 
@@ -412,28 +438,105 @@ export function SectionFlights() {
 
       {/* Generate modal */}
       {modal && (
-        <Modal title="Sinh chuyến bay tự động" sub="Tạo nhiều chuyến theo lịch" onClose={() => setModal(false)} closeOnOverlay={false}
+        <Modal title="Tạo chuyến bay" sub="Chọn tuyến bay, máy bay, ngày và giờ khởi hành" onClose={() => setModal(false)} closeOnOverlay={false}
           footer={
             <>
               <button className="adm-btn adm-btn-ghost" onClick={() => setModal(false)} disabled={loading}>Hủy</button>
-              <button className="adm-btn adm-btn-primary" onClick={generate} disabled={loading || !gen.from || !gen.to}>
+              <button className="adm-btn adm-btn-primary" onClick={generate} disabled={loading || modalLoading || !gen.from || !gen.to || !gen.route_id || !gen.aircraft_id || !gen.time}>
                 {loading ? '⏳ Đang tạo...' : 'Tạo chuyến bay'}
               </button>
             </>
           }>
+          {modalError && (
+            <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 12 }}>
+              {modalError}
+            </div>
+          )}
           <div className="adm-2col">
-            <AirportSelect field="from" label="Điểm đi" />
-            <AirportSelect field="to" label="Điểm đến" />
-          </div>
-          <div className="adm-field">
-            <label className="adm-label">Ngày bay</label>
-            <DatePicker value={gen.date} onChange={value => setGen(g => ({ ...g, date: value }))} placeholder="Chọn ngày bay" theme="admin" />
+            <div className="adm-field">
+              <label className="adm-label">Điểm đi</label>
+              <select
+                className="adm-input"
+                ref={node => { genRefs.current.from = node }}
+                value={gen.from}
+                disabled={modalLoading}
+                onChange={e => setGen(g => ({ ...g, from: e.target.value, to: g.to === e.target.value ? '' : g.to }))}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">{modalLoading ? 'Đang tải...' : '— Chọn sân bay đi —'}</option>
+                {[...new Map(routeOptions.map(route => [route.from, { code: route.from, city: route.fromCity }])).values()]
+                  .filter(ap => ap.code !== gen.to)
+                  .map(ap => (
+                  <option key={ap.code} value={ap.code}>{ap.code} - {ap.city}</option>
+                ))}
+              </select>
+            </div>
+            <div className="adm-field">
+              <label className="adm-label">Điểm đến</label>
+              <select
+                className="adm-input"
+                ref={node => { genRefs.current.to = node }}
+                value={gen.to}
+                disabled={modalLoading}
+                onChange={e => setGen(g => ({ ...g, to: e.target.value }))}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">{modalLoading ? 'Đang tải...' : '— Chọn sân bay đến —'}</option>
+                {[...new Map(routeOptions.map(route => [route.to, { code: route.to, city: route.toCity }])).values()]
+                  .filter(ap => ap.code !== gen.from)
+                  .map(ap => (
+                    <option key={ap.code} value={ap.code}>{ap.code} - {ap.city}</option>
+                  ))}
+              </select>
+            </div>
           </div>
           <div className="adm-2col">
             <div className="adm-field">
-              <label className="adm-label">Số chuyến (1–4)</label>
-              <input className="adm-input" type="number" min={1} max={4} value={gen.count}
-                onChange={e => setGen(g => ({ ...g, count: e.target.value }))} />
+              <label className="adm-label">Aircraft ID</label>
+              <select
+                className="adm-input"
+                ref={node => { genRefs.current.aircraft_id = node }}
+                value={gen.aircraft_id}
+                disabled={modalLoading}
+                onChange={e => setGen(g => ({ ...g, aircraft_id: e.target.value }))}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">{modalLoading ? 'Đang tải...' : '— Chọn máy bay —'}</option>
+                {aircraftOptions
+                  .filter(item => String(item.status ?? '').toUpperCase() === 'ACTIVE')
+                  .map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.id} - {item.model} ({item.registration_number})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="adm-field">
+              <label className="adm-label">Ngày bay</label>
+              <div ref={node => { genRefs.current.date = node }}>
+                <DatePicker value={gen.date} onChange={value => setGen(g => ({ ...g, date: value }))} placeholder="Chọn ngày bay" theme="admin" />
+              </div>
+            </div>
+          </div>
+          <div className="adm-2col">
+            <div className="adm-field">
+              <label className="adm-label">Giờ bay</label>
+              <input
+                className="adm-input"
+                ref={node => { genRefs.current.time = node }}
+                type="time"
+                value={gen.time}
+                onChange={e => setGen(g => ({ ...g, time: e.target.value }))}
+              />
+            </div>
+            <div className="adm-field">
+              <label className="adm-label">Route ID</label>
+              <input
+                className="adm-input"
+                value={gen.route_id}
+                disabled
+                placeholder="Tự động xác định"
+              />
             </div>
           </div>
         </Modal>
