@@ -33,6 +33,16 @@ function nameOnly(value) {
   return String(value ?? '').replace(/[^\p{L}\s-]/gu, '')
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
+}
+
+function hasVietnameseAccent(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return false
+  return raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '') !== raw
+}
+
 function preventNonDigitKeyDown(e) {
   const allowKeys = [
     'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
@@ -538,6 +548,7 @@ export default function PassengerForm({
 
   function getFormValidationError() {
     if (!contact.email.trim()) return { message: 'Vui lòng nhập email nhận vé.', field: 'contact_email' }
+    if (!isValidEmail(contact.email)) return { message: 'Email nhận vé không đúng định dạng.', field: 'contact_email' }
     if (!contact.phone.trim()) return { message: 'Vui lòng nhập số điện thoại.', field: 'contact_phone' }
 
     for (let i = 0; i < forms.length; i += 1) {
@@ -545,7 +556,9 @@ export default function PassengerForm({
       const index = i + 1
 
       if (!f.last_name.trim()) return { message: `Vui lòng nhập họ cho hành khách ${index}.`, field: `last_name_${i}` }
+      if (hasVietnameseAccent(f.last_name)) return { message: `Họ của hành khách ${index} không được có dấu.`, field: `last_name_${i}` }
       if (!f.first_name.trim()) return { message: `Vui lòng nhập tên cho hành khách ${index}.`, field: `first_name_${i}` }
+      if (hasVietnameseAccent(f.first_name)) return { message: `Tên của hành khách ${index} không được có dấu.`, field: `first_name_${i}` }
       if (!f.date_of_birth) return { message: `Vui lòng chọn ngày sinh cho hành khách ${index}.`, field: `date_of_birth_${i}` }
       if (!f.id_number.trim()) return { message: `Vui lòng nhập căn cước công dân cho hành khách ${index}.`, field: `id_number_${i}` }
       if (!f.gender) return { message: `Vui lòng chọn giới tính cho hành khách ${index}.`, field: `gender_${i}` }
