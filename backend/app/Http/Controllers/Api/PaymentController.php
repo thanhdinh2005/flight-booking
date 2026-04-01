@@ -35,6 +35,11 @@ class PaymentController extends Controller
                         $request->vnp_TransactionNo,
                         (float) ($request->vnp_Amount / 100)
                     );
+
+                    $booking->load([
+                        'tickets.passenger',
+                        'tickets.flight_instance.flightSchedule'
+                    ]);
                     
                     // Trả về View Thành Công kèm theo dữ liệu booking
                     return view('payment.success', compact('booking'));

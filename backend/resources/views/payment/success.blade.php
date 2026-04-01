@@ -28,7 +28,7 @@
                     ✈️ Hành khách: {{ $ticket->passenger->last_name }} {{ $ticket->passenger->first_name }}
                 </p>
                 <p class="text-sm text-gray-600">
-                    Chuyến bay: {{ $ticket->flight_instance->flight_schedule->flight_number }} 
+                    Chuyến bay: {{ $ticket->flight_instance->flightSchedule->flight_number }} 
                     | Khởi hành: {{ \Carbon\Carbon::parse($ticket->flight_instance->std)->format('d/m/Y H:i') }}
                 </p>
             </div>
