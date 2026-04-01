@@ -1,33 +1,37 @@
 <?php
 
-namespace App\Http\Controllers\api;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Http\Response\ApiResponse;
-use App\Http\Requests\SearchFlightRequest; // Lớp kiểm tra dữ liệu đầu vào
-use App\Application\UseCases\SearchFlightUseCase; // Lớp xử lý logic
-use App\Http\Response\SearchFlightResponse; // Lớp định dạng dữ liệu trả về
+use App\Http\Requests\SearchFlightRequest;
+use App\Application\UseCases\SearchFlightUseCase;
 
 class FlightController extends Controller
 {
     /**
-     * Tiếp nhận yêu cầu tìm kiếm từ khách hàng
+     * Tiếp nhận yêu cầu tìm kiếm từ khách hàng (5 ngày liền kề + Phân trang)
      */
     public function search(SearchFlightRequest $request, SearchFlightUseCase $useCase)
     {
-        // 1. Lấy dữ liệu đã qua kiểm duyệt (origin, destination, date...)
-        $filters = $request->validated();
+        try {
+            // 1. Lấy dữ liệu validated (origin, destination, departure_date, return_date, passengers, page, return_page)
+            $filters = $request->validated();
 
-        // 2. Chuyền "đơn hàng" cho UseCase để đi tìm trong Database
-        $results = $useCase->execute($filters);
+            // 2. Thực hiện logic tìm kiếm
+            $results = $useCase->execute($filters);
 
-        // 3. Đưa kết quả tìm được vào lớp Response để đóng gói JSON gửi về FE
-        return ApiResponse::success(
-            $results->toArray(),
-            'success',
-            201
-        );
-        
+            // 3. Trả về kết quả cho Frontend
+            // Lưu ý: $results lúc này là mảng chứa các đối tượng Paginator
+            return ApiResponse::success(
+                $results, 
+                'Tìm kiếm chuyến bay thành công.', 
+                200 // Dùng 200 cho các thao tác truy vấn thành công
+            );
+            
+        } catch (\Exception $e) {
+            // Trường hợp có lỗi nghiệp vụ (như không tìm thấy chặng bay)
+            return ApiResponse::error($e->getMessage(), 400);
+        }
     }
 }
