@@ -536,7 +536,7 @@ export function SectionFlights() {
                 value={gen.route_id}
                 disabled
                 placeholder="Tự động xác định"
-              />
+                />
             </div>
           </div>
         </Modal>
