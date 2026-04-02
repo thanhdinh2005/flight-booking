@@ -74,8 +74,14 @@ class BookingSeeder extends Seeder
                 $confirmPaymentUseCase->execute(
                     $booking->id,
                     'VNPAY',
+                    'MOCK_REF_' . Str::random(10), // gateway_reference
+                    $booking->total_amount,
                     $mockTransactionId,
-                    $booking->total_amount
+                    [
+                        'vnp_TxnRef' => 'MOCK_REF_' . Str::random(10),
+                        'vnp_PayDate' => now()->format('YmdHis'),
+                        'vnp_BankCode' => 'MOCKBANK',
+                    ]
                 );        
             } catch (\Exception $e) {
                 // Nếu chuyến bay được random ngẫu nhiên bị hết ghế, báo lỗi và đi tiếp vòng lặp sau
