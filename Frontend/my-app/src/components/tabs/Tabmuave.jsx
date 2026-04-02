@@ -6,7 +6,7 @@ import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
 import PaymentSuccessModal from '../PaymentSuccessModal'
 import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
-import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
+import { searchFlights, searchAirports, filterSearchSection, normalizeSearchSection } from '../../services/flightAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
 import '../../styles/SearchPanel.css'
 
@@ -903,14 +903,14 @@ export default function TabMuaVe({ onAction, initialDestination }) {
         return_date:    data.retDate || undefined,
         adults:         parseInt(data.passengers) || 1,
       })
+      // Handle new API response format with outbound and return objects
       const formattedResults = {
-        outbound: result.data?.outbound?.flatMap(day =>
-          day.flights.map(f => formatFlight(f))
-        ) || [],
-        return: result.data?.return?.flatMap(day =>
-          day.flights.map(f => formatFlight(f))
-        ) || [],
+        outbound: normalizeSearchSection(result.data?.outbound),
+        return: result.data?.return ? normalizeSearchSection(result.data.return) : normalizeSearchSection(null),
       }
+      console.log('[DEBUG Tabmuave] Raw API data:', result.data);
+      console.log('[DEBUG Tabmuave] Formatted OUTBOUND:', formattedResults.outbound);
+      console.log('[DEBUG Tabmuave] Formatted RETURN:', formattedResults.return);
       setApiResults(formattedResults)
       setScreen('results')
     } catch (err) {
@@ -922,14 +922,20 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   }
 
   const getFilteredFlights = () => {
-    if (!apiResults) return { outbound: [], return: [] }
+    if (!apiResults) {
+      return {
+        outbound: normalizeSearchSection(null),
+        return: normalizeSearchSection(null),
+      }
+    }
+
     const filterConfig = {
       ...filters,
       depTimeRange: filters.timeRange ? filters.timeRange.split('-').map(Number) : undefined,
     }
     return {
-      outbound: sortFlights(filterFlights(apiResults.outbound, filterConfig), sortBy, sortOrder),
-      return:   sortFlights(filterFlights(apiResults.return,   filterConfig), sortBy, sortOrder),
+      outbound: filterSearchSection(apiResults.outbound, filterConfig, sortBy, sortOrder),
+      return:   filterSearchSection(apiResults.return, filterConfig, sortBy, sortOrder),
     }
   }
 
@@ -1011,7 +1017,7 @@ export default function TabMuaVe({ onAction, initialDestination }) {
           onSortChange={(by, order) => { setSortBy(by); setSortOrder(order) }}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          resultCount={activeFlights.length}
+          resultCount={activeFlights.allFlights.length}
         />
         {error && (
           <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 16 }}>
@@ -1026,7 +1032,10 @@ export default function TabMuaVe({ onAction, initialDestination }) {
         */}
         <FlightResults
           searchData={activeSearchData}
-          flights={{ outbound: activeFlights }}
+          flights={{
+            outbound: activeFlights,
+            return: !choosingReturn && searchData?.tripType === 'round' ? filteredFlights.return : null,
+          }}
           isLoading={isLoading}
           onSelect={handleSelectFlight}
           navigateOnSelect={false}

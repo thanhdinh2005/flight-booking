@@ -77,6 +77,8 @@
   gap: 16px; flex-wrap: wrap;
   position: relative;
   transition: box-shadow .18s, border-color .18s, transform .18s;
+  overflow: visible;
+  z-index: 1;
 }
 .fr-card:hover {
   border-color: var(--vj-teal-mid);
@@ -409,9 +411,163 @@
   padding: 40px 20px;
 }
 
+.fr-alert {
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.fr-alert--success {
+  background: rgba(23,160,122,0.1);
+  border-color: rgba(23,160,122,0.24);
+  color: #0f766e;
+}
+.fr-alert--warning {
+  background: rgba(232,155,32,0.12);
+  border-color: rgba(232,155,32,0.26);
+  color: #92400e;
+}
+.fr-alert--danger {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.24);
+  color: #b91c1c;
+}
+.fr-alert__title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.fr-alert__text {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.fr-day-group {
+  margin-bottom: 18px;
+}
+.fr-day-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.fr-day-group__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vj-ink);
+}
+.fr-day-group__meta {
+  font-size: 12px;
+  color: var(--vj-muted);
+}
+.fr-day-group__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--vj-teal-dim);
+  color: var(--vj-teal-dark);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+.fr-day-group--target .fr-day-group__label {
+  color: var(--vj-teal-dark);
+}
+
+/* ── Recommendation styling for target dates ────────────────────────── */
+.fr-day-group--target {
+  border-left: 4px solid #fbbf24;
+  padding-left: 16px;
+  margin-left: -20px;
+  padding-left: 16px;
+}
+
+.fr-day-group--target .fr-day-group__header {
+  background: rgba(251, 191, 36, 0.05);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+}
+
+.fr-day-group__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 100px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fr-day-group__badge:first-of-type {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  margin-right: 8px;
+}
+
+/* ── Flight card with recommendation badge ────────────────────────────── */
+
+.fr-card[style*="borderTop: 3px solid #fbbf24"] {
+  background: linear-gradient(to right, rgba(251, 191, 36, 0.03), transparent);
+  border-top: 3px solid #fbbf24 !important;
+  box-shadow: 0 2px 12px rgba(251, 191, 36, 0.15);
+}
+
+.fr-card[style*="borderTop: 3px solid #fbbf24"]:hover {
+  box-shadow: 0 4px 24px rgba(251, 191, 36, 0.25);
+}
+
+/* Recommendation badge on flight card */
+.fr-card > div[style*="position: absolute"][style*="top: 8"][style*="right: 12"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  animation: slideInRight 0.3s ease-out !important;
+  z-index: 10 !important;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (max-width: 600px) {
   .fr-card { flex-direction: column; align-items: flex-start; }
   .fdm-grid2 { grid-template-columns: 1fr; }
+  .fr-day-group__label { font-size: 18px; }
+  .fr-day-group--target {
+    margin-left: -20px;
+    padding-left: 20px;
+    border-left: 3px solid #fbbf24;
+  }
 }/* ============================================================
    SEAT CLASS PANEL — thêm vào cuối Flightresult.css
    ============================================================ */
@@ -742,53 +898,6 @@
 .fr-card--clickable:hover {
   box-shadow: 0 4px 20px rgba(26,60,110,0.13);
   transform: translateY(-2px);
-}
-
-/* Giá 2 hạng trong card */
-.fr-card__prices {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  min-width: 0;
-}
-.fr-card__price-divider {
-  width: 1px;
-  background: #e5e7eb;
-  margin: 4px 12px;
-  flex-shrink: 0;
-}
-.fr-card__price-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.fr-card__price-class {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-.fr-card__price-item--eco .fr-card__price-class  { color: #1a3c6e; }
-.fr-card__price-item--biz .fr-card__price-class  { color: #92400e; }
-.fr-card__price-amt {
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.1;
-}
-.fr-card__price-item--eco .fr-card__price-amt    { color: #1a3c6e; }
-.fr-card__price-item--biz .fr-card__price-amt    { color: #b45309; }
-.fr-card__price-per {
-  font-size: 10px;
-  color: #9ca3af;
-  font-weight: 400;
-}
-.fr-card__airline-no {
-  font-size: 11px;
-  color: #9ca3af;
-  font-weight: 500;
-  margin-top: 2px;
 }
 
 /* Nút "📋 Hoàn vé" trong card */
