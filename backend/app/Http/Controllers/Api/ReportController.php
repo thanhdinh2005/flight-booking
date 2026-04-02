@@ -8,7 +8,6 @@ use App\Enums\Flight\FlightStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Response\ApiResponse;
 use App\Models\Route;
-use App\Models\Ticket;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -31,7 +30,7 @@ class ReportController extends Controller
     public function getRouteChartData(Request $request)
     {
         try {
-            // 1. Xác định thời gian (Mặc định từ đầu tháng đến hiện tại)
+            // 1. Xác định thời gian
             $start = $request->input('start_date') 
                 ? Carbon::parse($request->input('start_date'))->startOfDay() 
                 : Carbon::now()->startOfMonth();
@@ -63,8 +62,6 @@ class ReportController extends Controller
                 // Select Tên tuyến và Đếm số vé
                 ->selectRaw("CONCAT(origin.code, ' ➝ ', dest.code) as route_name")
                 ->selectRaw("COUNT(tickets.id) as total_tickets")
-                
-                // Sắp xếp theo ID tuyến hoặc theo số vé (Tùy bạn, ở đây xếp theo tên cho dễ nhìn)
                 ->orderBy('route_name')
                 ->get();
 
@@ -86,7 +83,6 @@ class ReportController extends Controller
                     [
                         'name' => 'Số vé đã bán',
                         'data' => $dataValues,
-                        // Bạn có thể gợi ý màu sắc cho FE luôn nếu thích
                         'backgroundColor' => '#3b82f6' 
                     ]
                 ]

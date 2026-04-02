@@ -15,7 +15,6 @@ class AdminDashboardController extends Controller
 {
     public function getSummary(Request $request, GetDashboardSummaryUseCase $useCase)
     {
-        // Validate định dạng ngày tháng (tùy chọn, FE có thể không truyền để lấy mặc định tháng này)
         $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
@@ -99,7 +98,6 @@ class AdminDashboardController extends Controller
                 $keycloak->sendResetPasswordEmail($keycloakId);
             }
 
-            // Dù tìm thấy hay không cũng trả về thông báo chung để chống dò quét email
             return response()->json([
                 'success' => true,
                 'message' => 'Nếu email hợp lệ, hệ thống đã gửi link khôi phục. Vui lòng kiểm tra hộp thư.'

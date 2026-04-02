@@ -26,7 +26,7 @@ class UpdateFlightStatuses extends Command
 
         $arrivedFromDeparted = FlightInstance::where('status', 'DEPARTED')
             ->whereRaw('COALESCE(eta, sta) <= ?', [$now])
-            ->update(['status' => 'ARRIVED']);
+            ->update(['status' => 'DEPARTED']);
 
         $boardingDelayed = FlightInstance::where('status', 'DELAYED')
             ->whereRaw('COALESCE(etd, std) <= ?', [$now->copy()->addMinutes(30)])
@@ -38,7 +38,7 @@ class UpdateFlightStatuses extends Command
 
         $arrivedDelayed = FlightInstance::where('status', 'DELAYED')
             ->whereRaw('COALESCE(eta, sta) <= ?', [$now])
-            ->update(['status' => 'ARRIVED']);
+            ->update(['status' => 'DEPARTED']);
 
         $totalArrived = $arrivedFromDeparted + $arrivedDelayed;
 
