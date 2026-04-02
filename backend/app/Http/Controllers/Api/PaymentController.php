@@ -23,31 +23,37 @@ class PaymentController extends Controller
     }
 
     public function vnpayReturn(Request $request, ConfirmPaymentUseCase $confirmPaymentUseCase) {
-        if ($this->validateVnpaySignature($request)) {
-            $txnRefData = explode('_', $request->vnp_TxnRef);
-            $bookingId = $txnRefData[0];
+    if ($this->validateVnpaySignature($request)) {
+        
+        $txnRefData = explode('_', $request->vnp_TxnRef);
+        $bookingId = $txnRefData[0];
 
-            if ($request->vnp_ResponseCode == '00') {
-                try {
-                    // Gọi UseCase: Logic cập nhật Booking, Ticket và Transaction nằm hết ở đây
-                    $booking = $confirmPaymentUseCase->execute(
-                        (int) $bookingId, 
-                        'VNPAY', 
-                        $request->vnp_TransactionNo,
-                        (float) ($request->vnp_Amount / 100)
-                    );
-                    return ApiResponse::success($booking, "Thanh toán thành công.");
-                } catch (\Exception $e) {
-                    return ApiResponse::error($e->getMessage(), 400);
-                }
+        if ($request->vnp_ResponseCode == '00') {
+            try {
+                // TRUYỀN ĐÚNG THỨ TỰ: 
+                // 1. ID, 2. Method, 3. TxnRef, 4. Amount, 5. TransactionNo, 6. All Data
+                $booking = $confirmPaymentUseCase->execute(
+                    (int) $bookingId, 
+                    'VNPAY', 
+                    $request->vnp_TxnRef,                 // gateway_reference
+                    (float) ($request->vnp_Amount / 100), // amount
+                    $request->vnp_TransactionNo,          // gateway_transaction_id
+                    $request->all()                       // gateway_response (Dùng để lấy vnp_PayDate sau này)
+                );
+                
+                return ApiResponse::success($booking, "Thanh toán thành công.");
+            } catch (\Exception $e) {
+                return ApiResponse::error($e->getMessage(), 400);
             }
-            return ApiResponse::error("Giao dịch thất bại. Mã lỗi: " . $request->vnp_ResponseCode);
         }
-        return ApiResponse::error("Sai chữ ký bảo mật.");
+        return ApiResponse::error("Giao dịch thất bại. Mã lỗi: " . $request->vnp_ResponseCode);
     }
+    return ApiResponse::error("Sai chữ ký bảo mật.");
+}
 
     public function vnpayIpn(Request $request, ConfirmPaymentUseCase $confirmPaymentUseCase)
     {
+        
         if (!$this->validateVnpaySignature($request)) {
             return response()->json(['RspCode' => '97', 'Message' => 'Invalid signature']);
         }
@@ -77,8 +83,10 @@ class PaymentController extends Controller
                 $confirmPaymentUseCase->execute(
                     (int) $bookingId, 
                     'VNPAY', 
-                    $request->vnp_TransactionNo,
-                    (float) ($request->vnp_Amount / 100)
+                    $request->vnp_TxnRef,                 // gateway_reference
+                    (float) ($request->vnp_Amount / 100), // amount
+                    $request->vnp_TransactionNo,          // gateway_transaction_id
+                    $request->all()                       // gateway_response
                 );
             } else {
                 // Nếu thất bại thì chỉ cập nhật trạng thái Booking

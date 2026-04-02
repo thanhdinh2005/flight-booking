@@ -3,27 +3,48 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Transaction extends Model
 {
     protected $table = "transactions";
     
-    // BẬT LÊN vì DB của bạn có cột created_at
+    // Bật timestamps vì chúng ta cần created_at và updated_at để đối soát thời gian thanh toán
     public $timestamps = true; 
-    
-    // Nếu bạn không có cột updated_at trong DB, hãy chỉ định rõ:
-    const UPDATED_AT = null; 
 
     protected $fillable = [
         'booking_id', 
         'amount', 
-        'type', 
-        'payment_method', 
-        'gateway_transaction_id', 
-        'status'
+        'type',             // 'PAYMENT', 'REFUND'
+        'payment_method',   // 'VNPAY', 'MOMO', ...
+        'gateway_transaction_id', // vnp_TransactionNo (BẮT BUỘC để Refund)
+        'gateway_reference',      // vnp_TxnRef (BẮT BUỘC để Refund)
+        'gateway_response',       // Lưu toàn bộ JSON từ VNPAY
+        'status'                  // 'PENDING', 'SUCCESS', 'FAILED'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        // Tự động convert JSON từ DB sang Array khi sử dụng trong PHP
+        'gateway_response' => 'array', 
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
+
+    /**
+     * Liên kết với đơn hàng
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
+    /**
+     * Helper để lấy ngày thanh toán chuẩn từ VNPAY (vnp_PayDate)
+     * Phục vụ tham số vnp_TransactionDate khi gọi Refund
+     */
+    public function getVnpayPayDate(): ?string
+    {
+        return $this->gateway_response['vnp_PayDate'] ?? null;
+    }
 }

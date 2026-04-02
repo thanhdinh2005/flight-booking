@@ -9,5 +9,6 @@ return [
     'url' => env('VNP_URL'),
 
     'return_url' => env('VNP_RETURN_URL'),
-
+    'refund_url'  => env('VNP_REFUND_URL', 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction'),
+    'return_url'  => env('VNP_RETURN_URL'),
 ];

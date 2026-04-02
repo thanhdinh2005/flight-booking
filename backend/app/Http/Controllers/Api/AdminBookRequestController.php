@@ -1,6 +1,6 @@
 <?php
 
-namespace app\Http\Controllers\Api;
+namespace App\Http\Controllers\Api; // Sửa 'app' thành 'App' cho đúng chuẩn PSR-4
 
 use App\Http\Response\ApiResponse;
 use App\Http\Controllers\Controller;
@@ -9,100 +9,116 @@ use App\Application\UseCases\Refund\AdminApproveRefundUseCase;
 use App\Application\UseCases\Refund\AdminRejectRefundUseCase;
 use App\Models\BookingRequest;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class AdminBookRequestController extends Controller
 {
     /**
-     * Lấy danh sách tất cả các yêu cầu (có lọc theo trạng thái và phân trang)
+     * Lấy danh sách yêu cầu (Phân trang & Lọc)
      */
     public function index(Request $request)
     {
         try {
-            $query = BookingRequest::with(['staff', 'ticket']);
+            $query = BookingRequest::with(['staff', 'ticket.passenger', 'booking']);
 
-            // Lọc theo trạng thái (PENDING, APPROVED, REJECTED)
-            if ($request->has('status')) {
+            // Lọc theo trạng thái nếu có
+            if ($request->filled('status')) {
                 $query->where('status', $request->status);
             }
 
-            // Mặc định xem các yêu cầu mới nhất
-            $list = $query->orderBy('created_at', 'desc')->paginate(15);
+            $list = $query->latest()->paginate(15);
 
             return ApiResponse::success($list, 'Lấy danh sách yêu cầu thành công.');
         } catch (Exception $e) {
-            return ApiResponse::error('Lỗi khi tải danh sách: ' . $e->getMessage());
+            Log::error("Admin Refund Index Error: " . $e->getMessage());
+            return ApiResponse::error('Lỗi khi tải danh sách yêu cầu.');
         }
     }
 
     /**
-     * Xem chi tiết 1 yêu cầu cụ thể kèm theo thông tin Ticket, Addons và Max Refund
+     * Chi tiết yêu cầu
      */
     public function show($id)
     {
         try {
-            // Eager load toàn bộ thông tin liên quan để Admin kiểm tra
             $bookingRequest = BookingRequest::with([
                 'user', 
                 'ticket.addons', 
-                'ticket.flight_instance.flightSchedule',
+                'ticket.passenger', // Thêm thông tin khách để Admin đối soát
+                'ticket.flight_instance.flightSchedule.route.origin',
+                'ticket.flight_instance.flightSchedule.route.destination',
                 'booking'
             ])->findOrFail($id);
 
-            // Tính toán tổng số tiền tối đa có thể hoàn (Vé + tất cả Addons)
-            $addonsTotal = $bookingRequest->ticket->addons->sum(function($addon) {
-                return (float) $addon->amount * $addon->quantity;
-            });
-            
-            // Đính kèm dữ liệu vào response để Admin Dashboard hiển thị giới hạn nhập liệu
-            $bookingRequest->max_refundable_amount = $bookingRequest->ticket->total_price + $addonsTotal;
+            // Gợi ý: Nên để logic tính tiền này trong Model BookingRequest
+            // $bookingRequest->append('max_refundable_amount'); 
 
             return ApiResponse::success($bookingRequest, 'Lấy chi tiết yêu cầu thành công.');
+
+        } catch (ModelNotFoundException $e) {
+            return ApiResponse::error('Yêu cầu hoàn tiền không tồn tại.', 404);
         } catch (Exception $e) {
-            return ApiResponse::error('Không tìm thấy yêu cầu: ' . $e->getMessage(), 404);
+            return ApiResponse::error('Lỗi hệ thống: ' . $e->getMessage(), 500);
         }
     }
 
     /**
-     * Phê duyệt yêu cầu và thực hiện hoàn tiền thực tế
+     * Phê duyệt hoàn tiền
      */
     public function approve(AdminApproveRefundRequest $request, $id, AdminApproveRefundUseCase $useCase)
     {
         try {
-            $userId = $request->user()->id;
+            $adminId = $request->user()->id;
             
+            // TRƯỚC KHI GỌI VNPAY: Cập nhật số tiền chốt hoàn và ghi chú của Admin vào DB
+            // Điều này đảm bảo khi UseCase chạy, nó lấy đúng số tiền này để gửi sang VNPAY
+            $bookingRequest = BookingRequest::findOrFail($id);
+            $bookingRequest->update([
+                'refund_amount' => $request->final_amount,
+                'staff_note'    => $request->staff_note,
+            ]);
+
+            // THỰC THI USECASE: Gọi VNPAY -> Cập nhật trạng thái -> Giải phóng ghế -> Gửi 01 Mail
             $result = $useCase->execute(
                 (int) $id, 
-                (float) $request->final_amount, 
-                (int) $userId, 
-                $request->staff_note
+                (int) $adminId
             );
 
-            return ApiResponse::success($result, 'Yêu cầu hoàn tiền đã được phê duyệt và xử lý tài chính.');
-        } catch (Exception $e) {
+            return ApiResponse::success($result, 'Đã phê duyệt và hoàn tất giao dịch hoàn tiền qua VNPAY.');
+
+        } catch (ModelNotFoundException $e) {
+            return ApiResponse::error('Yêu cầu hoàn tiền không tồn tại.', 404);
+        } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 400);
+        } catch (Exception $e) {
+            // Log lỗi để Admin kiểm tra (Ví dụ: VNPAY từ chối do hết hạn)
+            Log::critical("Refund Approval Error: " . $e->getMessage(), ['request_id' => $id]);
+            return ApiResponse::error('Xử lý thất bại: ' . $e->getMessage(), 500);
         }
-    }
+    }   
 
     /**
-     * Từ chối yêu cầu hoàn tiền
+     * Từ chối hoàn tiền
      */
     public function reject(Request $request, $id, AdminRejectRefundUseCase $useCase)
     {
         try {
             $request->validate([
-                'staff_note' => 'required|string|min:5'
+                'staff_note' => 'required|string|min:10' // Note từ chối nên dài và rõ ràng hơn
             ]);
 
-            $userId = $request->user()->id;
+            $adminId = $request->user()->id;
             
             $result = $useCase->execute(
                 (int) $id,
-                (int) $userId,
+                (int) $adminId,
                 $request->staff_note
             );
 
-            return ApiResponse::success($result, 'Đã từ chối yêu cầu hoàn tiền.');
+            return ApiResponse::success($result, 'Đã từ chối yêu cầu hoàn vé.');
+
         } catch (Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }

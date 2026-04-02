@@ -3,87 +3,146 @@
 namespace App\Application\UseCases\Refund;
 
 use App\Models\BookingRequest;
-use App\Models\Ticket;
-use App\Models\FlightSeatInventory;
-use Illuminate\Support\Facades\DB;
-use Exception;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Transaction;
+use App\Enums\Booking\RequestStatus;
+use App\Enums\Booking\TicketStatus;
+use App\Application\Command\Refund\CallVnpayRefundCommand;
 use App\Mail\CustomerRequestStatusUpdatedMail;
-use App\Exceptions\EntityNotFoundException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Exception;
+
 class AdminApproveRefundUseCase
 {
-    public function execute(int $requestId, float $finalAmount, int $adminId, ?string $note = null): BookingRequest
+    public function __construct(
+        protected CallVnpayRefundCommand $vnpayCmd
+    ) {}
+
+    public function execute(int $requestId, int $staffId)
     {
-        // QUAN TRỌNG: Gán kết quả của transaction vào biến $request ở bên ngoài
-        $request = DB::transaction(function () use ($requestId, $finalAmount, $adminId, $note) {
-            
-            // 1. Load dữ liệu và khóa dòng
-            $requestObj = BookingRequest::with(['ticket.addons', 'booking'])->lockForUpdate()->findOrFail($requestId);
-            $ticket = $requestObj->ticket;
-            if($ticket->status->value != "ACTIVE"){
-                throw new EntityNotFoundException("Yêu cầu này đã được xử lý, không thể từ chối.");
-            }
-            if (!$ticket) {
-                throw new Exception("Yêu cầu hoàn tiền không đi kèm với vé hợp lệ.");
-            }
-            
-            $booking = $ticket->booking;
+        // 1. Tìm chính xác Request theo ID để tránh nhầm lẫn giữa các vé trong cùng Booking
+        $request = BookingRequest::with(['booking.transactions', 'ticket'])
+            ->where('id', $requestId)
+            ->lockForUpdate() 
+            ->firstOrFail();
 
-            // 2. Kiểm tra tính hợp lệ của số tiền hoàn
-            if ($finalAmount > $requestObj->system_refund_amount) {
-                throw new Exception(
-                    "Số tiền hoàn (" . number_format($finalAmount) . ") vượt quá giá trị hệ thống tính toán."
-                );
-            }
-
-            if ($finalAmount > $booking->total_amount) {
-                throw new Exception("Số tiền hoàn vượt quá tổng giá trị còn lại của đơn hàng.");
-            }
-
-            // 3. Cập nhật trạng thái Yêu cầu
-            $requestObj->update([
-                'status' => 'APPROVED',
-                'refund_amount' => $finalAmount,
-                'staff_id' => $adminId,
-                'staff_note' => $note,
-                'processed_at' => now(),
-            ]);
-
-            // 4. Giảm tổng tiền đơn hàng
-            $booking->decrement('total_amount', $finalAmount);
-            if ($booking->total_amount < 0) {
-                $booking->update(['total_amount' => 0]);
-            }
-
-            // 5. Cập nhật vé và giải phóng ghế
-            $ticket->update(['status' => 'REFUNDED']);
-            $this->releaseSeat($ticket);
-
-            return $requestObj; // Trả về object để biến bên ngoài nhận được
-        });
-
-        // BƯỚC 6: GỬI MAIL (Nằm ngoài Transaction)
-        // Lúc này $request đã tồn tại vì được gán từ kết quả DB::transaction
-        if ($request && $request->booking && $request->booking->contact_email) {
-            // Load lại quan hệ để đảm bảo dữ liệu mới nhất (status đã là APPROVED)
-            $request->load('booking'); 
-            
-            Mail::to($request->booking->contact_email)
-                ->queue(new CustomerRequestStatusUpdatedMail($request));
+        if ($request->status !== RequestStatus::PENDING) {
+            throw new Exception("Yêu cầu hoàn tiền này đã được xử lý trước đó.");
         }
 
-        return $request;
+        //Kiem tra so tien admin nhap vao so vuot qua so tien thanh toan ko
+        $ticket_price = $request->ticket->ticket_price;
+        $addon_price = $request->ticket->addons()->sum(DB::raw('amount * quantity'));
+        $total_paid = $ticket_price + $addon_price;
+        if($request->refund_amount > $total_paid){
+            throw new Exception("Số tiền hoàn không được vượt quá tổng số tiền đã thanh toán (Vé + Addons).");
+        }
+
+        // 2. Tìm giao dịch thanh toán gốc thành công để lấy dữ liệu vnp_TransactionNo & vnp_PayDate
+        $paymentTx = $request->booking->transactions()
+            ->where('type', 'PAYMENT')
+            ->where('status', 'SUCCESS')
+            ->first();
+// 3. KIỂM TRA VÀ SHOW THÔNG TIN TRƯỚC KHI GỌI VNPAY
+$refundData = [
+    'vnp_TxnRef'         => $paymentTx->gateway_reference,
+    'vnp_TransactionNo'  => $paymentTx->gateway_transaction_id,
+    'vnp_PayDate'        => $paymentTx->gateway_response['vnp_PayDate'] ?? null,
+    'refund_amount'      => (float) $request->refund_amount,
+    'staff_id'           => $staffId,
+    'order_info'         => "Hoan tien yeu cau #" . $request->id
+];
+
+// --- CÁCH 1: GHI LOG ĐỂ KIỂM TRA (An toàn cho môi trường chạy thật) ---
+\Log::info("--- DỮ LIỆU CHUẨN BỊ GỬI VNPAY ---", $refundData);
+
+// --- CÁCH 2: DỪNG CHƯƠNG TRÌNH ĐỂ XEM (Chỉ dùng khi đang Dev/Debug) ---
+// Nếu bạn muốn thấy ngay trên Postman/Trình duyệt, hãy bỏ comment dòng dưới:
+// dd($refundData); 
+
+// 4. KIỂM TRA TÍNH HỢP LỆ CỦA CÁC GIÁ TRỊ CỐT LÕI
+if (empty($refundData['vnp_PayDate'])) {
+    throw new Exception("Giao dịch gốc thiếu vnp_PayDate (Dữ liệu không đủ để hoàn tiền).");
+}
+
+if (empty($refundData['vnp_TransactionNo'])) {
+    throw new Exception("Giao dịch gốc thiếu mã tham chiếu VNPAY.");
+}
+        if (!$paymentTx) {
+            throw new Exception("Không tìm thấy giao dịch gốc để thực hiện hoàn tiền qua cổng thanh toán.");
+        }
+
+        if(!$request->refund_amount || $request->refund_amount <= 0){
+            throw new Exception("Số tiền hoàn không hợp lệ.");
+        }
+
+       
+        if(!$staffId){
+            throw new Exception("Không xác định được nhân viên xử lý yêu cầu.");
+        }
+        
+        try {
+            
+            // 3. Gọi VNPAY API (Thực hiện hoàn tiền thật)
+            // Lấy vnp_PayDate từ gateway_response đã lưu trong paymentTx
+            $vnpayResponse = $this->vnpayCmd->execute(
+                $paymentTx, 
+                (float) $request->refund_amount, 
+                $staffId
+            );
+
+            // 4. Cập nhật Database sau khi VNPAY trả về mã 00 (Thành công)
+            return DB::transaction(function () use ($request, $vnpayResponse, $staffId) {
+                $booking = $request->booking;
+                // Cập nhật trạng thái Request
+                $request->update([
+                    'status' => RequestStatus::APPROVED,
+                    'processed_at' => now(),
+                    'staff_id' => $staffId
+                ]);
+
+                // Cập nhật trạng thái vé sang REFUNDED
+                $request->ticket->update(['status' => TicketStatus::REFUNDED->value]);
+               // $booking->total_amount -= $request->refund_amount;
+                // Tạo Transaction loại REFUND để đối soát
+                Transaction::create([
+                    'booking_id'             => $request->booking_id,
+                    'amount'                 => $request->refund_amount,
+                    'type'                   => 'REFUND',
+                    'payment_method'         => 'VNPAY',
+                    'gateway_reference'      => 'REF_REQ_' . $request->id,
+                    'gateway_transaction_id' => $vnpayResponse['vnp_ResponseId'] ?? 'N/A',
+                    'gateway_response'       => $vnpayResponse, // Lưu full log refund
+                    'status'                 => 'SUCCESS',
+                ]);
+
+                // Giải phóng ghế (Tăng số lượng ghế trống khả dụng)
+                $this->restoreSeat($request->ticket);
+
+                // 5. GỬI 01 MAIL DUY NHẤT THÔNG BÁO THÀNH CÔNG
+                // Nội dung mail nên bao gồm lưu ý về thời gian tiền về (3-7 ngày)
+                if ($request->booking->contact_email) {
+                    //Mail::to($request->booking->contact_email)->queue(new RefundSuccessMail($request));
+                    Mail::to($request->booking->contact_email)->queue(new CustomerRequestStatusUpdatedMail($request));
+                    }
+
+                return true;
+            });
+
+        } catch (Exception $e) {
+            // Lưu lại lý do lỗi từ VNPAY để Admin có thể kiểm tra (VD: Sai checksum, giao dịch quá hạn...)
+            $request->update(['staff_note' => 'Lỗi VNPAY Refund: ' . $e->getMessage()]);
+            throw $e;
+        }
     }
 
-    private function releaseSeat(Ticket $ticket)
+    /**
+     * Hoàn lại chỗ vào kho ghế
+     */
+    private function restoreSeat($ticket) 
     {
-        $seatClass = $ticket->seat_class;
-        $instanceId = $ticket->flight_instance_id;
-
-        if (!$seatClass || !$instanceId) return;
-
-        $inventory = FlightSeatInventory::where('flight_instance_id', $instanceId)
-            ->where('seat_class', $seatClass)
+        $inventory = \App\Models\FlightSeatInventory::where('flight_instance_id', $ticket->flight_instance_id)
+            ->where('seat_class', $ticket->seat_class)
             ->first();
 
         if ($inventory) {

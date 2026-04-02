@@ -14,41 +14,29 @@ class CustomerRequestStatusUpdatedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    // QUAN TRỌNG: Khai báo biến public để Blade nhận được $requestData
     public $requestData;
 
-    /**
-     * Nhận đối tượng BookingRequest từ Admin UseCase
-     */
     public function __construct(BookingRequest $requestData)
     {
-        $this->requestData = $requestData;
+        // Load các quan hệ cần thiết để tránh lỗi N+1 trong giao diện Mail
+        $this->requestData = $requestData->load(['booking', 'ticket']);
     }
 
-    /**
-     * Tiêu đề Mail thay đổi theo trạng thái APPROVED/REJECTED
-     */
     public function envelope(): Envelope
     {
-        $statusText = $this->requestData->status->value === 'APPROVED' ? 'Đã được Duyệt' : 'Bị Từ Chối';
+        $status = $this->requestData->status;
+        // Kiểm tra enum hoặc value tùy theo cách bạn định nghĩa
+        $statusText = ($status === 'APPROVED' || $status->value === 'APPROVED') ? 'Đã được Chấp nhận' : 'Bị Từ Chối';
         
         return new Envelope(
-            subject: "[InteractHub] Yêu cầu hoàn vé #{$this->requestData->id} {$statusText}",
+            subject: "[InteractHub] Thông báo kết quả yêu cầu hoàn vé #{$this->requestData->id} - {$statusText}",
         );
     }
 
-    /**
-     * Trỏ đến file giao diện mail kết quả
-     */
     public function content(): Content
     {
         return new Content(
             view: 'emails.requests.status-updated',
         );
-    }
-
-    public function attachments(): array
-    {
-        return [];
     }
 }

@@ -24,10 +24,7 @@
                         <div style="font-size: 11px; color: #888;">HẠNG VÉ</div>
                         <div style="font-size: 16px; font-weight: bold;">{{ $ticket->seat_class }}</div>
                     </td>
-                    <td width="33%" style="text-align: right;">
-                        <div style="font-size: 11px; color: #888;">CỬA</div>
-                        <div style="font-size: 16px; font-weight: bold;">TBA</div>
-                    </td>
+                    
                 </tr>
             </table>
 

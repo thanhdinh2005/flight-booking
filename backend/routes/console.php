@@ -13,3 +13,4 @@ Schedule::command('flights:generate-monthly')
     ->withoutOverlapping();
 
 Schedule::command('flight:update-status')->everyMinute()->withoutOverlapping();
+Schedule::command('booking:cancel-expired')->everyMinute();

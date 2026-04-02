@@ -3,6 +3,8 @@
 namespace App\Application\UseCases\Refund;
 
 use App\Models\BookingRequest;
+use App\Enums\Booking\RequestStatus;
+use App\Enums\Booking\TicketStatus;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -23,18 +25,18 @@ class CustomerCancelRefundUseCase
             }
 
             // 2. Chỉ cho phép hủy khi đang PENDING
-            if ($request->status !== 'PENDING') {
+            if ($request->status !== RequestStatus::PENDING) {
                 throw new Exception("Yêu cầu đã được xử lý hoặc đã hủy, không thể thực hiện lại.");
             }
 
             // 3. Mở khóa vé (Trạng thái vé quay về PAID để khách đi bay được)
             if ($request->ticket) {
-                $request->ticket->update(['status' => 'PAID']);
+                $request->ticket->update(['status' => TicketStatus::ACTIVE]);
             }
 
             // 4. Cập nhật trạng thái Request thành CANCELLED
             $request->update([
-                'status' => 'CANCELLED',
+                'status' => RequestStatus::CANCELLED,
                 'processed_at' => now(),
             ]);
 

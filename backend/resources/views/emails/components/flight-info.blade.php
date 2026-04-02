@@ -22,7 +22,7 @@
     <tr>
         <td style="border:none; color: #666;">Hạng vé / Chỗ ngồi</td>
         <td style="border:none;">
-            {{ $ticket->ticket_type ?? 'Phổ thông' }} 
+            {{ $ticket->seat_class ?? 'Phổ thông' }} 
             {{ $ticket->seat_number ? '(Ghế: ' . $ticket->seat_number . ')' : '' }}
         </td>
     </tr>

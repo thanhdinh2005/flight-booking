@@ -4,6 +4,8 @@ namespace App\Application\UseCases\Refund;
 
 use App\Models\Ticket;
 use App\Models\BookingRequest;
+use App\Enums\Booking\RequestStatus;
+use App\Enums\Booking\TicketStatus;
 use App\Application\Command\RefundTicket\CalculateRefundAmountCommand;
 use App\Application\Command\RefundTicket\CheckRefundEligibilityCommand;
 use Illuminate\Support\Facades\DB;
@@ -24,49 +26,68 @@ class CreateRefundRequestUseCase
 
     public function execute(int $ticketId, string $reason, $user_id): BookingRequest
 {
-    return DB::transaction(function () use ($ticketId, $reason, $user_id) {
+    $refundRequest = DB::transaction(function () use ($ticketId, $reason, $user_id) {
         
-        // 1. Lấy vé và khóa dòng
-        $ticket = Ticket::with(['booking', 'passenger']) // Load thêm quan hệ để lấy email
+        // 1. Kiểm tra tồn tại & Quyền sở hữu
+        $ticket = Ticket::with(['booking', 'passenger'])
             ->where('id', $ticketId)
-            ->whereHas('booking', function($q) use ($user_id) {
-                $q->where('user_id', $user_id);
-            })
-            ->lockForUpdate()
+            ->lockForUpdate() // Khóa để tránh 2 request hoàn tiền cùng lúc
             ->first();
 
-        if(!$ticket){
-            throw new \Exception("Vé không tồn tại hoặc bạn không có quyền thao tác trên vé này.");
+        if (!$ticket || $ticket->booking->user_id !== $user_id) {
+            throw new \App\Exceptions\EntityNotFoundException("Vé không tồn tại hoặc bạn không có quyền.");
         }
 
-        // 2 & 3. Kiểm tra và tính toán số tiền (Giữ nguyên logic của bạn)
-        $this->checkRefundCommand->execute($ticket);
-        $pricing = $this->calculateCommand->execute($ticket);
+        // 2. Kiểm tra trạng thái hiện tại của vé
+        if (in_array($ticket->status, [TicketStatus::REFUND_PENDING, TicketStatus::REFUNDED], true)) {
+            throw new \InvalidArgumentException("Vé này đã được gửi yêu cầu hoàn hoặc đã hoàn tất.");
+        }
 
-        // 4. Tạo bản ghi yêu cầu hoàn tiền
+        // 3. Logic Command (Nên bao bọc trong try-catch nếu cần báo lỗi chi tiết)
+        try {
+            $this->checkRefundCommand->execute($ticket);
+            $pricing = $this->calculateCommand->execute($ticket);
+        } catch (\Exception $e) {
+            // Re-throw để Transaction tự rollback
+            throw new \Exception("Yêu cầu không thỏa mãn điều kiện: " . $e->getMessage());
+        }
+
+        // 4. Tạo yêu cầu
         $refundRequest = BookingRequest::create([
             'ticket_id'            => $ticket->id,
             'booking_id'           => $ticket->booking_id,
             'user_id'              => $user_id,
-            'refund_amount'        => $pricing['total_refund_amount'],
-            'system_refund_amount' => $pricing['total_refund_amount'],
+            'refund_amount'        => $pricing['total_refund_amount'] ?? 0,
+            'system_refund_amount' => $pricing['total_refund_amount'] ?? 0,
             'request_type'         => 'REFUND',
             'reason'               => $reason,
-            'status'               => 'PENDING',
+            'status'               => RequestStatus::PENDING,
         ]);
 
-        // 5. Cập nhật trạng thái vé
-        $ticket->update(['status' => 'REFUND_PENDING']);
-
-        // 6. GỬI MAIL XÁC NHẬN TIẾP NHẬN (MỚI)
-        // Lấy email từ thông tin liên hệ của Booking
-        $contactEmail = $ticket->booking->contact_email;
-        
-        if ($contactEmail) {
-            Mail::to($contactEmail)->queue(new CustomerRequestReceivedMail($refundRequest));
-        }
+        $ticket->update(['status' => TicketStatus::REFUND_PENDING]);
 
         return $refundRequest;
     });
+
+    // SỬA TẠI ĐÂY: 
+    // Vì $ticket bên trên đã "chết" sau khi thoát Transaction, 
+    // ta dùng $refundRequest->ticket để lấy lại nó (nhờ quan hệ ticket() trong model)
+    if ($refundRequest) {
+        $this->sendConfirmationMail($refundRequest->ticket, $refundRequest);
+    }
+
+    return $refundRequest;
+}
+
+private function sendConfirmationMail($ticket, $refundRequest) {
+    try {
+        $contactEmail = $ticket->booking->contact_email ?? null;
+        if ($contactEmail) {
+            Mail::to($contactEmail)->queue(new CustomerRequestReceivedMail($refundRequest));
+        }
+    } catch (\Exception $e) {
+        // Chỉ log lỗi, không throw để user nhận được kết quả success trên màn hình
+        \Illuminate\Support\Facades\Log::error("Mail error: " . $e->getMessage());
+    }
 }
 }

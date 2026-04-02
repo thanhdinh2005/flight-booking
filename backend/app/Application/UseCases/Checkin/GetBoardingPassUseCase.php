@@ -62,7 +62,7 @@ class GetBoardingPassUseCase
         return [
             'ticket_info' => [
                 'id' => $ticket->id,
-                'pnr' => $ticket->pnr,
+                'pnr' => $ticket->booking->pnr,
                 'seat' => $ticket->seat_number,
                 'class' => $ticket->seat_class,
                 'sequence_no' => $ticket->id,
@@ -71,14 +71,14 @@ class GetBoardingPassUseCase
                 'full_name' => strtoupper($ticket->passenger->last_name . ' ' . $ticket->passenger->first_name),
             ],
             'flight' => [
-                'number' => $instance->flight_number, // Lấy từ FlightInstance
-                'aircraft' => $instance->aircraft->model_name ?? 'N/A',
-                'gate' => $instance->gate ?? 'TBA',
+                'number' => $instance->flightSchedule->flight_number, // Lấy từ FlightInstance
+                'aircraft' => $instance->aircraft->model ?? 'N/A',
+
             ],
             'route' => [
-                'from_code' => $route->origin->iata_code, // Model Route dùng origin()
+                'from_code' => $route->origin->code, // Model Route dùng origin()
                 'from_city' => $route->origin->city,
-                'to_code'   => $route->destination->iata_code, // Model Route dùng destination()
+                'to_code'   => $route->destination->code, // Model Route dùng destination()
                 'to_city'   => $route->destination->city,
             ],
             'schedule' => [

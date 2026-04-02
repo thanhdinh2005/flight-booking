@@ -58,7 +58,7 @@ class CreateRefundTransactionUseCase
         DB::beginTransaction();
 
         try {
-            $this->vnpayCmd->execute($booking, $paymentTransaction, $refundAmount, $staffId);
+            $this->vnpayCmd->execute($paymentTransaction, $refundAmount, $staffId);
 
             $this->updateStateCmd->execute($request, $booking, $tickets, $staffNote);
 

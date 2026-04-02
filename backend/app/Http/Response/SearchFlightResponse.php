@@ -2,60 +2,51 @@
 
 namespace App\Http\Response;
 
-use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class SearchFlightResponse
 {
-    private $outboundFlights;
-    private $returnFlights;
-    private $outboundDate;
-    private $returnDate;
+    private $outbound;
+    private $return;
 
-    public function __construct($outboundFlights, $returnFlights, $outboundDate, $returnDate)
+    public function __construct($outbound, $return = null)
     {
-        $this->outboundFlights = $outboundFlights;
-        $this->returnFlights = $returnFlights;
-        $this->outboundDate = $outboundDate;
-        $this->returnDate = $returnDate;
+        $this->outbound = $outbound;
+        $this->return = $return;
+    }
+
+    public function toArray(): array
+    {
+        return [
+            // Dữ liệu lượt đi
+            'outbound' => $this->formatSection($this->outbound),
+            
+            // Dữ liệu lượt về (nếu có)
+            'return' => $this->return ? $this->formatSection($this->return) : null,
+        ];
     }
 
     /**
-     * Chuyển đổi dữ liệu thành định dạng JSON khi trả về
+     * Định dạng từng phần (Outbound/Return) theo cấu trúc mới
      */
-    public function toArray(): array
+    private function formatSection(array $section): array
     {
-        if($this->outboundFlights->isEmpty() && $this->returnFlights->isEmpty()) {
+        // Nếu không có chuyến bay nào trong cả 5 ngày
+        if ($section['status'] === 'EMPTY') {
             return [
-                'message' => 'Không có chuyến bay',
-                'outbound' => [],
-                'return' => []
+                'status'  => $section['status'],
+                'message' => $section['message'],
+                'groups'  => []
             ];
         }
+
         return [
-            'outbound' => [
-                [
-                'date' => $this->outboundDate,
-                'flights' => $this->mapFlights($this->outboundFlights)
-                ]
-            ],
-            'return' => $this->returnDate ? [
-                ['date' => $this->returnDate,
-                'flights' => $this->mapFlights($this->returnFlights)
-                ]
-            ] : [] // tra ve mang rong neu khong co chuyen ve
+            'status'      => $section['status'],
+            'message'     => $section['message'],
+            'target_date' => $section['target_date'],
+            // Dữ liệu đã được nhóm theo ngày
+            'groups'      => $section['data'] 
         ];
     }
-    private function mapFlights($flights) {
-    return $flights->map(fn($f) => [
-        'id' => $f->id,
-        'flight_number' => $f->flightSchedule?->flight_number ?? 'N/A',
-        // tra ve obj thay vi tra ve chuoi code
-        'origin' => $f->route->origin->code,
-        'destination' => $f->route->destination->code,
-        'std' => \Carbon\Carbon::parse($f->std)->format('Y-m-d H:i:s'),
-        'sta' => \Carbon\Carbon::parse($f->sta)->format('Y-m-d H:i:s'),
-        'aircraft' => $f->aircraft?->registration_number ?? 'N/A',
-    ]);
-}
 }
