@@ -15,11 +15,12 @@ class GetAllUserUseCase
             $users,
             fn ($user) => [
                 'id' => $user->id,
-                'name' => $user->name,
+                'name' => $user->full_name,
                 'email' => $user->email,
                 'phone_number' => $user->phone_number,
                 'role' => $user->role,
-                'created_at' => $user->created_at
+                'created_at' => $user->created_at,
+                'status' => $user->status
             ]
         );
     }

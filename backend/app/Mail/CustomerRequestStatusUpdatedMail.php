@@ -39,4 +39,13 @@ class CustomerRequestStatusUpdatedMail extends Mailable implements ShouldQueue
             view: 'emails.requests.status-updated',
         );
     }
+<<<<<<< HEAD
 }
+=======
+
+    public function attachments(): array
+    {
+        return [];
+    }
+}
+>>>>>>> 03719d73814324916421bcafb250e351c1e9c262

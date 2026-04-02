@@ -1,10 +1,12 @@
 // src/components/tabs/TabMuaVe.jsx
 // Kết nối: SearchPanel → FlightResults → PassengerForm → AddonsService
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import FlightResults from '../Flightresults'
 import PassengerForm from '../Passengerform'
 import AddonsService from '../checkin/AddonsService'
-import { searchFlights, searchAirports, formatFlight, filterFlights, sortFlights } from '../../services/flightAPI'
+import PaymentSuccessModal from '../PaymentSuccessModal'
+import DatePicker, { isBeforeIsoDate } from '../common/DatePicker'
+import { searchFlights, searchAirports, filterSearchSection, normalizeSearchSection } from '../../services/flightAPI'
 import { getToken, isTokenExpired } from '../../services/keycloakService'
 import '../../styles/SearchPanel.css'
 
@@ -23,6 +25,10 @@ function fmt(n) {
   return Number(n || 0).toLocaleString('vi-VN') + '₫'
 }
 
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
 function fmtDate(raw) {
   if (!raw) return '—'
   const d = new Date(raw)
@@ -35,15 +41,38 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
   const [paying, setPaying] = useState(false)
   const [vnpayUrl, setVnpayUrl] = useState(null)
   const [apiError, setApiError] = useState('')
+  const [checkingStatus, setCheckingStatus] = useState(false)
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState('')
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const paymentWindowRef = useRef(null)
 
   const addonTotal = addonSelection?.total || 0
   const addonRows = addonSelection?.summaryRows || []
   const grandTotal = Number(booking?.total_amount || 0) + Number(addonTotal || 0)
 
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data
+      if (!message || message.type !== 'VNPAY_RETURN') return
+
+      setVnpayReturnPayload(message.payload || null)
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage)
+    return () => window.removeEventListener('message', handleVnpayReturnMessage)
+  }, [])
+
   async function handleVNPayRedirect() {
     if (!booking?.id) return
     setPaying(true)
     setApiError('')
+    setPaymentStatusMessage('')
+    setVnpayReturnPayload(null)
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800')
+    paymentWindowRef.current = popup
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -54,9 +83,18 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
       const url = json.data
       if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ')
       setVnpayUrl(url)
-      setTimeout(() => window.open(url, '_blank'), 800)
+      setPaymentStatusMessage('Hoàn tất thanh toán trên cửa sổ VNPay rồi bấm "Cập nhật trạng thái".')
+
+      if (popup) {
+        popup.location.href = url
+        popup.focus()
+      } else {
+        window.open(url, '_blank')
+      }
+
       onPaid?.()
     } catch (err) {
+      if (popup && !popup.closed) popup.close()
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -64,6 +102,77 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
       )
       setPaying(false)
     }
+  }
+
+  function handleReopenPayment() {
+    if (paymentWindowRef.current && !paymentWindowRef.current.closed) {
+      paymentWindowRef.current.focus()
+      return
+    }
+
+    if (vnpayUrl) {
+      paymentWindowRef.current = window.open(vnpayUrl, 'vnpay-payment', 'width=1200,height=800')
+    }
+  }
+
+  function handleRefreshPaymentStatus() {
+    setCheckingStatus(true)
+    setApiError('')
+    setPaymentStatusMessage('')
+
+    // Gọi API để kiểm tra trạng thái thanh toán
+    const checkPaymentStatus = async () => {
+      try {
+        const token = getToken()
+        if (!token || isTokenExpired()) {
+          throw new Error('TOKEN_MISSING')
+        }
+
+        console.log('[Tabmuave] Checking booking status for PNR:', booking?.pnr)
+
+        const res = await fetch(`${API_BASE}/booking?pnr=${booking?.pnr}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        console.log('[Tabmuave] Response status:', res.status)
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+
+        const json = await res.json()
+        console.log('[Tabmuave] Response data:', json)
+
+        if (!json.success) {
+          throw new Error(json.message || 'Không thể kiểm tra trạng thái')
+        }
+
+        const bookingData = json.data
+        console.log('[Tabmuave] Booking status:', bookingData.status)
+
+        if (bookingData.status === 'PAID') {
+          // Thanh toán thành công
+          setPaymentStatusMessage('✅ Thanh toán thành công!')
+          setShowSuccessModal(true)
+        } else {
+          setPaymentStatusMessage('⏳ Thanh toán chưa được ghi nhận. Vui lòng đảm bảo thanh toán đã hoàn tất.')
+        }
+      } catch (err) {
+        console.error('[Tabmuave] Error:', err)
+        setApiError(
+          err.message === 'TOKEN_MISSING'
+            ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+            : `❌ ${err.message || 'Lỗi khi kiểm tra trạng thái'}`
+        )
+      } finally {
+        setCheckingStatus(false)
+      }
+    }
+
+    checkPaymentStatus()
   }
 
   return (
@@ -253,15 +362,38 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
           <div style={{ fontSize: 13, color: '#047857', marginBottom: 14 }}>
             Trang thanh toán VNPay đã được mở trong tab mới.
           </div>
-          <button
-            onClick={() => window.open(vnpayUrl, '_blank')}
-            style={{
-              background: '#0f766e', color: '#fff', border: 'none',
-              borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            Mở lại trang thanh toán →
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={handleReopenPayment}
+              style={{
+                background: '#0f766e', color: '#fff', border: 'none',
+                borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Mở lại trang thanh toán →
+            </button>
+            <button
+              onClick={handleRefreshPaymentStatus}
+              disabled={checkingStatus}
+              style={{
+                background: checkingStatus ? '#ccfbf1' : '#ffffff',
+                color: '#0f766e',
+                border: '1px solid #0f766e',
+                borderRadius: 10,
+                padding: '10px 18px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: checkingStatus ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
+            </button>
+          </div>
+          {paymentStatusMessage && (
+            <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: '#0f766e' }}>
+              {paymentStatusMessage}
+            </div>
+          )}
         </div>
       )}
 
@@ -316,97 +448,17 @@ function OrderSummaryStep({ booking, addonSelection, searchData, onBack, onPaid 
           </button>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── Mini Calendar ──────────────────────────────────────────────────────────
-function MiniCalendar({ value, onChange, onClose }) {
-  const today = new Date()
-  const init = value ? new Date(value) : today
-  const [yr, setYr] = useState(init.getFullYear())
-  const [mo, setMo] = useState(init.getMonth())
-
-  const firstDay = new Date(yr, mo, 1).getDay()
-  const daysInMonth = new Date(yr, mo + 1, 0).getDate()
-  const cells = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
-  const pad = cells.length % 7 ? 7 - (cells.length % 7) : 0
-  for (let i = 0; i < pad; i++) cells.push(null)
-
-  const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
-                  'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12']
-  const DOWS   = ['CN','T2','T3','T4','T5','T6','T7']
-
-  function prev() { mo === 0 ? (setYr(y => y-1), setMo(11)) : setMo(m => m-1) }
-  function next() { mo === 11 ? (setYr(y => y+1), setMo(0)) : setMo(m => m+1) }
-
-  function pick(d) {
-    if (!d) return
-    const date = new Date(yr, mo, d)
-    if (date < new Date(today.toDateString())) return
-    const iso = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    onChange(iso)
-    onClose()
-  }
-
-  const selD = value ? new Date(value) : null
-
-  function cls(d) {
-    if (!d) return 'cal-day cal-day--empty'
-    const date = new Date(yr, mo, d)
-    const isPast = date < new Date(today.toDateString())
-    const isSel  = selD && selD.getFullYear()===yr && selD.getMonth()===mo && selD.getDate()===d
-    const isToday= today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d
-    return ['cal-day', isPast&&'cal-day--past', isSel&&'cal-day--selected', (!isSel&&isToday)&&'cal-day--today'].filter(Boolean).join(' ')
-  }
-
-  return (
-    <div className="cal-wrap" onClick={e => e.stopPropagation()}>
-      <div className="cal-nav">
-        <button className="cal-nav__btn" onClick={prev}>‹</button>
-        <span className="cal-nav__label">{MONTHS[mo]} {yr}</span>
-        <button className="cal-nav__btn" onClick={next}>›</button>
-      </div>
-      <div className="cal-grid">
-        {DOWS.map(d => <div key={d} className="cal-dow">{d}</div>)}
-        {cells.map((d, i) => (
-          <div key={i} className={cls(d)} onClick={() => pick(d)}>{d || ''}</div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function DateField({ label, value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const display = value ? value.split('-').reverse().join('/') : 'Chọn ngày'
-
-  return (
-    <div className="form-field" style={{ position: 'relative' }}>
-      <label className="form-field__label">{label}</label>
-      <div
-        className="form-field__input"
-        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span>📅</span>
-        <span style={{ color: value ? 'inherit' : '#9ca3af' }}>{display}</span>
-      </div>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
-          <MiniCalendar value={value} onChange={onChange} onClose={() => setOpen(false)} />
-        </>
-      )}
+      <PaymentSuccessModal 
+        isOpen={showSuccessModal}
+        onViewTickets={() => setShowSuccessModal(false)}
+        onGoBack={() => setShowSuccessModal(false)}
+      />
     </div>
   )
 }
 
 // ─── Airport Search ───────────────────────────────────────────────────────────
-function AirportSearch({ label, value, onChange, placeholder }) {
+function AirportSearch({ label, value, onChange, placeholder, inputRef, excludeValue = '' }) {
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(false)
@@ -418,7 +470,10 @@ function AirportSearch({ label, value, onChange, placeholder }) {
         setLoading(true)
         try {
           const results = await searchAirports(query)
-          setSuggestions(results.map(a => `${a.display_name} - ${a.city}`))
+          const nextSuggestions = results
+            .map(a => `${a.display_name} - ${a.city}`)
+            .filter(item => extractCode(item) !== extractCode(excludeValue))
+          setSuggestions(nextSuggestions)
         } catch {
           // ignore
         } finally {
@@ -436,6 +491,7 @@ function AirportSearch({ label, value, onChange, placeholder }) {
       <label className="form-field__label">{label}</label>
       <div className="airport-search">
         <input
+          ref={inputRef}
           className="form-field__input"
           placeholder={value || placeholder}
           value={query}
@@ -515,11 +571,21 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
   const [retDate,    setRetDate]    = useState('')
   const [passengers, setPassengers] = useState('1')
   const [useLiveSearch, setUseLiveSearch] = useState(false)
+  const panelRef = useRef(null)
+  const fromInputRef = useRef(null)
+  const toInputRef = useRef(null)
+  const depDateRef = useRef(null)
+  const retDateRef = useRef(null)
 
   useEffect(() => {
     if (!initialDestination) return
     setFromCity(initialDestination.from || 'Nội Bài (HAN) – Hà Nội')
     setToCity(initialDestination.to || '')
+    window.requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const target = initialDestination.to ? toInputRef.current : fromInputRef.current
+      target?.focus?.()
+    })
   }, [initialDestination])
 
   function swap() {
@@ -528,9 +594,61 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
     setToCity(fromCity)
   }
 
+  function focusDateField(ref) {
+    ref.current?.querySelector('button')?.focus?.()
+  }
+
+  useEffect(() => {
+    if (tripType !== 'round' && retDate) setRetDate('')
+  }, [tripType, retDate])
+
+  useEffect(() => {
+    if (fromCity && toCity && extractCode(fromCity) === extractCode(toCity)) {
+      setToCity('')
+    }
+  }, [fromCity, toCity])
+
+  function handleDepartureDateChange(value) {
+    setDepDate(value)
+    if (retDate && isBeforeIsoDate(retDate, value)) {
+      setRetDate(value)
+    }
+  }
+
+  function handleReturnDateChange(value) {
+    if (depDate && isBeforeIsoDate(value, depDate)) {
+      setRetDate(depDate)
+      return
+    }
+    setRetDate(value)
+  }
+
   function handleSearch() {
-    if (!toCity)  { alert('⚠️ Vui lòng chọn điểm đến!'); return }
-    if (!depDate) { alert('⚠️ Vui lòng chọn ngày đi!');  return }
+    if (!fromCity) {
+      alert('⚠️ Vui lòng chọn điểm đi!')
+      fromInputRef.current?.focus?.()
+      return
+    }
+    if (!toCity)  {
+      alert('⚠️ Vui lòng chọn điểm đến!')
+      toInputRef.current?.focus?.()
+      return
+    }
+    if (extractCode(fromCity) === extractCode(toCity)) {
+      alert('⚠️ Điểm đi và điểm đến không được trùng nhau!')
+      toInputRef.current?.focus?.()
+      return
+    }
+    if (!depDate) {
+      alert('⚠️ Vui lòng chọn ngày đi!')
+      focusDateField(depDateRef)
+      return
+    }
+    if (tripType === 'round' && retDate && isBeforeIsoDate(retDate, depDate)) {
+      alert('⚠️ Ngày về không được bé hơn ngày đi!')
+      focusDateField(retDateRef)
+      return
+    }
     onSearch({
       from:      extractCode(fromCity),
       to:        extractCode(toCity),
@@ -543,11 +661,11 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
     })
   }
 
-  const isValid = toCity && depDate
+  const isValid = fromCity && toCity && depDate && extractCode(fromCity) !== extractCode(toCity)
   const airportOptions = airports.length > 0 ? airports : FALLBACK_AIRPORTS
 
   return (
-    <div className="tab-content">
+    <div ref={panelRef} className="tab-content">
       <div className="radio-group">
         {[['one','Một chiều'],['round','Khứ hồi']].map(([v, l]) => (
           <label key={v} className="radio-label">
@@ -560,12 +678,12 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
 
       <div className="form-row">
         {useLiveSearch ? (
-          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." />
+          <AirportSearch label="✈️ Từ" value={fromCity} onChange={setFromCity} placeholder="Gõ tên thành phố..." inputRef={fromInputRef} excludeValue={toCity} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">✈️ Từ</label>
-            <select className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
-              {airportOptions.map(a => <option key={a} value={a}>{a}</option>)}
+            <select ref={fromInputRef} className="form-field__input" value={fromCity} onChange={e => setFromCity(e.target.value)} disabled={airportsLoading}>
+              {airportOptions.filter(a => a !== toCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         )}
@@ -573,11 +691,11 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
         <button className="swap-btn" onClick={swap} title="Đổi chiều">⇄</button>
 
         {useLiveSearch ? (
-          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." />
+          <AirportSearch label="🛬 Đến" value={toCity} onChange={setToCity} placeholder="Gõ tên thành phố..." inputRef={toInputRef} excludeValue={fromCity} />
         ) : (
           <div className="form-field">
             <label className="form-field__label">🛬 Đến</label>
-            <select className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
+            <select ref={toInputRef} className="form-field__input" value={toCity} onChange={e => setToCity(e.target.value)} disabled={airportsLoading}>
               <option value="">-- Chọn điểm đến --</option>
               {airportOptions.filter(a => a !== fromCity).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -592,9 +710,13 @@ function SearchPanel({ onSearch, initialDestination, isLoading, airports, airpor
       )}
 
       <div className="form-row">
-        <DateField label="📅 Ngày đi" value={depDate} onChange={setDepDate} />
+        <div ref={depDateRef}>
+          <DatePicker label="📅 Ngày đi" value={depDate} onChange={handleDepartureDateChange} theme="light" className="form-field" />
+        </div>
         {tripType === 'round' && (
-          <DateField label="📅 Ngày về" value={retDate} onChange={setRetDate} />
+          <div ref={retDateRef}>
+            <DatePicker label="📅 Ngày về" value={retDate} onChange={handleReturnDateChange} minDate={depDate || undefined} theme="light" className="form-field" />
+          </div>
         )}
         <div className="form-field">
           <label className="form-field__label">👥 Hành khách</label>
@@ -636,12 +758,24 @@ function FlightFilters({ filters, onFilterChange, onSortChange, sortBy, sortOrde
             <div>
               <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>💰 Khoảng giá (VNĐ)</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input type="number" placeholder="Từ" value={localFilters.minPrice || ''}
-                  onChange={e => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                <input type="text" placeholder="Từ" value={localFilters.minPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, minPrice: e.target.value ? parseInt(digitsOnly(e.target.value)) : undefined})}
+                  onKeyDown={e => {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }}
+                  inputMode="numeric"
                   style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
                 <span style={{ color: '#999' }}>-</span>
-                <input type="number" placeholder="Đến" value={localFilters.maxPrice || ''}
-                  onChange={e => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(e.target.value) : undefined})}
+                <input type="text" placeholder="Đến" value={localFilters.maxPrice || ''}
+                  onChange={e => setLocalFilters({...localFilters, maxPrice: e.target.value ? parseInt(digitsOnly(e.target.value)) : undefined})}
+                  onKeyDown={e => {
+                    const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+                    if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                    if (!/^\d$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                  }}
+                  inputMode="numeric"
                   style={{ width: '45%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
               </div>
             </div>
@@ -739,6 +873,19 @@ export default function TabMuaVe({ onAction, initialDestination }) {
     fetchAirports()
   }, [fetchAirports])
 
+  useEffect(() => {
+    if (!initialDestination) return
+    setScreen('search')
+    setError(null)
+    setSearchData(null)
+    setOutboundSel(null)
+    setReturnSel(null)
+    setBooking(null)
+    setApiResults(null)
+    setFilters({})
+    setAddonSelection({ total: 0, selected: {}, summaryRows: [] })
+  }, [initialDestination])
+
   // Bước 1 → 2: tìm kiếm
   async function handleSearch(data) {
     setIsLoading(true)
@@ -756,14 +903,14 @@ export default function TabMuaVe({ onAction, initialDestination }) {
         return_date:    data.retDate || undefined,
         adults:         parseInt(data.passengers) || 1,
       })
+      // Handle new API response format with outbound and return objects
       const formattedResults = {
-        outbound: result.data?.outbound?.flatMap(day =>
-          day.flights.map(f => formatFlight(f))
-        ) || [],
-        return: result.data?.return?.flatMap(day =>
-          day.flights.map(f => formatFlight(f))
-        ) || [],
+        outbound: normalizeSearchSection(result.data?.outbound),
+        return: result.data?.return ? normalizeSearchSection(result.data.return) : normalizeSearchSection(null),
       }
+      console.log('[DEBUG Tabmuave] Raw API data:', result.data);
+      console.log('[DEBUG Tabmuave] Formatted OUTBOUND:', formattedResults.outbound);
+      console.log('[DEBUG Tabmuave] Formatted RETURN:', formattedResults.return);
       setApiResults(formattedResults)
       setScreen('results')
     } catch (err) {
@@ -775,14 +922,20 @@ export default function TabMuaVe({ onAction, initialDestination }) {
   }
 
   const getFilteredFlights = () => {
-    if (!apiResults) return { outbound: [], return: [] }
+    if (!apiResults) {
+      return {
+        outbound: normalizeSearchSection(null),
+        return: normalizeSearchSection(null),
+      }
+    }
+
     const filterConfig = {
       ...filters,
       depTimeRange: filters.timeRange ? filters.timeRange.split('-').map(Number) : undefined,
     }
     return {
-      outbound: sortFlights(filterFlights(apiResults.outbound, filterConfig), sortBy, sortOrder),
-      return:   sortFlights(filterFlights(apiResults.return,   filterConfig), sortBy, sortOrder),
+      outbound: filterSearchSection(apiResults.outbound, filterConfig, sortBy, sortOrder),
+      return:   filterSearchSection(apiResults.return, filterConfig, sortBy, sortOrder),
     }
   }
 
@@ -864,7 +1017,7 @@ export default function TabMuaVe({ onAction, initialDestination }) {
           onSortChange={(by, order) => { setSortBy(by); setSortOrder(order) }}
           sortBy={sortBy}
           sortOrder={sortOrder}
-          resultCount={activeFlights.length}
+          resultCount={activeFlights.allFlights.length}
         />
         {error && (
           <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 16 }}>
@@ -879,7 +1032,10 @@ export default function TabMuaVe({ onAction, initialDestination }) {
         */}
         <FlightResults
           searchData={activeSearchData}
-          flights={{ outbound: activeFlights }}
+          flights={{
+            outbound: activeFlights,
+            return: !choosingReturn && searchData?.tripType === 'round' ? filteredFlights.return : null,
+          }}
           isLoading={isLoading}
           onSelect={handleSelectFlight}
           navigateOnSelect={false}

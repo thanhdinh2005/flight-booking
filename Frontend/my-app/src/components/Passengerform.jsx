@@ -1,7 +1,9 @@
 // PassengerForm.jsx — Điền thông tin hành khách & thanh toán qua VNPay sandbox
 // Luồng: Nhập HK → POST /api/createBooking → GET /api/payments/vnpay/{id} → redirect VNPay
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getToken, isTokenExpired } from '../services/keycloakService';
+import PaymentSuccessModal from './PaymentSuccessModal';
 import '../styles/Passenger.css';
 import '../styles/Refundpolicy.css';
 
@@ -22,6 +24,59 @@ function getAuthHeaders(includeContentType = true) {
 }
 
 function fmt(n) { return Number(n || 0).toLocaleString("vi-VN") + "₫"; }
+
+function digitsOnly(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
+function nameOnly(value) {
+  return String(value ?? '').replace(/[^\p{L}\s-]/gu, '')
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
+}
+
+function hasVietnameseAccent(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return false
+  return raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '') !== raw
+}
+
+function preventNonDigitKeyDown(e) {
+  const allowKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End',
+  ];
+
+  if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return;
+  if (!/^\d$/.test(e.key)) e.preventDefault();
+}
+
+function handleDigitPaste(e, applyValue, maxLength = Infinity) {
+  e.preventDefault();
+  const pasted = e.clipboardData?.getData('text') ?? '';
+  applyValue(digitsOnly(pasted).slice(0, maxLength));
+}
+
+function preventDigitKeyDown(e) {
+  const allowKeys = [
+    'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ',
+  ];
+  
+  if (e.ctrlKey || e.metaKey || e.altKey || allowKeys.includes(e.key)) return;
+  // Block digits and special characters, allow only letters
+  if (!/^[\p{L}\s-]$/u.test(e.key) && e.key.length === 1) {
+    e.preventDefault();
+  }
+}
+
+function handleTextPasteWithoutDigits(e, applyValue) {
+  e.preventDefault();
+  const pasted = e.clipboardData?.getData('text') ?? '';
+  applyValue(nameOnly(pasted));
+}
 
 function parseDate(raw) {
   if (!raw) return null;
@@ -210,7 +265,7 @@ function MiniCalendar({ value, onChange, onClose }) {
   )
 }
 
- function VNPayWaiting({ vnpayUrl }) {
+ function VNPayWaiting({ vnpayUrl, onRefreshStatus, checkingStatus, paymentStatus, onGoHome }) {
   return (
     <div className="vnp-waiting">
       <div className="vnp-waiting__icon-wrap">
@@ -243,11 +298,17 @@ function MiniCalendar({ value, onChange, onClose }) {
       <div className="vnp-waiting__content">
         <div className="vnp-waiting__title">Đang chờ thanh toán...</div>
         <div className="vnp-waiting__sub">
-          Trang thanh toán VNPay đã được mở trong tab mới.
+          Trang thanh toán VNPay đã được mở trong cửa sổ mới.
           <br />
-          Trang này sẽ tự cập nhật sau khi bạn hoàn tất.
+          Sau khi hoàn tất, bấm Cập nhật trạng thái để nhận kết quả từ VNPay Sandbox.
         </div>
       </div>
+
+      {paymentStatus?.message && (
+        <div className={`vnp-waiting__status vnp-waiting__status--${paymentStatus.type || 'info'}`}>
+          {paymentStatus.message}
+        </div>
+      )}
 
       <div className="vnp-waiting__steps">
         <div className="vnp-waiting__step vnp-waiting__step--done">
@@ -268,18 +329,37 @@ function MiniCalendar({ value, onChange, onClose }) {
         </div>
       </div>
 
-      <button
-        className="vnp-waiting__reopen"
-        onClick={() => {
-          if (vnpayUrl) {
-            window.open(vnpayUrl, "_blank");
-          } else {
-            alert("Không có link thanh toán");
-          }
-        }}
-      >
-        Mở lại trang thanh toán →
-      </button>
+      <div className="vnp-waiting__actions">
+        <button
+          className="vnp-waiting__reopen"
+          onClick={() => {
+            if (vnpayUrl) {
+              window.open(vnpayUrl, "_blank");
+            } else {
+              alert("Không có link thanh toán");
+            }
+          }}
+        >
+          Mở lại trang thanh toán →
+        </button>
+
+        <button
+          type="button"
+          className="vnp-waiting__refresh"
+          onClick={onRefreshStatus}
+          disabled={checkingStatus}
+        >
+          {checkingStatus ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
+        </button>
+
+        <button
+          type="button"
+          className="vnp-waiting__home"
+          onClick={onGoHome}
+        >
+          Trở về màn hình chính
+        </button>
+      </div>
 
       <div className="vnp-sandbox-badge">
         🧪 Môi trường Sandbox
@@ -304,6 +384,7 @@ export default function PassengerForm({
   onBack = () => {},
   onDone = () => {},
 }) {
+  const navigate = useNavigate()
   const pax = parseInt(searchData.passengers) || 1;
   const itineraryFlights = selectedFlights.length > 0
     ? selectedFlights.filter(Boolean)
@@ -312,7 +393,7 @@ export default function PassengerForm({
 
   const [subStep, setSubStep]       = useState(0);
   const [forms, setForms]           = useState(() =>
-    Array.from({ length: pax }, () => ({ first_name: '', last_name: '', birthday: '', gender: 'MALE' }))
+    Array.from({ length: pax }, () => ({ first_name: '', last_name: '', date_of_birth: '', id_number: '', gender: 'MALE' }))
   );
   const [contact, setContact]       = useState({ email: '', phone: '' });
   const [policyRead, setPolicyRead] = useState(false);
@@ -323,20 +404,186 @@ export default function PassengerForm({
   const [submitting, setSubmitting] = useState(false);
   const [paying, setPaying]         = useState(false);
   const [vnpayUrl, setVnpayUrl]     = useState(null);
-const [openCalIndex, setOpenCalIndex] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [paymentStatus, setPaymentStatus]   = useState(null);
+  const [vnpayReturnPayload, setVnpayReturnPayload] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const paymentWindowRef = useRef(null);
+  const fieldRefs = useRef({});
+  const [openCalIndex, setOpenCalIndex] = useState(null);
+
+  function setFieldRef(key, node) {
+    fieldRefs.current[key] = node;
+  }
+
+  function focusField(key) {
+    const node = fieldRefs.current[key];
+    node?.focus?.();
+  }
+
+  function focusDateOfBirth(index) {
+    fieldRefs.current[`date_of_birth_${index}`]?.click?.();
+  }
   function updForm(i, field, val) {
     setForms(p => p.map((f, idx) => idx === i ? { ...f, [field]: val } : f));
   }
 
-  const formFieldsValid =
-    forms.every(f => f.first_name.trim() && f.last_name.trim() && f.gender) &&
-    contact.email.trim() && contact.phone.trim();
+  async function refreshPaymentStatus() {
+    setCheckingStatus(true);
+    setApiError('');
+    setPaymentStatus(null);
+
+    try {
+      // Gọi API để kiểm tra trạng thái thanh toán
+      const token = getToken();
+      if (!token || isTokenExpired()) {
+        throw new Error('TOKEN_MISSING');
+      }
+
+      console.log('[Payment] Checking booking status for PNR:', booking?.pnr);
+
+      const res = await fetch(`${API_BASE}/booking?pnr=${booking?.pnr}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('[Payment] Response status:', res.status);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      console.log('[Payment] Response data:', json);
+
+      if (!json.success) {
+        throw new Error(json.message || 'Không thể kiểm tra trạng thái');
+      }
+
+      const bookingData = json.data;
+      console.log('[Payment] Booking status:', bookingData.status);
+
+      if (bookingData.status === 'PAID') {
+        // Thanh toán thành công
+        setBooking(prev => prev ? {
+          ...prev,
+          ...bookingData,
+          status: 'PAID',
+          expires_at: null,
+        } : prev);
+        setPaymentStatus({
+          type: 'success',
+          message: '✅ Thanh toán thành công. Hệ thống đã ghi nhận vé của bạn.',
+        });
+        setShowSuccessModal(true);
+        setCheckingStatus(false);
+        return true;
+      }
+
+      // Chưa thanh toán
+      setPaymentStatus({
+        type: 'pending',
+        message: '⏳ Thanh toán chưa được ghi nhận. Vui lòng đảm bảo thanh toán đã hoàn tất ở VNPay.',
+      });
+      setCheckingStatus(false);
+      return false;
+    } catch (err) {
+      console.error('[Payment] Error:', err);
+      setApiError(err.message === 'TOKEN_MISSING' 
+        ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
+        : `❌ ${err.message || 'Lỗi khi kiểm tra trạng thái'}`
+      );
+      setCheckingStatus(false);
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    function handleVnpayReturnMessage(event) {
+      const message = event?.data;
+      if (!message || message.type !== 'VNPAY_RETURN') return;
+
+      setVnpayReturnPayload(message.payload || null);
+    }
+
+    window.addEventListener('message', handleVnpayReturnMessage);
+    return () => window.removeEventListener('message', handleVnpayReturnMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!booking?.id) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const responseCode = params.get('vnp_ResponseCode');
+    const txnRef = params.get('vnp_TxnRef') ?? '';
+
+    if (!responseCode || (txnRef && !txnRef.startsWith(`${booking.id}_`))) return;
+
+    if (responseCode === '00') {
+      setPaymentStatus({
+        type: 'success',
+        message: 'VNPay đã báo thanh toán thành công. Đang đồng bộ lại trạng thái vé...',
+      });
+      refreshPaymentStatus();
+      return;
+    }
+
+    setPaymentStatus({
+      type: 'error',
+      message: `Thanh toán thất bại. Mã phản hồi VNPay: ${responseCode}.`,
+    });
+  }, [booking?.id]);
+
+  useEffect(() => {
+    if (!vnpayUrl || checkingStatus || paymentStatus?.type === 'success' || !vnpayReturnPayload?.success) return;
+
+    const timer = window.setInterval(() => {
+      refreshPaymentStatus();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [vnpayUrl, checkingStatus, paymentStatus?.type, vnpayReturnPayload?.success]);
+
+  function getFormValidationError() {
+    if (!contact.email.trim()) return { message: 'Vui lòng nhập email nhận vé.', field: 'contact_email' }
+    if (!isValidEmail(contact.email)) return { message: 'Email nhận vé không đúng định dạng.', field: 'contact_email' }
+    if (!contact.phone.trim()) return { message: 'Vui lòng nhập số điện thoại.', field: 'contact_phone' }
+
+    for (let i = 0; i < forms.length; i += 1) {
+      const f = forms[i]
+      const index = i + 1
+
+      if (!f.last_name.trim()) return { message: `Vui lòng nhập họ cho hành khách ${index}.`, field: `last_name_${i}` }
+      if (hasVietnameseAccent(f.last_name)) return { message: `Họ của hành khách ${index} không được có dấu.`, field: `last_name_${i}` }
+      if (!f.first_name.trim()) return { message: `Vui lòng nhập tên cho hành khách ${index}.`, field: `first_name_${i}` }
+      if (hasVietnameseAccent(f.first_name)) return { message: `Tên của hành khách ${index} không được có dấu.`, field: `first_name_${i}` }
+      if (!f.date_of_birth) return { message: `Vui lòng chọn ngày sinh cho hành khách ${index}.`, field: `date_of_birth_${i}` }
+      if (!f.id_number.trim()) return { message: `Vui lòng nhập căn cước công dân cho hành khách ${index}.`, field: `id_number_${i}` }
+      if (!f.gender) return { message: `Vui lòng chọn giới tính cho hành khách ${index}.`, field: `gender_${i}` }
+    }
+
+    return null
+  }
+
+  const formFieldsValid = !getFormValidationError()
 
   // ── BƯỚC 0 → 1: POST /api/createBooking ──────────────────────────────────
   async function handleCreateBooking() {
-    if (!formFieldsValid) return;
+    const validationError = getFormValidationError()
+    if (validationError) {
+      setApiError(validationError.message)
+      if (validationError.field.startsWith('date_of_birth_')) {
+        focusDateOfBirth(validationError.field.replace('date_of_birth_', ''))
+      } else {
+        focusField(validationError.field)
+      }
+      return
+    }
     if (!policyRead) {
       setApiError('Vui lòng đọc và đồng ý với chính sách hoàn vé trước khi tiếp tục.');
+      focusField('policy_button');
       return;
     }
     setSubmitting(true);
@@ -356,7 +603,8 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
           passengers: forms.map(f => ({
             first_name: f.first_name.trim(),
             last_name:  f.last_name.trim(),
-            birthday:   f.birthday || undefined,
+            date_of_birth: f.date_of_birth || undefined,
+            id_number:  f.id_number.trim() || undefined,
             gender:     f.gender,
           })),
         }),
@@ -386,6 +634,11 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
     if (!booking?.id) return;
     setPaying(true);
     setApiError('');
+    setVnpayReturnPayload(null);
+
+    const popup = window.open('', 'vnpay-payment', 'width=1200,height=800');
+    paymentWindowRef.current = popup;
+
     try {
       const res = await fetch(`${API_BASE}/payments/vnpay/${booking.id}`, {
         method: 'POST',
@@ -398,9 +651,19 @@ const [openCalIndex, setOpenCalIndex] = useState(null);
       if (!url?.startsWith('http')) throw new Error('URL thanh toán không hợp lệ');
 
       setVnpayUrl(url);
-      // Mở VNPay sandbox trong tab mới, trang hiện tại giữ nguyên chờ kết quả
-      setTimeout(() => { window.open(url, '_blank'); }, 800);
+      setPaymentStatus({
+        type: 'pending',
+        message: 'Sau khi thanh toán xong ở cửa sổ VNPay, bấm "Cập nhật trạng thái" để cập nhật.',
+      });
+
+      if (popup) {
+        popup.location.href = url;
+        popup.focus();
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       setApiError(
         err.message === 'TOKEN_MISSING'
           ? '🔐 Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.'
@@ -514,6 +777,7 @@ function StepBar({ active }) {
                   <div className="pf-field">
                     <label>Email nhận vé <span className="pf-req">*</span></label>
                     <input
+                      ref={node => setFieldRef('contact_email', node)}
                       type="email" placeholder="email@example.com"
                       value={contact.email}
                       onChange={e => {
@@ -525,10 +789,19 @@ function StepBar({ active }) {
                   <div className="pf-field">
                     <label>Số điện thoại <span className="pf-req">*</span></label>
                     <input
-                      type="tel" placeholder="09xxxxxxxx"
+                      ref={node => setFieldRef('contact_phone', node)}
+                      type="text" placeholder="09xxxxxxxx"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
                       value={contact.phone}
+                      onKeyDown={preventNonDigitKeyDown}
+                      onPaste={e => handleDigitPaste(e, value => {
+                        setContact(c => ({ ...c, phone: value }))
+                        if (apiError) setApiError('')
+                      }, 10)}
                       onChange={e => {
-                        setContact(c => ({ ...c, phone: e.target.value }))
+                        setContact(c => ({ ...c, phone: digitsOnly(e.target.value).slice(0, 10) }))
                         if (apiError) setApiError('')
                       }}
                     />
@@ -547,24 +820,35 @@ function StepBar({ active }) {
                   <div className="pf-grid-2">
                     <div className="pf-field">
                       <label>Họ <span className="pf-req">*</span></label>
-                      <input placeholder="VD: Nguyễn" value={f.last_name}
+                      <input ref={node => setFieldRef(`last_name_${i}`, node)} placeholder="VD: Nguyễn" value={f.last_name}
+                        onKeyDown={preventDigitKeyDown}
+                        onPaste={e => handleTextPasteWithoutDigits(e, value => {
+                          updForm(i, 'last_name', value)
+                          if (apiError) setApiError('')
+                        })}
                         onChange={e => {
-                          updForm(i, 'last_name', e.target.value)
+                          updForm(i, 'last_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
                     <div className="pf-field">
                       <label>Tên <span className="pf-req">*</span></label>
-                      <input placeholder="VD: Văn A" value={f.first_name}
+                      <input ref={node => setFieldRef(`first_name_${i}`, node)} placeholder="VD: Văn A" value={f.first_name}
+                        onKeyDown={preventDigitKeyDown}
+                        onPaste={e => handleTextPasteWithoutDigits(e, value => {
+                          updForm(i, 'first_name', value)
+                          if (apiError) setApiError('')
+                        })}
                         onChange={e => {
-                          updForm(i, 'first_name', e.target.value)
+                          updForm(i, 'first_name', nameOnly(e.target.value))
                           if (apiError) setApiError('')
                         }} />
                     </div>
                    <div className="pf-field" style={{ position: 'relative' }}>
-                <label>Ngày sinh</label>
+                <label>Ngày sinh <span className="pf-req">*</span></label>
 
                 <div
+                  ref={node => setFieldRef(`date_of_birth_${i}`, node)}
                   className="form-field__input"
                   style={{
                     cursor: 'pointer',
@@ -575,9 +859,9 @@ function StepBar({ active }) {
                   onClick={() => setOpenCalIndex(i)}
                 >
                   <span>📅</span>
-                  <span style={{ color: f.birthday ? 'inherit' : '#9ca3af' }}>
-                    {f.birthday
-                      ? f.birthday.split('-').reverse().join('/')
+                  <span style={{ color: f.date_of_birth ? 'inherit' : '#9ca3af' }}>
+                    {f.date_of_birth
+                      ? f.date_of_birth.split('-').reverse().join('/')
                       : 'Chọn ngày'}
                   </span>
                 </div>
@@ -595,9 +879,9 @@ function StepBar({ active }) {
                     />
 
                     <MiniCalendar
-                      value={f.birthday}
+                      value={f.date_of_birth}
                       onChange={(date) => {
-                        updForm(i, 'birthday', date)
+                        updForm(i, 'date_of_birth', date)
                         if (apiError) setApiError('')
                       }}
                       onClose={() => setOpenCalIndex(null)}
@@ -606,8 +890,29 @@ function StepBar({ active }) {
                 )}
               </div>
                     <div className="pf-field">
+                      <label>Căn cước công dân <span className="pf-req">*</span></label>
+                      <input
+                        ref={node => setFieldRef(`id_number_${i}`, node)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={12}
+                        placeholder="VD: 001234567890"
+                        value={f.id_number}
+                        onKeyDown={preventNonDigitKeyDown}
+                        onPaste={e => handleDigitPaste(e, value => {
+                          updForm(i, 'id_number', value)
+                          if (apiError) setApiError('')
+                        }, 12)}
+                        onChange={e => {
+                          updForm(i, 'id_number', digitsOnly(e.target.value).slice(0, 12))
+                          if (apiError) setApiError('')
+                        }}
+                      />
+                    </div>
+                    <div className="pf-field">
                       <label>Giới tính <span className="pf-req">*</span></label>
-                      <select value={f.gender}
+                      <select ref={node => setFieldRef(`gender_${i}`, node)} value={f.gender}
                         onChange={e => {
                           updForm(i, 'gender', e.target.value)
                           if (apiError) setApiError('')
@@ -623,6 +928,7 @@ function StepBar({ active }) {
               {/* Chính sách */}
               <div className="pf-policy-row">
                 <button className={`pf-policy-btn${policyRead ? " read" : ""}`}
+                  ref={node => setFieldRef('policy_button', node)}
                   onClick={() => {
                     if (apiError) setApiError('')
                     setShowPolicy(true)
@@ -636,11 +942,11 @@ function StepBar({ active }) {
                 </div>
               </div>
 
-              {apiError && <div className="pf-error">⚠️ {apiError}</div>}
+                {apiError && <div className="pf-error">⚠️ {apiError}</div>}
 
               <div className="pf-btn-row">
                 <button className="pf-btn-back" onClick={onBack}>← Quay lại</button>
-                <button className="pf-btn-next" disabled={!formFieldsValid || submitting}
+                <button className="pf-btn-next" disabled={submitting}
                   onClick={handleCreateBooking}>
                   {submitting
                     ? <><span className="pf-spinner-sm" /> Đang giữ chỗ...</>
@@ -655,7 +961,13 @@ function StepBar({ active }) {
             <>
               {/* Khi đã mở tab VNPay → hiện banner chờ, ẩn nút thanh toán */}
               {vnpayUrl ? (
-                <VNPayWaiting vnpayUrl={vnpayUrl} />
+                <VNPayWaiting
+                  vnpayUrl={vnpayUrl}
+                  onRefreshStatus={refreshPaymentStatus}
+                  checkingStatus={checkingStatus}
+                  paymentStatus={paymentStatus}
+                  onGoHome={() => navigate('/home')}
+                />
               ) : (
               <>
               {/* PNR badge */}
@@ -777,6 +1089,30 @@ function StepBar({ active }) {
         }
         .vnp-waiting__title { font-size: 18px; font-weight: 800; color: #065f46; }
         .vnp-waiting__sub   { font-size: 13px; color: #047857; line-height: 1.6; }
+        .vnp-waiting__status {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 10px 12px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .vnp-waiting__status--success {
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #a7f3d0;
+        }
+        .vnp-waiting__status--pending,
+        .vnp-waiting__status--info {
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+        .vnp-waiting__status--error {
+          background: #fef2f2;
+          color: #b91c1c;
+          border: 1px solid #fecaca;
+        }
 
         .vnp-waiting__steps {
           display: flex; gap: 0; align-items: center;
@@ -802,6 +1138,13 @@ function StepBar({ active }) {
           display: inline-block;
           animation: vnp-spin .9s linear infinite;
         }
+        .vnp-waiting__actions {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
 
         .vnp-waiting__reopen {
           background: #009B8D; color: #fff;
@@ -810,6 +1153,35 @@ function StepBar({ active }) {
           cursor: pointer; transition: background .15s, transform .12s;
         }
         .vnp-waiting__reopen:hover { background: #007869; transform: translateY(-1px); }
+        .vnp-waiting__refresh {
+          background: #fff;
+          color: #0f766e;
+          border: 1.5px solid #0f766e;
+          border-radius: 8px;
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background .15s, transform .12s, opacity .15s;
+        }
+        .vnp-waiting__refresh:hover:not(:disabled) { background: #f0fdfa; transform: translateY(-1px); }
+        .vnp-waiting__refresh:disabled { opacity: .65; cursor: not-allowed; }
+        .vnp-waiting__home {
+          background: #ffffff;
+          color: #1f2937;
+          border: 1.5px solid #d1d5db;
+          border-radius: 8px;
+          padding: 10px 20px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background .15s, transform .12s, border-color .15s;
+        }
+        .vnp-waiting__home:hover {
+          background: #f9fafb;
+          border-color: #9ca3af;
+          transform: translateY(-1px);
+        }
 
         .vnp-sandbox-badge {
           font-size: 11px; font-weight: 600;
@@ -872,7 +1244,30 @@ function StepBar({ active }) {
         .pf-req { color:#e53e3e; }
         .pf-card__title-sub { font-size:12px; font-weight:400; color:#888; }
         .pf-btn-row--pay { margin-top:8px; }
+        @media (max-width: 720px) {
+          .vnp-waiting__steps {
+            flex-direction: column;
+            gap: 10px;
+          }
+          .vnp-waiting__step + .vnp-waiting__step::before {
+            display: none;
+          }
+          .vnp-waiting__actions {
+            width: 100%;
+            flex-direction: column;
+          }
+          .vnp-waiting__reopen,
+          .vnp-waiting__refresh,
+          .vnp-waiting__home {
+            width: 100%;
+          }
+        }
       `}</style>
+      <PaymentSuccessModal 
+        isOpen={showSuccessModal}
+        onViewTickets={() => setShowSuccessModal(false)}
+        onGoBack={() => setShowSuccessModal(false)}
+      />
     </>
   );
 }

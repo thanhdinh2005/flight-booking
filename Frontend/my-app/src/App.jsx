@@ -5,8 +5,8 @@ import Home          from "./components/HomePage";
 import MyTicket      from "./components/Myticker";
 import CancelTicket  from "./components/Cancelticker";
 import Tabthutuc     from "./components/tabs/Tabthutuc";
-import Login         from "./components/Login";
-import Register      from "./components/Register";
+import Signup        from "./components/Signup";
+import AdminLogin    from "./components/AdminLogin";
 import ProtectedRoute from "./components/protected";
 import AdminDashboard from "./admin/AdminDashboard";
 import FlightResults from "./components/Flightresults";
@@ -15,28 +15,11 @@ import BuyTicketPage from "./components/Buyticketpage";
 import ExperiencePage from "./pages/ExperiencePage";
 import HelpPage      from "./pages/HelpPage";
 
-import { useState } from "react";
 import './styles/signup.css';
 
 /* ── Trang Auth ── */
 function AuthPage() {
-  const [page, setPage] = useState('login');
-  return (
-    <div className="signup-wrapper">
-      <div className="auth-area">
-        {page === 'register'
-          ? <Register onNavigate={setPage} />
-          : <Login    onNavigate={setPage} />
-        }
-      </div>
-      <div className="tagline-panel">
-        <div className="login-tagline">
-          Khám phá thế giới<br />
-          cùng Việt Jett
-        </div>
-      </div>
-    </div>
-  );
+  return <Signup />;
 }
 
 /* ── Trang không có quyền ── */
@@ -65,6 +48,7 @@ export default function App() {
 
         {/* Public */}
         <Route path="/login"        element={<AuthPage />} />
+        <Route path="/admin/login"  element={<AdminLogin />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
         {/* Customer layout */}

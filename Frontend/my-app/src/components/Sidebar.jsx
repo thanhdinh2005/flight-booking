@@ -1,5 +1,5 @@
 // src/components/Sidebar.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/Sidebar.css';
 
@@ -37,7 +37,7 @@ const SERVICE_OPTIONS = [
 // Routes con thuộc nhóm "Mua vé & Dịch vụ"
 const MUAVE_ROUTES = ['/my-tickets', '/cancel-ticket'];
 
-export default function Sidebar({ onSelect }) {
+export default function Sidebar({ onSelect, mobileOpen = false, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -64,6 +64,11 @@ export default function Sidebar({ onSelect }) {
   }
   const activeServiceId = getActiveServiceId();
 
+  useEffect(() => {
+    onClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
   function handleItemClick(item) {
     if (item.id === 'muave') {
       setServiceModal(true);
@@ -81,13 +86,25 @@ export default function Sidebar({ onSelect }) {
 
   return (
     <>
-      <nav className={`sidebar${expanded ? ' sidebar--expanded' : ''}`}>
+      {mobileOpen && <button type="button" className="sidebar__backdrop" onClick={onClose} aria-label="Đóng menu" />}
+
+      <nav className={`sidebar${expanded ? ' sidebar--expanded' : ''}${mobileOpen ? ' sidebar--mobile-open' : ''}`}>
         <button
+          type="button"
           className="sidebar__toggle"
           onClick={() => setExpanded(p => !p)}
           title={expanded ? 'Thu gọn' : 'Mở rộng'}
         >
           {expanded ? '‹' : '›'}
+        </button>
+
+        <button
+          type="button"
+          className="sidebar__mobile-close"
+          onClick={onClose}
+          aria-label="Đóng menu điều hướng"
+        >
+          ✕
         </button>
 
         {NAV_ITEMS.map(item => {

@@ -1,8 +1,11 @@
 // FlightResults.jsx — Kết quả tìm kiếm chuyến bay
 // Khi click vào card → mở panel chọn hạng vé (Economy / Business)
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { getToken, isTokenExpired } from "../services/keycloakService";
 import '../styles/Flightresult.css';
+
+const API_BASE = import.meta.env?.VITE_API_BASE || 'https://backend.test/api';
 
 
 const MOCK_FLIGHTS = [
@@ -142,6 +145,139 @@ const SEAT_CLASSES = {
     ],
   },
 };
+
+function normalizeFlightItem(f) {
+  // Extract prices from seats array (new API format)
+  let prices = f.prices;
+  if (!prices && f.seats && Array.isArray(f.seats)) {
+    prices = {};
+    f.seats.forEach((seat) => {
+      if (seat.class && seat.price) {
+        prices[seat.class] = seat.price;
+      }
+    });
+  }
+
+  // Fallback price calculation
+  if (!prices || Object.keys(prices).length === 0) {
+    const basePrice = f.price || 0;
+    prices = {
+      ECONOMY:  basePrice,
+      BUSINESS: basePrice * 3,
+    };
+  }
+
+  return {
+    ...f,
+    airline:    f.airline    || "Vietnam Airlines",
+    flightNo:   f.flightNo   || f.flight_number,
+    dep:        f.dep        || f.std || f.dep_time,
+    arr:        f.arr        || f.sta || f.arr_time,
+    depAirport: f.depAirport || f.origin_name || f.origin || "Nội Bài",
+    arrAirport: f.arrAirport || f.destination_name || f.destination || "Tân Sơn Nhất",
+    depCode:    f.depCode    || f.origin || "HAN",
+    arrCode:    f.arrCode    || f.destination || "SGN",
+    duration:   f.duration   || "2g00p",
+    aircraft:   f.aircraft   || "Airbus A321",
+    prices,
+    seats:      f.seats,  // Keep original seats info
+  };
+}
+
+function normalizeSection(section, fallback = []) {
+  // Return fallback if section is null/undefined or not an object
+  if (!section || typeof section !== "object") {
+    const flights = (fallback || []).map(normalizeFlightItem);
+    return {
+      status: flights.length ? "FOUND_TARGET" : "EMPTY",
+      message: "",
+      targetDate: "",
+      days: flights.length ? [{ date: "", label: "", isTarget: true, flights }] : [],
+      allFlights: flights,
+    };
+  }
+
+  // Handle new API format with 'data' array (snake_case keys)
+  if (section && section.data && Array.isArray(section.data)) {
+    const days = section.data.map((dayData) => ({
+      date:      dayData.date || "",
+      label:     dayData.label || "",
+      isTarget:  dayData.is_target || false,
+      flights:   (dayData.flights || []).map(normalizeFlightItem),
+    }));
+
+    return {
+      status:     section.status || (days.length ? "FOUND_TARGET" : "SUGGESTED"),
+      message:    section.message || "",
+      targetDate: section.target_date || section.targetDate || "",
+      days,
+      allFlights: days.flatMap((day) => day.flights),
+    };
+  }
+
+  // Handle format where days are directly an array
+  if (section && Array.isArray(section)) {
+    const days = section.map((dayData) => ({
+      date:      dayData.date || "",
+      label:     dayData.label || "",
+      isTarget:  dayData.is_target || false,
+      flights:   (dayData.flights || []).map(normalizeFlightItem),
+    }));
+
+    return {
+      status:     days.length ? "FOUND_TARGET" : "SUGGESTED",
+      message:    "",
+      targetDate: "",
+      days,
+      allFlights: days.flatMap((day) => day.flights),
+    };
+  }
+
+  // Handle old format with 'days' array (camelCase keys)
+  if (section.days && Array.isArray(section.days)) {
+    const days = section.days.map((day) => ({
+      ...day,
+      flights: (day.flights || []).map(normalizeFlightItem),
+    }));
+
+    return {
+      status:     section.status || (days.length ? "FOUND_TARGET" : "SUGGESTED"),
+      message:    section.message || "",
+      targetDate: section.targetDate || "",
+      days,
+      allFlights: days.flatMap((day) => day.flights),
+    };
+  }
+
+  const flights = (fallback || []).map(normalizeFlightItem);
+  return {
+    status:     flights.length ? "FOUND_TARGET" : "EMPTY",
+    message:    "",
+    targetDate: "",
+    days:       flights.length ? [{ date: "", label: "", isTarget: true, flights }] : [],
+    allFlights: flights,
+  };
+}
+
+function sortSectionDays(section, sort) {
+  return section.days.map((day) => ({
+    ...day,
+    flights: [...day.flights].sort((a, b) => {
+      const priceA = a.prices?.ECONOMY ?? a.price ?? 0;
+      const priceB = b.prices?.ECONOMY ?? b.price ?? 0;
+
+      return sort === "price"
+        ? priceA - priceB
+        : String(a.dep || "").localeCompare(String(b.dep || ""));
+    }),
+  }));
+}
+
+function getAlertTone(status) {
+  if (status === "FOUND_TARGET") return "success";
+  if (status === "EMPTY") return "danger";
+  return "warning";
+}
 
 // ── Seat Class Selector Modal ────────────────────────────────────────────────
 function SeatClassPanel({ flight, pax, onSelect, onClose }) {
@@ -462,20 +598,64 @@ export default function FlightResults({
   // Panel chọn hạng vé
   const [classFlight, setClassFlight] = useState(null);
   
+  // Check user status
+  const [userStatus, setUserStatus] = useState(null);
+  const [statusError, setStatusError] = useState("");
 
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const isCheckin      = mode === "checkin";
   const pax            = parseInt(searchData.passengers) || 1;
 
+  // Fetch user status on mount
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      try {
+        const token = getToken();
+        if (!token || isTokenExpired()) return;
+        
+        const res = await fetch(`${API_BASE}/me`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data) {
+          setUserStatus(json.data.status);
+        }
+      } catch (err) {
+        console.error('Error fetching user status:', err);
+      }
+    };
+    
+    fetchUserStatus();
+  }, []);
+
   // Mở panel chọn hạng vé
   function openClassPanel(f, e) {
     e?.stopPropagation();
+    
+    // Check if user is locked
+    if (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') {
+      setStatusError('❌ Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.');
+      setTimeout(() => setStatusError(""), 4000);
+      return;
+    }
+    
     setClassFlight(f);
   }
 
   // Người dùng đã chọn hạng vé → build flight object → chuyển sang PassengerForm
   function handleSelectClass(f, seatClass) {
+    // Check if user is locked before proceeding
+    if (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') {
+      setStatusError('❌ Tài khoản của bạn đã bị khóa. Không thể đặt vé. Vui lòng liên hệ hỗ trợ.');
+      setTimeout(() => setStatusError(""), 5000);
+      return;
+    }
+    
     const price = f.prices?.[seatClass] ?? f.price ?? 0;
     const classCfg = SEAT_CLASSES[seatClass];
 
@@ -546,9 +726,9 @@ export default function FlightResults({
     passengers: urlPax    || searchData.passengers || "1",
   };
 
-  const rawList  = isCheckin
+  const rawList = isCheckin
     ? (flights?.outbound || MOCK_BOOKED)
-    : (flights?.outbound || []);
+    : [];
   const dataList = isCheckin && searchData.bookingCode
     ? rawList.filter(f =>
         f.bookingCode?.toUpperCase().includes(searchData.bookingCode.toUpperCase()) &&
@@ -557,34 +737,24 @@ export default function FlightResults({
           : true)
       )
     : rawList;
-
-  const sorted = [...dataList].sort((a, b) => {
-    // Sort dùng giá Economy làm giá so sánh
-    const priceA = a.prices?.ECONOMY ?? a.price ?? 0;
-    const priceB = b.prices?.ECONOMY ?? b.price ?? 0;
-    return sort === "price"
-      ? priceA - priceB
-      : a.dep.localeCompare(b.dep);
-  });
-
-  const formattedFlights = sorted.map(f => ({
-    ...f,
-    airline:    f.airline    || "Vietnam Airlines",
-    flightNo:   f.flightNo   || f.flight_number,
-    dep:        f.dep        || f.dep_time,
-    arr:        f.arr        || f.arr_time,
-    depAirport: f.depAirport || f.origin_name || f.origin,
-    arrAirport: f.arrAirport || f.destination_name || f.destination,
-    depCode:    f.depCode    || f.origin,
-    arrCode:    f.arrCode    || f.destination,
-    duration:   f.duration   || "2g00p",
-    aircraft:   f.aircraft   || "Airbus A321",
-    // Đảm bảo prices map luôn có
-    prices: f.prices || {
-      ECONOMY:  f.price || 0,
-      BUSINESS: (f.price || 0) * 3,
-    },
-  }));
+  const primarySection = isCheckin
+    ? { status: "EMPTY", message: "", targetDate: "", days: dataList.length ? [{ date: "", label: "", isTarget: true, flights: dataList.map(normalizeFlightItem) }] : [], allFlights: [] }
+    : (flights?.outbound || { status: "EMPTY", message: "", targetDate: "", days: [], allFlights: [] });
+  
+  console.log('[DEBUG FlightResults] flights prop:', flights);
+  console.log('[DEBUG FlightResults] flights?.outbound:', flights?.outbound);
+  console.log('[DEBUG FlightResults] primarySection:', primarySection);
+  const visibleDays = sortSectionDays(primarySection, sort);
+  const visibleFlightCount = visibleDays.reduce((total, day) => total + day.flights.length, 0);
+  console.log('[DEBUG FlightResults] visibleDays.length:', visibleDays.length, 'visibleFlightCount:', visibleFlightCount);
+  const hasReturnRequest = !isCheckin && searchData.tripType === "round";
+  const secondarySection = !isCheckin ? (flights?.return || { status: "EMPTY", message: "", targetDate: "", days: [], allFlights: [] }) : null;
+  const showReturnNotice = hasReturnRequest && secondarySection && (
+    secondarySection.message ||
+    secondarySection.allFlights.length === 0 ||
+    secondarySection.status !== "FOUND_TARGET"
+  );
+  const returnNoticeTone = getAlertTone(secondarySection?.status);
 
   if (!isCheckin && flights == null) {
     return (
@@ -612,7 +782,7 @@ export default function FlightResults({
     );
   }
 
-  if (formattedFlights.length === 0) {
+  if (visibleFlightCount === 0) {
     return (
       <div className="fr-root">
         <div className="fr-container">
@@ -622,7 +792,7 @@ export default function FlightResults({
               Không tìm thấy chuyến bay
             </div>
             <div style={{ fontSize: 13, color: "#6b6560", marginBottom: 16 }}>
-              Vui lòng thử tìm kiếm với tiêu chí khác
+              {primarySection.message || "Vui lòng thử tìm kiếm với tiêu chí khác"}
             </div>
             <button className="fr-back-btn" onClick={onBack}>← Tìm lại</button>
           </div>
@@ -633,6 +803,26 @@ export default function FlightResults({
 
   return (
     <>
+      {/* Error Toast */}
+      {statusError && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '16px 24px',
+          borderRadius: 8,
+          border: '2px solid #ef4444',
+          fontWeight: 600,
+          zIndex: 9999,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {statusError}
+        </div>
+      )}
+
       {/* Seat Class Panel */}
       {classFlight && (
         <SeatClassPanel
@@ -680,8 +870,30 @@ export default function FlightResults({
           <div className="fr-count">
             {isCheckin
               ? `${dataList.length} vé đã đặt`
-              : `${formattedFlights.length} chuyến bay được tìm thấy`}
+              : `${visibleFlightCount} chuyến bay được tìm thấy`}
           </div>
+
+          {!isCheckin && primarySection.message && (
+            <div className={`fr-alert fr-alert--${getAlertTone(primarySection.status)}`}>
+              <div className="fr-alert__title">
+                {primarySection.status === "SUGGESTED"
+                  ? "Không có chuyến đúng ngày đã chọn"
+                  : primarySection.status === "FOUND_BUT_INSUFFICIENT_SEATS"
+                    ? "Ngày đã chọn chưa đủ ghế"
+                    : "Thông tin tìm kiếm"}
+              </div>
+              <div className="fr-alert__text">{primarySection.message}</div>
+            </div>
+          )}
+
+          {!isCheckin && showReturnNotice && (
+            <div className={`fr-alert fr-alert--${returnNoticeTone}`}>
+              <div className="fr-alert__title">Thông tin chuyến bay về</div>
+              <div className="fr-alert__text">
+                {secondarySection.message || "Hiện chưa có chuyến bay về phù hợp cho ngày bạn chọn."}
+              </div>
+            </div>
+          )}
 
           <div className="fr-sortbar">
             <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: "#6b6560", alignSelf: "center", marginRight: 4 }}>
@@ -701,109 +913,162 @@ export default function FlightResults({
             ))}
           </div>
 
-          {formattedFlights.map((f, i) => {
-            const isPending     = f.status === "pending";
-            const economyPrice  = f.prices.ECONOMY;
-            const businessPrice = f.prices.BUSINESS;
+          {visibleDays.map((day, dayIndex) => (
+            <div
+              key={day.date || `group-${dayIndex}`}
+              className={`fr-day-group${day.isTarget ? " fr-day-group--target" : ""}`}
+            >
+              {!isCheckin && (day.label || day.date) && (
+                <div className="fr-day-group__header">
+                  <div>
+                    {day.isTarget && console.log('✨ Recommended day found:', day.date, day.label)}
+                    <div className="fr-day-group__label">
+                      {day.label || day.date}
+                      {day.isTarget && (
+                        <>
+                          <span className="fr-day-group__badge">✨ Được đề xuất</span>
+                          <span className="fr-day-group__badge" style={{ marginLeft: 8, background: '#fbbf24', color: '#92400e' }}>Ngày bạn chọn</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="fr-day-group__meta">
+                      {day.flights.length} chuyến bay khả dụng
+                    </div>
+                  </div>
+                </div>
+              )}
 
-            return (
-              <div
-                key={f.id}
-                className="fr-card fr-card--clickable"
-                style={{ opacity: isPending ? 0.65 : 1 }}
-                // Click vào bất kỳ vùng nào của card → mở panel chọn hạng vé
-                onClick={!isCheckin ? () => openClassPanel(f) : undefined}
-              >
-                <div className="fr-card__index">{String(i + 1).padStart(2, "0")}</div>
+              {day.flights.map((f, flightIndex) => {
+                const isPending = f.status === "pending";
+                const economyPrice = f.prices.ECONOMY;
+                const businessPrice = f.prices.BUSINESS;
+                const cardIndex = visibleDays
+                  .slice(0, dayIndex)
+                  .reduce((total, currentDay) => total + currentDay.flights.length, 0) + flightIndex + 1;
 
-                <div className="fr-card__airline">
+                return (
                   <div
-                    className="fr-card__airline-logo"
-                    style={{ background: f.logoColor, color: f.logoText }}
+                    key={`${day.date || "flight"}-${f.id}-${flightIndex}`}
+                    className="fr-card fr-card--clickable"
+                    style={{
+                      opacity: isPending ? 0.65 : 1,
+                      pointerEvents: (userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') ? 'none' : 'auto',
+                      position: 'relative',
+                      borderTop: day.isTarget ? '3px solid #fbbf24' : 'none',
+                    }}
+                    onClick={!isCheckin && !(userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED') ? () => openClassPanel(f) : undefined}
                   >
-                    {f.code}
-                  </div>
-                  <div className="fr-card__airline-name">{f.airline}</div>
-                  <div className="fr-card__airline-no">{f.flightNo}</div>
-                </div>
+                    {day.isTarget && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 12,
+                        background: '#fbbf24',
+                        color: '#92400e',
+                        padding: '4px 10px',
+                        borderRadius: 16,
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}>
+                        ✨ ĐỀ XUẤT
+                      </div>
+                    )}
+                    <div className="fr-card__index">{String(cardIndex).padStart(2, "0")}</div>
 
-                <div className="fr-card__times">
-                  <div className="fr-card__time-row">
-                    <span className="fr-card__dep">{f.dep}</span>
-                    <span className="fr-card__arrow">——</span>
-                    <span className="fr-card__arr">{f.arr}</span>
-                  </div>
-                  <div className="fr-card__duration">
-                    {f.duration}
-                    {isCheckin && f.date && <> · <b>{f.date}</b></>}
-                  </div>
-                </div>
-
-                <div className="fr-card__stops">
-                  <div className="fr-card__stops-dot" />
-                  Bay thẳng
-                </div>
-
-                {/* Giá 2 hạng — chỉ hiện khi mua vé */}
-                {!isCheckin && (
-                  <div className="fr-card__prices">
-                    <div className="fr-card__price-item fr-card__price-item--eco">
-                      <span className="fr-card__price-class">💺 Phổ thông</span>
-                      <span className="fr-card__price-amt">{fmt(economyPrice * pax)}</span>
-                      <span className="fr-card__price-per">{fmt(economyPrice)}/người</span>
+                    <div className="fr-card__airline">
+                      <div
+                        className="fr-card__airline-logo"
+                        style={{ background: f.logoColor, color: f.logoText }}
+                      >
+                        {f.code}
+                      </div>
+                      <div className="fr-card__airline-name">{f.airline}</div>
+                      <div className="fr-card__airline-no">{f.flightNo}</div>
                     </div>
-                    <div className="fr-card__price-divider" />
-                    <div className="fr-card__price-item fr-card__price-item--biz">
-                      <span className="fr-card__price-class">👑 Thương gia</span>
-                      <span className="fr-card__price-amt">{fmt(businessPrice * pax)}</span>
-                      <span className="fr-card__price-per">{fmt(businessPrice)}/người</span>
+
+                    <div className="fr-card__times">
+                      <div className="fr-card__time-row">
+                        <span className="fr-card__dep">{f.dep}</span>
+                        <span className="fr-card__arrow">——</span>
+                        <span className="fr-card__arr">{f.arr}</span>
+                      </div>
+                      <div className="fr-card__duration">
+                        {f.duration}
+                        {isCheckin && f.date && <> · <b>{f.date}</b></>}
+                      </div>
+                    </div>
+
+                    <div className="fr-card__stops">
+                      <div className="fr-card__stops-dot" />
+                      Bay thẳng
+                    </div>
+
+                    {!isCheckin && (
+                      <div className="fr-card__prices">
+                        <div className="fr-card__price-item fr-card__price-item--eco">
+                          <span className="fr-card__price-class">💺 Phổ thông</span>
+                          <span className="fr-card__price-amt">{fmt(economyPrice * pax)}</span>
+                          <span className="fr-card__price-per">{fmt(economyPrice)}/người</span>
+                        </div>
+                        <div className="fr-card__price-divider" />
+                        <div className="fr-card__price-item fr-card__price-item--biz">
+                          <span className="fr-card__price-class">👑 Thương gia</span>
+                          <span className="fr-card__price-amt">{fmt(businessPrice * pax)}</span>
+                          <span className="fr-card__price-per">{fmt(businessPrice)}/người</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {isCheckin && (
+                      <div className="fr-card__price">
+                        <div className={`fr-checkin-status fr-checkin-status--${f.status}`}>
+                          {f.status === "confirmed" ? "✓ CONFIRMED" : "⚠ PENDING"}
+                        </div>
+                        <div className="fr-card__price-per">{f.passengers?.length} hành khách</div>
+                      </div>
+                    )}
+
+                    <div className="fr-card__action" onClick={e => e.stopPropagation()}>
+                      <button
+                        className="fr-btn-detail"
+                        onClick={e => { e.stopPropagation(); setDetailFlight(f); }}
+                      >
+                        Chi tiết
+                      </button>
+
+                      {!isCheckin ? (
+                        <button
+                          className="fr-btn-buy"
+                          type="button"
+                          disabled={userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED'}
+                          style={{
+                            opacity: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 0.5 : 1,
+                            cursor: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 'not-allowed' : 'pointer',
+                            background: userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? '#cbd5e1' : '',
+                          }}
+                          onClick={e => { e.stopPropagation(); openClassPanel(f); }}
+                          title={userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? 'Tài khoản đã bị khóa' : ''}
+                        >
+                          {userStatus === 'INACTIVE' || userStatus === 'LOCKED' || userStatus === 'DISABLED' ? '🔒 Bị khóa' : 'Chọn hạng ghế →'}
+                        </button>
+                      ) : isPending ? (
+                        <button className="fr-btn-buy fr-btn-disabled" disabled>
+                          Chưa xác nhận
+                        </button>
+                      ) : (
+                        <button
+                          className="fr-btn-buy fr-btn-checkin"
+                          onClick={e => { e.stopPropagation(); openClassPanel(f); }}
+                        >
+                          Check-in →
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {/* Trạng thái checkin */}
-                {isCheckin && (
-                  <div className="fr-card__price">
-                    <div className={`fr-checkin-status fr-checkin-status--${f.status}`}>
-                      {f.status === "confirmed" ? "✓ CONFIRMED" : "⚠ PENDING"}
-                    </div>
-                    <div className="fr-card__price-per">{f.passengers?.length} hành khách</div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="fr-card__action" onClick={e => e.stopPropagation()}>
-                  <button
-                    className="fr-btn-detail"
-                    onClick={e => { e.stopPropagation(); setDetailFlight(f); }}
-                  >
-                    Chi tiết
-                  </button>
-
-                  {!isCheckin ? (
-                    <button
-                      className="fr-btn-buy"
-                      type="button"
-                      onClick={e => { e.stopPropagation(); openClassPanel(f); }}
-                    >
-                      Chọn hạng ghế →
-                    </button>
-                  ) : isPending ? (
-                    <button className="fr-btn-buy fr-btn-disabled" disabled>
-                      Chưa xác nhận
-                    </button>
-                  ) : (
-                    <button
-                      className="fr-btn-buy fr-btn-checkin"
-                      onClick={e => { e.stopPropagation(); openClassPanel(f); }}
-                    >
-                      Check-in →
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
 
           <div className="fr-footer">
             <button className="fr-back-btn" onClick={onBack}>← Tìm lại</button>

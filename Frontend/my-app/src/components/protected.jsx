@@ -38,10 +38,9 @@ export default function ProtectedRoute({ children, requiredRole }) {
   }
 
   if (requiredRole === 'CUSTOMER') {
-    // Nếu là ADMIN → về trang admin
-    if (roles.includes('ADMIN')) return <Navigate to="/admin" replace />
-    // Nếu là STAFF → về trang staff
-    if (roles.includes('STAFF')) return <Navigate to="/staff/dashboard" replace />
+    if (roles.includes('ADMIN') || roles.includes('STAFF')) {
+      return <Navigate to="/unauthorized" replace />
+    }
   }
 
   return children

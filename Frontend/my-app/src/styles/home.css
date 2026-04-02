@@ -24,6 +24,7 @@
   padding:20px 20px 40px;
   background: transparent;
   transition:margin-left 0.3s ease;
+  min-width: 0;
 }
 
 .home-content{
@@ -36,4 +37,25 @@
 
 .sidebar--expanded ~ .home-main{
   margin-left:210px;
+}
+
+@media (max-width: 900px) {
+  .home-body{
+    min-height: calc(100vh - 58px);
+  }
+
+  .home-main{
+    margin-left: 0;
+    width: 100%;
+    padding: 16px 14px 28px;
+  }
+
+  .sidebar--expanded ~ .home-main{
+    margin-left: 0;
+  }
+
+  .home-content{
+    max-width: 100%;
+    padding-bottom: 28px;
+  }
 }

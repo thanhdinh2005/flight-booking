@@ -11,7 +11,7 @@ import '../styles/Searchform.css'
 function getToken() {
   const RAW = ['access_token', 'token', 'kc_token', 'auth_token']
   for (const k of RAW) {
-    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k)
+    const v = sessionStorage.getItem(k)
     if (v && v.startsWith('ey')) return v
   }
   return null
@@ -43,10 +43,33 @@ async function apiFetch(method, path, body = null) {
 
 // ─── API: tìm vé theo PNR + Email ─────────────────────────────────────────────
 async function searchTickets(pnr, email) {
-  const params = new URLSearchParams({ pnr: pnr.trim().toUpperCase(), email: email.trim().toLowerCase() })
-  const d = await apiFetch('GET', `/bookings/search-tickets?${params}`)
-  const list = Array.isArray(d) ? d : (d?.data ?? d?.tickets ?? d?.bookings ?? [])
+  const payload = {
+    pnr: pnr.trim().toUpperCase(),
+    email: email.trim().toLowerCase(),
+  }
+
+  const res = await apiFetch('POST', '/bookings/search-tickets', payload)
+
+  const list = Array.isArray(res?.data)
+    ? res.data
+    : Array.isArray(res)
+      ? res
+      : []
+
+  if (!list.length) {
+    throw new Error('Không tìm thấy vé nào với thông tin này.')
+  }
+
   return list.map(mapTicket)
+}
+
+function normalizeTicketStatus(status) {
+  const s = String(status ?? '').trim().toUpperCase()
+  if (s === 'ACTIVE') return 'confirmed'
+  if (s === 'PENDING') return 'pending'
+  if (s === 'CANCELLED') return 'cancelled'
+  if (s === 'USED') return 'used'
+  return String(status ?? 'confirmed').toLowerCase()
 }
 
 function mapTicket(b) {
@@ -64,10 +87,23 @@ function mapTicket(b) {
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
   }
 
-  const passengers = b.passengers ?? b.travellers ?? []
+  const passengers = Array.isArray(b.passengers)
+    ? b.passengers
+    : b.passenger
+      ? [b.passenger]
+      : Array.isArray(b.travellers)
+        ? b.travellers
+        : []
   const names = passengers.map(p =>
     (p.full_name ?? p.name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`).trim().toUpperCase()
   )
+
+  const flightNo =
+    fi.flight_schedule?.flight_number ??
+    fi.flightSchedule?.flight_number ??
+    fi.flight_number ??
+    b.flight_number ??
+    '—'
 
   const depTime       = fi.std ? new Date(fi.std) : null
   const hoursUntilDep = depTime
@@ -76,9 +112,9 @@ function mapTicket(b) {
 
   return {
     id:           String(b.id ?? ''),
-    bookingCode:  b.booking_code ?? b.pnr ?? b.code ?? `BK-${b.id}`,
-    airline:      route.airline  ?? fi.airline ?? 'VietJett',
-    flightNo:     fi.flight_number ?? b.flight_number ?? '—',
+    bookingCode:  b.booking_code ?? b.pnr ?? b.code ?? `BK-${b.booking_id ?? b.id}`,
+    airline:      route.airline ?? fi.airline ?? 'Vietnam Airlines',
+    flightNo,
     dep:          std ? std.toTimeString().slice(0,5) : (b.dep ?? ''),
     arr:          sta ? sta.toTimeString().slice(0,5) : (b.arr ?? ''),
     date:         fmtDate(depDate),
@@ -86,11 +122,11 @@ function mapTicket(b) {
     arrCode:      route.to   ?? route.destination?.code ?? b.arr_code ?? '',
     depAirport:   route.from_name ?? b.dep_airport ?? '',
     arrAirport:   route.to_name   ?? b.arr_airport ?? '',
-    price:        Number(b.total_price ?? b.amount ?? b.price ?? 0),
-    class:        b.cabin_class ?? b.class ?? 'Phổ thông',
+    price:        Number(b.ticket_price ?? b.total_price ?? b.amount ?? b.price ?? 0),
+    class:        b.seat_class ?? b.cabin_class ?? b.class ?? 'ECONOMY',
     logoColor:    '#1a3c6e',
     passengers:   names,
-    status:       (b.status ?? 'confirmed').toLowerCase(),
+    status:       normalizeTicketStatus(b.status),
     hoursUntilDep,
     raw:          b,
   }
@@ -247,15 +283,20 @@ function StepSearch({ initialPnr, initialEmail, onFound }) {
 }
 
 // ── Step 1 (cũ): Chọn vé ──────────────────────────────────────────────────────
-function StepSelectTicket({ tickets, onSelect }) {
+function StepSelectTicket({ tickets, onSelect, onBack }) {
   return (
     <div className="ct-step">
       <div className="ct-step__header">
         <div className="ct-step__num">02</div>
         <div>
           <div className="ct-step__title">Chọn vé cần hoàn</div>
-          <div className="ct-step__sub">Chọn chuyến bay bạn muốn hoàn</div>
+          <div className="ct-step__sub">Đã tìm thấy {tickets.length} vé đủ điều kiện hoàn, vui lòng chọn 1 vé</div>
         </div>
+      </div>
+
+      <div className="ct-search-hint" style={{ marginBottom: 16 }}>
+        <span>✅</span>
+        <span>Chỉ các vé còn hiệu lực và chưa khởi hành mới được hiển thị trong danh sách này.</span>
       </div>
 
       <div className="ct-tickets">
@@ -273,11 +314,21 @@ function StepSelectTicket({ tickets, onSelect }) {
               <div className="ct-ticket-card__meta">
                 {t.flightNo} · {t.date} · {t.dep}–{t.arr}
               </div>
-              <div className="ct-ticket-card__pax">{t.passengers.length} hành khách · {fmt(t.price)}</div>
+              <div className="ct-ticket-card__meta">
+                {(t.depCode || '---')} → {(t.arrCode || '---')} · {t.class}
+              </div>
+              <div className="ct-ticket-card__meta">
+                {t.passengers.length ? t.passengers.join(', ') : '1 hành khách'} 
+              </div>
+              <div className="ct-ticket-card__pax">Đủ điều kiện hoàn · {fmt(t.price)}</div>
             </div>
             <div className="ct-ticket-card__arrow-right">›</div>
           </div>
         ))}
+      </div>
+
+      <div className="ct-actions">
+        <button className="ct-btn ct-btn--ghost" onClick={onBack}>← Tìm lại</button>
       </div>
     </div>
   )
@@ -554,13 +605,8 @@ export default function CancelTicket() {
 
     setTickets(foundTickets)
     setSearchCtx({ pnr, email })
-    // Nếu chỉ 1 vé → thẳng bước nhập lý do
-    if (foundTickets.length === 1) {
-      setTicket(foundTickets[0])
-      setStep(2)
-    } else {
-      setStep(1)
-    }
+    setTicket(null)
+    setStep(1)
   }
 
   function handleSubmit(reason) {
@@ -591,6 +637,7 @@ export default function CancelTicket() {
       {step === 1 && (
         <StepSelectTicket
           tickets={tickets}
+          onBack={() => setStep(0)}
           onSelect={t => { setTicket(t); setStep(2) }}
         />
       )}

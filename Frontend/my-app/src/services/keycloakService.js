@@ -3,6 +3,14 @@ const REALM        = import.meta.env.VITE_KEYCLOAK_REALM || 'flight-booking-real
 const CLIENT_ID    = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'frontend-client'
 const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE || 'https://backend.test/api'
 
+const AUTH_STORAGE_KEYS = ['access_token', 'refresh_token', 'token_expiry']
+
+function clearLegacyLocalAuth() {
+  AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key))
+}
+
+clearLegacyLocalAuth()
+
 // ─── Token Storage ────────────────────────────────────────────────────────────
 export function saveToken(tokenData) {
   const expiry = tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : ''
@@ -12,30 +20,24 @@ export function saveToken(tokenData) {
   console.log('expires_in:', tokenData.expires_in || 'missing')
   console.log('access token preview:', tokenData.access_token ? `${tokenData.access_token.slice(0, 20)}...${tokenData.access_token.slice(-12)}` : 'missing')
   console.groupEnd()
-  ;[
-    sessionStorage,
-    localStorage,
-  ].forEach((storage) => {
-    storage.setItem('access_token', tokenData.access_token || '')
-    storage.setItem('refresh_token', tokenData.refresh_token || '')
-    if (expiry) {
-      storage.setItem('token_expiry', expiry)
-    } else {
-      storage.removeItem('token_expiry')
-    }
-  })
+  clearLegacyLocalAuth()
+  sessionStorage.setItem('access_token', tokenData.access_token || '')
+  sessionStorage.setItem('refresh_token', tokenData.refresh_token || '')
+  if (expiry) {
+    sessionStorage.setItem('token_expiry', expiry)
+  } else {
+    sessionStorage.removeItem('token_expiry')
+  }
 }
 
 export function getToken() {
   const sessionToken = sessionStorage.getItem('access_token')
-  const localToken = localStorage.getItem('access_token')
-  const token = sessionToken || localToken
   console.log('[Auth] getToken ->', {
-    source: sessionToken ? 'sessionStorage' : localToken ? 'localStorage' : 'none',
-    hasToken: !!token,
-    preview: token ? `${token.slice(0, 16)}...${token.slice(-10)}` : 'missing',
+    source: sessionToken ? 'sessionStorage' : 'none',
+    hasToken: !!sessionToken,
+    preview: sessionToken ? `${sessionToken.slice(0, 16)}...${sessionToken.slice(-10)}` : 'missing',
   })
-  return token
+  return sessionToken
 }
 
 export function getAccessToken() {
@@ -44,18 +46,14 @@ export function getAccessToken() {
 
 
 export function clearToken() {
-  ;[
-    sessionStorage,
-    localStorage,
-  ].forEach((storage) => {
-    storage.removeItem('access_token')
-    storage.removeItem('refresh_token')
-    storage.removeItem('token_expiry')
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key)
+    localStorage.removeItem(key)
   })
 }
 
 export function isTokenExpired() {
-  const expiry = sessionStorage.getItem('token_expiry') || localStorage.getItem('token_expiry')
+  const expiry = sessionStorage.getItem('token_expiry')
   if (!expiry) return false
   return Date.now() > parseInt(expiry, 10)
 }
@@ -125,6 +123,31 @@ export function redirectByRole(roles, navigate) {
   }
 }
 
+function normalizeAccountStatus(status) {
+  const normalized = String(status ?? '').trim().toUpperCase()
+  if (['INACTIVE', 'DISABLED', 'SUSPENDED', 'LOCKED', 'BLOCKED'].includes(normalized)) return 'INACTIVE'
+  return normalized || 'ACTIVE'
+}
+
+export async function getAccountStatusByEmail(email, accessToken) {
+  const listResponse = await getAllUsers(accessToken)
+  const list = Array.isArray(listResponse)
+    ? listResponse
+    : listResponse?.data ?? listResponse?.users ?? listResponse?.items ?? listResponse?.results ?? []
+
+  const matchedUser = Array.isArray(list)
+    ? list.find((item) => String(item?.email ?? '').toLowerCase() === String(email ?? '').trim().toLowerCase())
+    : null
+
+  if (!matchedUser?.id) {
+    throw new Error('Không tìm thấy thông tin tài khoản để kiểm tra trạng thái')
+  }
+
+  const detailResponse = await getUserById(matchedUser.id, accessToken)
+  const detail = detailResponse?.data ?? detailResponse
+  return normalizeAccountStatus(detail?.status)
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 export async function loginKeycloak(email, password) {
   console.groupCollapsed('[Auth] loginKeycloak request')
@@ -189,6 +212,22 @@ export async function registerUser(payload) {
   return data
 }
 
+export async function forgotPassword(email) {
+  const res = await fetch(`${BACKEND_URL}/forgot-password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Không gửi được yêu cầu quên mật khẩu')
+  }
+
+  return data
+}
+
 // ─── Logout ───────────────────────────────────────────────────────────────────
 export async function logoutKeycloak() {
   const refreshToken = sessionStorage.getItem('refresh_token')
@@ -213,8 +252,8 @@ export async function logoutKeycloak() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Helper function to get auth headers
-function getAuthHeaders() {
-  const token = getToken()
+function getAuthHeaders(accessToken) {
+  const token = accessToken || getToken()
   return {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -234,10 +273,10 @@ export async function searchUser(query) {
 }
 
 // ─── Get All Users (Admin) ────────────────────────────────────────────────────
-export async function getAllUsers() {
+export async function getAllUsers(accessToken) {
   const res = await fetch(`${BACKEND_URL}/admin/users`, {
     method: 'GET',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(accessToken),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message || 'Lấy danh sách user thất bại')
@@ -245,10 +284,10 @@ export async function getAllUsers() {
 }
 
 // ─── Get User by Id (Admin) ───────────────────────────────────────────────────
-export async function getUserById(userId) {
+export async function getUserById(userId, accessToken) {
   const res = await fetch(`${BACKEND_URL}/admin/users/${userId}`, {
     method: 'GET',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders(accessToken),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message || 'Lấy thông tin user thất bại')

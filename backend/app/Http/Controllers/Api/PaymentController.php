@@ -28,6 +28,7 @@ class PaymentController extends Controller
         $txnRefData = explode('_', $request->vnp_TxnRef);
         $bookingId = $txnRefData[0];
 
+<<<<<<< HEAD
         if ($request->vnp_ResponseCode == '00') {
             try {
                 // TRUYỀN ĐÚNG THỨ TỰ: 
@@ -47,6 +48,42 @@ class PaymentController extends Controller
             }
         }
         return ApiResponse::error("Giao dịch thất bại. Mã lỗi: " . $request->vnp_ResponseCode);
+=======
+            if ($request->vnp_ResponseCode == '00') {
+                try {
+                    $booking = $confirmPaymentUseCase->execute(
+                        (int) $bookingId, 
+                        'VNPAY', 
+                        $request->vnp_TransactionNo,
+                        (float) ($request->vnp_Amount / 100)
+                    );
+
+                    $booking->load([
+                        'tickets.passenger',
+                        'tickets.flight_instance.flightSchedule'
+                    ]);
+                    
+                    // Trả về View Thành Công kèm theo dữ liệu booking
+                    return view('payment.success', compact('booking'));
+                    
+                } catch (\Exception $e) {
+                    // Lỗi logic hệ thống (VD: Không tìm thấy booking, sai tiền...)
+                    return view('payment.error', [
+                        'message' => 'Lỗi xử lý hệ thống: ' . $e->getMessage()
+                    ]);
+                }
+            }
+            // Lỗi từ phía VNPAY (Khách hủy giao dịch, không đủ tiền...)
+            return view('payment.error', [
+                'message' => 'Giao dịch thất bại. Mã lỗi VNPAY: ' . $request->vnp_ResponseCode
+            ]);
+        }
+        
+        // Lỗi sai chữ ký (Cảnh báo gian lận)
+        return view('payment.error', [
+            'message' => 'Sai chữ ký bảo mật. Giao dịch bị từ chối!'
+        ]);
+>>>>>>> 03719d73814324916421bcafb250e351c1e9c262
     }
     return ApiResponse::error("Sai chữ ký bảo mật.");
 }

@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import BannerImg from '../assets/tet-banner.png';
 import DestinationImg from '../assets/destination.jpg';
 
+// ── Helper functions for input validation ──────────────────
+function removeAccents(text) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function lettersOnly(value) {
+  const noAccents = removeAccents(value)
+  return noAccents.replace(/[^a-zA-Z\s-]/g, '').toUpperCase()
+}
+
 const DiscoveryPage = () => {
+  const [bookingCode, setBookingCode] = useState('')
+  const [passengerName, setPassengerName] = useState('')
+
   return (
     <div style={styles.container}>
       {/* PHẦN BANNER VÀ FORM TÌM KIẾM */}
@@ -14,11 +27,28 @@ const DiscoveryPage = () => {
           <div style={styles.inputRow}>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Mã đặt chỗ</label>
-              <input type="text" placeholder="Nhập mã..." style={styles.input} />
+              <input 
+                type="text" 
+                placeholder="Nhập mã..." 
+                value={bookingCode}
+                onChange={e => setBookingCode(e.target.value.toUpperCase())}
+                style={styles.input} 
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Họ và tên hành khách</label>
-              <input type="text" placeholder="Nguyễn Văn A..." style={styles.input} />
+              <input 
+                type="text" 
+                placeholder="Nguyễn Văn A..." 
+                value={passengerName}
+                onChange={e => setPassengerName(lettersOnly(e.target.value))}
+                onKeyDown={e => {
+                  const allowKeys = ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' ']
+                  if (e.ctrlKey || e.metaKey || allowKeys.includes(e.key)) return
+                  if (!/^[a-zA-Z-\s]$/.test(e.key) && e.key.length === 1) e.preventDefault()
+                }}
+                style={styles.input} 
+              />
             </div>
             <button style={styles.searchBtn}>Tìm kiếm</button>
           </div>

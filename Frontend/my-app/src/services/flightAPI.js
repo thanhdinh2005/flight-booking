@@ -1,6 +1,60 @@
 // src/services/flightAPI.js
 const BASE_URL = 'https://backend.test/api';
 
+function parseDateTime(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (/^\d{2}:\d{2}$/.test(raw)) {
+    return new Date(`1970-01-01T${raw}:00`);
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatTimeValue(value) {
+  if (!value) return '--:--';
+  if (/^\d{2}:\d{2}$/.test(String(value).trim())) return String(value).trim();
+
+  const date = parseDateTime(value);
+  return date
+    ? date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : String(value);
+}
+
+function formatDateValue(value) {
+  const date = parseDateTime(value);
+  return date ? date.toLocaleDateString('vi-VN') : '';
+}
+
+function buildPrices(seats, fallbackPrice = 0) {
+  const prices = {};
+
+  if (Array.isArray(seats)) {
+    seats.forEach((seat) => {
+      if (seat?.class) {
+        prices[seat.class] = Number(seat.price ?? 0);
+      }
+    });
+  }
+
+  const basePrice = Number(
+    prices.ECONOMY
+    ?? prices.BUSINESS
+    ?? fallbackPrice
+    ?? 0
+  );
+
+  return {
+    ECONOMY: Number(prices.ECONOMY ?? basePrice),
+    BUSINESS: Number(prices.BUSINESS ?? (basePrice > 0 ? basePrice * 3 : 0)),
+  };
+}
+
 /**
  * Search flights API
  * @param {Object} params
@@ -100,11 +154,14 @@ export async function getAllAirports() {
  * @returns {Object} Formatted flight data
  */
 export function formatFlight(flight) {
-  const depDate = new Date(flight.std);
-  const arrDate = new Date(flight.sta);
-  
-  const dep_time = depDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  const arr_time = arrDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const depDate = parseDateTime(flight.std);
+  const arrDate = parseDateTime(flight.sta);
+  const dep_time = formatTimeValue(flight.std);
+  const arr_time = formatTimeValue(flight.sta);
+  const originCode = flight.origin?.code || flight.origin || '';
+  const destinationCode = flight.destination?.code || flight.destination || '';
+  const fallbackPrice = flight.price ?? flight.seats?.[0]?.price ?? generatePrice(originCode, destinationCode);
+  const prices = buildPrices(flight.seats, fallbackPrice);
 
   return {
     id:               flight.id,
@@ -112,26 +169,27 @@ export function formatFlight(flight) {
     flightNo:         flight.flight_number,           // alias cho FlightResults
     airline:          flight.airline?.name || 'Vietnam Airlines',
     code:             flight.airline?.iata || 'VN',
-    origin:           flight.origin.code,
-    origin_name:      flight.origin.name,
-    origin_city:      flight.origin.city,
-    destination:      flight.destination.code,
-    destination_name: flight.destination.name,
-    destination_city: flight.destination.city,
+    origin:           originCode,
+    origin_name:      flight.origin?.name || originCode,
+    origin_city:      flight.origin?.city || flight.origin?.name || originCode,
+    destination:      destinationCode,
+    destination_name: flight.destination?.name || destinationCode,
+    destination_city: flight.destination?.city || flight.destination?.name || destinationCode,
     // Cả 2 tên field để tương thích FlightResults (dep/arr) và PassengerForm (dep_time/arr_time)
     dep:              dep_time,
     arr:              arr_time,
     dep_time:         dep_time,
     arr_time:         arr_time,
-    dep_date:         depDate.toLocaleDateString('vi-VN'),
-    arr_date:         arrDate.toLocaleDateString('vi-VN'),
-    depCode:          flight.origin.code,
-    arrCode:          flight.destination.code,
-    depAirport:       flight.origin.name,
-    arrAirport:       flight.destination.name,
+    dep_date:         formatDateValue(flight.std) || flight.date || '',
+    arr_date:         formatDateValue(flight.sta) || flight.date || '',
+    depCode:          originCode,
+    arrCode:          destinationCode,
+    depAirport:       flight.origin?.name || originCode,
+    arrAirport:       flight.destination?.name || destinationCode,
     duration:         calculateDuration(depDate, arrDate),
-    price:            flight.price ?? generatePrice(flight.origin.code, flight.destination.code),
-    aircraft:         flight.aircraft?.model || 'Airbus A321',
+    price:            Number(prices.ECONOMY || fallbackPrice || 0),
+    prices,
+    aircraft:         flight.aircraft?.model || flight.aircraft || 'Airbus A321',
     class:            flight.seat_class || 'Phổ thông',
     status:           flight.status,
     registration:     flight.aircraft?.registration,
@@ -150,6 +208,10 @@ export function formatFlight(flight) {
  * Calculate flight duration
  */
 function calculateDuration(dep, arr) {
+  if (!(dep instanceof Date) || Number.isNaN(dep.getTime()) || !(arr instanceof Date) || Number.isNaN(arr.getTime())) {
+    return 'Chưa xác định';
+  }
+
   const diff = arr - dep;
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -251,4 +313,130 @@ export function sortFlights(flights, sortBy = 'price', order = 'asc') {
   });
   
   return sorted;
+}
+
+export function normalizeSearchSection(section) {
+  if (!section) {
+    return {
+      status: 'EMPTY',
+      message: '',
+      targetDate: '',
+      days: [],
+      allFlights: [],
+    };
+  }
+
+  // Handle already-normalized format (already processed by this function)
+  if (section.days && Array.isArray(section.days) && section.status && section.targetDate !== undefined) {
+    console.log('[normalizeSearchSection] Section already normalized, returning as-is');
+    return section;
+  }
+
+  // Handle old format (flat array of flights)
+  if (Array.isArray(section)) {
+    const flights = section.map(f => typeof f.dep === 'string' ? f : formatFlight(f));
+    return {
+      status: flights.length > 0 ? 'FOUND_TARGET' : 'EMPTY',
+      message: '',
+      targetDate: '',
+      days: flights.length > 0 ? [{ date: '', label: '', isTarget: true, flights }] : [],
+      allFlights: flights,
+    };
+  }
+
+  /**
+   * NEW FORMAT HANDLING (from updated API)
+   * 
+   * Input format:
+   * {
+   *   status: "FOUND_TARGET",
+   *   message: "Tìm thấy chuyến bay vào ngày bạn chọn.",
+   *   target_date: "2026-04-02",
+   *   data: [
+   *     {
+   *       date: "2026-04-02",
+   *       label: "02/04",
+   *       is_target: true,
+   *       flights: [
+   *         {
+   *           id: 20,
+   *           flight_number: "VNCQ6C",
+   *           std: "06:00",
+   *           sta: "07:20",
+   *           aircraft: "Boeing 787-9",
+   *           seats: [
+   *             { class: "BUSINESS", price: 800000, available: 28 },
+   *             { class: "ECONOMY", price: 800000, available: 247 }
+   *           ]
+   *         }
+   *       ]
+   *     },
+   *     // ... more dates
+   *   ]
+   * }
+   * 
+   * Output format suitable for display:
+   * {
+   *   status: "FOUND_TARGET",
+   *   message: "...",
+   *   targetDate: "2026-04-02",
+   *   days: [
+   *     {
+   *       date: "2026-04-02",
+   *       label: "02/04",
+   *       isTarget: true,         // Converted from is_target
+   *       flights: [
+   *         {
+   *           // All flight fields formatted and prices extracted
+   *           prices: {
+   *             ECONOMY: 800000,   // Extracted from seats array
+   *             BUSINESS: 800000   // Extracted from seats array
+   *           },
+   *           isTargetDate: true,
+   *           displayDateLabel: "02/04"
+   *         }
+   *       ]
+   *     }
+   *   ],
+   *   allFlights: [...]  // Flattened array of all flights across all dates
+   * }
+   */
+  const days = (section.data || []).map((day) => ({
+    date: day.date || '',
+    label: day.label || day.date || '',
+    isTarget: Boolean(day.is_target),
+    flights: (day.flights || []).map((flight) => {
+      const formatted = formatFlight(flight);
+      return {
+        ...formatted,
+        date: day.date || formatted.date || '',
+        displayDateLabel: day.label || '',
+        isTargetDate: Boolean(day.is_target),  // Mark as recommendation
+      };
+    }),
+  }));
+
+  return {
+    status: section.status || (days.length > 0 ? 'FOUND_TARGET' : 'EMPTY'),
+    message: section.message || '',
+    targetDate: section.target_date || '',
+    days,
+    allFlights: days.flatMap((day) => day.flights),
+  };
+}
+
+export function filterSearchSection(section, filters = {}, sortBy = 'price', order = 'asc') {
+  const normalized = normalizeSearchSection(section);
+  const days = normalized.days
+    .map((day) => ({
+      ...day,
+      flights: sortFlights(filterFlights(day.flights, filters), sortBy, order),
+    }))
+    .filter((day) => day.flights.length > 0);
+
+  return {
+    ...normalized,
+    days,
+    allFlights: days.flatMap((day) => day.flights),
+  };
 }

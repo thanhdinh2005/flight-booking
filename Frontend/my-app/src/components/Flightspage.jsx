@@ -4,28 +4,22 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import FlightResults from '../components/Flightresults';
-import { searchFlights, formatFlight, filterFlights } from '../services/flightAPI';
+import { searchFlights, filterSearchSection, normalizeSearchSection } from '../services/flightAPI';
 
 function mapFlightResult(result, maxPrice) {
-  let outbound = (result?.data?.outbound ?? []).flatMap(day =>
-    (day.flights ?? []).map(f => formatFlight(f))
-  );
-  let returnFlights = (result?.data?.return ?? []).flatMap(day =>
-    (day.flights ?? []).map(f => formatFlight(f))
-  );
+  const filters = maxPrice ? { maxPrice } : {};
 
-  if (maxPrice) {
-    outbound      = filterFlights(outbound,      { maxPrice });
-    returnFlights = filterFlights(returnFlights, { maxPrice });
-  }
-
-  return { outbound, return: returnFlights };
+  return {
+    outbound: filterSearchSection(normalizeSearchSection(result?.data?.outbound), filters),
+    return: filterSearchSection(normalizeSearchSection(result?.data?.return), filters),
+  };
 }
 
 export default function FlightsPage() {
   const [searchParams] = useSearchParams();
   const navigate        = useNavigate();
   const location        = useLocation();
+  const stateSearchData = location.state?.searchData ?? null;
 
   function goBackToSearch() {
     if (window.history.length > 1) {
@@ -35,14 +29,14 @@ export default function FlightsPage() {
     navigate('/home');
   }
 
-  const origin         = (searchParams.get('origin')         || '').toUpperCase();
-  const destination    = (searchParams.get('destination')    || '').toUpperCase();
-  const departure_date = searchParams.get('departure_date')  || '';
-  const return_date    = searchParams.get('return_date')     || '';
+  const origin         = ((stateSearchData?.origin ?? searchParams.get('origin')) || '').toUpperCase();
+  const destination    = ((stateSearchData?.destination ?? searchParams.get('destination')) || '').toUpperCase();
+  const departure_date = (stateSearchData?.departure_date ?? searchParams.get('departure_date')) || '';
+  const return_date    = (stateSearchData?.return_date ?? searchParams.get('return_date')) || '';
   const maxPrice       = searchParams.get('price') ? parseInt(searchParams.get('price')) : undefined;
-  const adults         = parseInt(searchParams.get('adults') || '1');
+  const adults         = parseInt((stateSearchData?.adults ?? searchParams.get('adults')) || '1');
   const currentQuery   = searchParams.toString();
-  const hasPrefetched  = location.state?.prefetchedResult && location.state?.prefetchedQuery === currentQuery;
+  const hasPrefetched  = !!location.state?.prefetchedResult;
   const initialFlights = hasPrefetched ? mapFlightResult(location.state.prefetchedResult, maxPrice) : null;
 
   const [flights,   setFlights]   = useState(initialFlights);
@@ -105,7 +99,7 @@ export default function FlightsPage() {
     }
   }
 
-  if (!searchParams.toString()) {
+  if (!stateSearchData && !searchParams.toString()) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',

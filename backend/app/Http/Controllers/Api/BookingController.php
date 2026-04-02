@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateBookingRequest;
 use App\Application\UseCases\CreateBookingUseCase;
 use App\Application\Command\Pricing\SyncAddonQuantityCommand;
+use App\Exceptions\BusinessException;
 use App\Http\Response\CreateBookingResponse;
 use Illuminate\Http\Request;
 use App\Http\Requests\AddonBookingRequest;
 use App\Http\Response\ApiResponse;
+use App\Models\Booking;
 
 class BookingController extends Controller
 {
@@ -81,5 +83,17 @@ class BookingController extends Controller
         'Cập nhật dịch vụ bổ sung thành công.',
         200
     );
+    }
+
+    public function getByPnr(Request $request) {
+        $pnr = $request->str('pnr', null);
+        if(!$pnr) throw new BusinessException("Vui lòng nhập PNR");
+
+        $data = Booking::where(['pnr' => $pnr])
+        ->first();
+
+        if (!$data) throw new BusinessException("Không tìm thấy hóa đơn");
+
+        return ApiResponse::success($data);
     }
 }

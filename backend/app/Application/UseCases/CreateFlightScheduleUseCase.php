@@ -4,6 +4,7 @@ namespace App\Application\UseCases;
 
 use App\Application\Command\AuditLog\CreateAuditLogCommand;
 use App\Application\Command\FlightSchedule\GenerateFlightInstancesCommand;
+use App\Enums\SystemStatus;
 use App\Exceptions\BusinessException;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Response\ScheduleResponse;
@@ -99,7 +100,7 @@ final class CreateFlightScheduleUseCase
 
         $aircraft = Aircraft::find($aircraftId);
         if (!$aircraft) throw new EntityNotFoundException("Không tìm thấy máy bay");
-        if ($aircraft->status !== "ACTIVE") throw new BusinessException("Máy bay đang bảo trì");
+        if ($aircraft->status !== SystemStatus::ACTIVE) throw new BusinessException("Máy bay đang bảo trì");
 
         $schedules = FlightSchedule::sameAircraftAndTime($aircraftId, $time)->get();
 

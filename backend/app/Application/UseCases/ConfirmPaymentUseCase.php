@@ -37,7 +37,7 @@ class ConfirmPaymentUseCase
             // 2. Cập nhật trạng thái Booking
             $booking->update([
                 'status'     => 'PAID',
-                'paid_at'    => now(),
+                //'paid_at'    => now(),
                 'expires_at' => null,
             ]);
 

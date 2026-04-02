@@ -7,6 +7,7 @@ use App\Application\UseCases\GetLoadFactorStatisticUseCase;
 use App\Application\UseCases\GetRevenueChartUseCase;
 use App\Http\Controllers\Controller;
 use App\Http\Response\ApiResponse;
+use App\Infracstructure\KeycloakService;
 use Exception;
 use Illuminate\Http\Request;
 
@@ -85,6 +86,27 @@ class AdminDashboardController extends Controller
 
         } catch (Exception $e) {
             throw $e;
+        }
+    }
+
+    public function forgotPassword(Request $request, KeycloakService $keycloak) {
+        $request->validate(['email' => 'required|email']);
+
+        try {
+        $keycloakId = $keycloak->getUserIdByEmail($request->email);
+
+        if ($keycloakId) {
+                $keycloak->sendResetPasswordEmail($keycloakId);
+            }
+
+            // Dù tìm thấy hay không cũng trả về thông báo chung để chống dò quét email
+            return response()->json([
+                'success' => true,
+                'message' => 'Nếu email hợp lệ, hệ thống đã gửi link khôi phục. Vui lòng kiểm tra hộp thư.'
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
         }
     }
 }

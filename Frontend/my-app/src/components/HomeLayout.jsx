@@ -15,6 +15,7 @@ export default function HomeLayout() {
 
   const [activeTab, setActiveTab] = useState("khampha");
   const [toast, setToast] = useState({ msg: "", show: false });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const notify = useCallback((msg) => {
     setToast({ msg, show: true });
@@ -29,10 +30,19 @@ export default function HomeLayout() {
 
   return (
     <div className="home-root">
-      <Topbar currentUser={currentUser} onLogout={handleLogout} />
+      <Topbar
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onMenuToggle={() => setSidebarOpen(prev => !prev)}
+      />
 
       <div className="home-body">
-        <Sidebar activeId={activeTab} onSelect={id => setActiveTab(id)} />
+        <Sidebar
+          activeId={activeTab}
+          onSelect={id => setActiveTab(id)}
+          mobileOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
 
         <main className="home-main">
           {/* Nội dung trang sẽ thay đổi ở đây */}

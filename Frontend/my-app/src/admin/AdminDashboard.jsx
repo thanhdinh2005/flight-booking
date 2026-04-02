@@ -47,7 +47,7 @@ const PAGE_META = {
   schedules: { eyebrow: 'Lịch vận hành', sub: 'Quản lý lịch bay theo từng chặng và giai đoạn khai thác' },
   bookings:  { eyebrow: 'Xử lý yêu cầu', sub: 'Duyệt và theo dõi các yêu cầu hoàn vé từ khách hàng' },
   tickets:   { eyebrow: 'Quản lý vé', sub: 'Tra cứu và xử lý các vé đã phát hành' },
-  stats:     { eyebrow: 'Báo cáo kinh doanh', sub: 'Tổng hợp doanh thu, tỷ lệ lấp đầy và biến động' },
+  stats:     { eyebrow: 'Báo cáo kinh doanh', sub: 'Tổng hợp tài chính, booking và so sánh hiệu quả tuyến bay' },
   logs:      { eyebrow: 'Nhật ký hệ thống', sub: 'Theo dõi truy vết thay đổi trong hệ thống' },
 }
 
@@ -66,15 +66,20 @@ export default function AdminDashboard() {
   const navigate        = useNavigate()
   const [tab, setTab]   = useState('dashboard')
   const [time, setTime] = useState(new Date().toLocaleTimeString('vi-VN'))
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date().toLocaleTimeString('vi-VN')), 1000)
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [tab])
+
   const logout = () => {
     clearToken()
-    navigate('/login', { replace: true })
+    navigate('/admin/login', { replace: true })
   }
 
   const ActiveSection = SECTIONS[tab] || SectionDashboard
@@ -83,13 +88,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="adm-root">
-      <aside className="adm-sidebar">
+      <aside className={`adm-sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="adm-logo">
           <div className="adm-logo-icon">✈</div>
           <div>
             <div className="adm-logo-name">VietJett</div>
             <div className="adm-logo-tag">Admin Dashboard</div>
           </div>
+          <button className="adm-mobile-close" onClick={() => setSidebarOpen(false)}>✕</button>
         </div>
 
         <nav className="adm-nav">
@@ -124,6 +130,9 @@ export default function AdminDashboard() {
 
       <main className="adm-main">
         <div className="adm-topbar">
+          <button className="adm-mobile-menu" onClick={() => setSidebarOpen(prev => !prev)}>
+            ☰
+          </button>
           <div className="adm-topbar-context">
             <div className="adm-topbar-eyebrow">{currentMeta.eyebrow}</div>
             <div className="adm-topbar-sub">{currentMeta.sub}</div>
@@ -135,6 +144,8 @@ export default function AdminDashboard() {
           <ActiveSection />
         </div>
       </main>
+
+      {sidebarOpen && <button className="adm-mobile-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu điều hướng" />}
     </div>
   )
 }

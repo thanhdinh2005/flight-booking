@@ -28,6 +28,8 @@
 .adm-root {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: clip;
   background:
     radial-gradient(circle at top right, rgba(103,183,255,.08), transparent 18%),
     radial-gradient(circle at top left, rgba(0,216,164,.06), transparent 20%),
@@ -45,6 +47,12 @@
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 100;
+}
+
+.adm-mobile-menu,
+.adm-mobile-close,
+.adm-mobile-backdrop {
+  display: none;
 }
 
 .adm-logo {
@@ -137,7 +145,13 @@
 .adm-logout:hover { border-color: var(--danger); color: var(--danger); }
 
 /* ───────────── MAIN ───────────── */
-.adm-main { margin-left: var(--fw); flex: 1; display: flex; flex-direction: column; }
+.adm-main {
+  margin-left: var(--fw);
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 .adm-topbar {
   min-height: var(--fh);
@@ -189,6 +203,8 @@
   padding: 26px;
   flex: 1;
   max-width: 1440px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ───────────── ANIMATIONS ───────────── */
@@ -226,6 +242,18 @@
 .adm-btn-danger  { background: transparent; color: var(--danger); border: 1px solid rgba(255,92,92,.3); }
 .adm-btn-danger:hover { background: rgba(255,92,92,.08); }
 .adm-btn-sm { padding: 5px 10px; font-size: 13px; border-radius: 6px; }
+.adm-btn:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+.adm-btn-ghost:disabled {
+  color: rgba(148, 163, 184, 0.55);
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.04);
+}
 
 /* ───────────── BADGE ───────────── */
 .adm-badge {
@@ -282,29 +310,182 @@
 /* ───────────── MODAL ───────────── */
 .adm-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
-  backdrop-filter: blur(4px);
-  z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(128,198,255,.18), transparent 24%),
+    rgba(4,10,18,.72);
+  backdrop-filter: blur(6px);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.adm-overlay-booking-action {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(118, 197, 255, .16), transparent 26%),
+    rgba(4, 10, 18, .72);
+  backdrop-filter: blur(5px);
 }
 .adm-modal {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 26px 30px;
-  width: 460px; max-width: 100%; max-height: 88vh; overflow-y: auto;
+  background:
+    linear-gradient(180deg, rgba(156, 211, 255, .08), rgba(255,255,255,.02) 22%, rgba(255,255,255,0)),
+    linear-gradient(180deg, rgba(16,22,34,.98), rgba(11,16,26,.98));
+  border: 1px solid rgba(120, 190, 255, .24);
+  border-radius: 18px;
+  width: min(460px, calc(100vw - 48px));
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
   position: relative;
+  margin: auto;
+  box-sizing: border-box;
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.42),
+    0 0 0 1px rgba(180,225,255,.04) inset,
+    0 0 26px rgba(88, 167, 255, .06);
 }
-.adm-modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 3px; }
-.adm-modal-sub   { font-size: 14px; color: var(--text-mid); margin-bottom: 22px; }
+.adm-modal-booking-action {
+  background:
+    linear-gradient(180deg, rgba(150, 203, 255, .08), rgba(255,255,255,.015) 22%, rgba(255,255,255,0)),
+    linear-gradient(180deg, rgba(15, 22, 34, .98), rgba(10, 16, 26, .98));
+  border: 1px solid rgba(120, 190, 255, .3);
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.44),
+    0 0 0 1px rgba(173, 220, 255, .05) inset,
+    0 0 28px rgba(88, 167, 255, .08);
+}
+.adm-modal-booking-action .adm-modal-head {
+  background: linear-gradient(180deg, rgba(103,183,255,.12), rgba(103,183,255,.03) 62%, transparent);
+  border-bottom-color: rgba(163, 213, 255, .1);
+}
+.adm-modal-booking-action .adm-modal-title {
+  color: #eef7ff;
+}
+.adm-modal-booking-action .adm-modal-sub {
+  color: #a8b8d6;
+}
+.adm-modal-booking-action .adm-modal-body {
+  color: #dfe9fb;
+}
+.adm-modal-booking-action .adm-modal-foot {
+  background: linear-gradient(180deg, transparent, rgba(103,183,255,.03));
+  border-top-color: rgba(163, 213, 255, .08);
+}
+.adm-modal-booking-action .adm-modal-x {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(173, 220, 255, .12);
+  color: #c2d3eb;
+}
+.adm-modal-head {
+  padding: 26px 30px 16px;
+  border-bottom: 1px solid rgba(173, 220, 255, .09);
+  background: linear-gradient(180deg, rgba(103,183,255,.11), rgba(103,183,255,.04) 62%, transparent);
+}
+.adm-modal-heading {
+  padding-right: 34px;
+}
+.adm-modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -.3px;
+  margin-bottom: 6px;
+  color: #edf6ff;
+}
+.adm-modal-sub {
+  font-size: 13px;
+  color: #a4b6d5;
+}
+.adm-modal-body {
+  padding: 18px 30px 0;
+  overflow-y: auto;
+  max-height: calc(100dvh - 220px);
+  color: #dfe9fb;
+}
 .adm-modal-x {
   position: absolute; top: 18px; right: 18px;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-mid); width: 28px; height: 28px;
-  border-radius: 6px; cursor: pointer; font-size: 15px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(173, 220, 255, .12);
+  color: #c2d3eb; width: 32px; height: 32px;
+  border-radius: 10px; cursor: pointer; font-size: 15px;
   display: flex; align-items: center; justify-content: center;
+  transition: all .16s ease;
 }
-.adm-modal-x:hover { border-color: var(--danger); color: var(--danger); }
-.adm-modal-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 22px; }
+.adm-modal-x:hover {
+  border-color: rgba(255,92,92,.4);
+  color: var(--danger);
+  background: rgba(255,92,92,.08);
+}
+.adm-modal-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 18px 30px 24px;
+  margin-top: 18px;
+  border-top: 1px solid rgba(173, 220, 255, .08);
+  background: linear-gradient(180deg, transparent, rgba(103,183,255,.03));
+}
+
+.adm-modal-foot .adm-btn-ghost {
+  color: #ff8a8a;
+  border-color: rgba(255, 110, 110, .28);
+  background: rgba(255, 92, 92, .04);
+}
+
+.adm-modal-foot .adm-btn-ghost:hover {
+  color: #ffc1c1;
+  border-color: rgba(255, 110, 110, .5);
+  background: rgba(255, 92, 92, .12);
+}
+
+.adm-modal-foot .adm-btn-ghost:disabled {
+  color: rgba(255, 138, 138, .5);
+  border-color: rgba(255, 110, 110, .14);
+  background: rgba(255, 92, 92, .03);
+}
+
+.adm-modal .adm-label {
+  color: #7485a4;
+}
+
+.adm-modal .adm-input {
+  background: rgba(255,255,255,.045);
+  border-color: rgba(155, 208, 255, .16);
+  color: #eef6ff;
+}
+
+.adm-modal .adm-input::placeholder {
+  color: #5e708f;
+}
+
+.adm-modal .adm-input:focus {
+  border-color: rgba(112, 208, 255, .62);
+  box-shadow: 0 0 0 3px rgba(103,183,255,.08);
+}
+
+.adm-modal select.adm-input option {
+  background: #111a27;
+  color: #eef6ff;
+}
+
+@media (max-height: 760px) {
+  .adm-overlay {
+    align-items: flex-start;
+  }
+
+  .adm-modal {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .adm-modal-body {
+    max-height: calc(100dvh - 196px);
+  }
+}
 
 /* ───────────── FORM FIELD ───────────── */
 .adm-field { margin-bottom: 14px; }
@@ -321,6 +502,152 @@
 }
 .adm-input:focus { border-color: var(--accent); }
 .adm-input::placeholder { color: var(--text-dim); }
+
+@media (max-width: 1024px) {
+  .adm-root {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .adm-sidebar {
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    width: min(320px, calc(100vw - 32px));
+    box-shadow: 0 22px 60px rgba(0,0,0,.42);
+  }
+
+  .adm-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .adm-main {
+    margin-left: 0;
+    min-height: 100dvh;
+  }
+
+  .adm-topbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .adm-topbar-badge,
+  .adm-topbar-time {
+    order: 3;
+  }
+
+  .adm-content {
+    padding: 18px 16px 28px;
+  }
+
+  .adm-sec-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .adm-stat-grid,
+  .adm-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .adm-mobile-menu,
+  .adm-mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.04);
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .adm-mobile-menu {
+    font-size: 18px;
+  }
+
+  .adm-mobile-close {
+    margin-left: auto;
+    font-size: 16px;
+  }
+
+  .adm-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: rgba(3, 8, 15, .56);
+    backdrop-filter: blur(3px);
+    z-index: 90;
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-topbar {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .adm-topbar-context {
+    width: 100%;
+    order: 2;
+  }
+
+  .adm-topbar-badge,
+  .adm-topbar-time {
+    font-size: 11px;
+    padding: 7px 10px;
+  }
+
+  .adm-sec-title {
+    font-size: 18px;
+  }
+
+  .adm-sec-sub,
+  .adm-topbar-sub {
+    font-size: 12px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: initial;
+  }
+
+  .adm-toolbar {
+    padding: 12px;
+  }
+
+  .adm-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .adm-table th,
+  .adm-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .adm-modal {
+    width: min(460px, calc(100vw - 24px));
+  }
+
+  .adm-modal-head,
+  .adm-modal-body,
+  .adm-modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .adm-modal-foot {
+    flex-direction: column-reverse;
+  }
+
+  .adm-modal-foot .adm-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 
 /* ───────────── STAT CARDS ───────────── */
 .adm-stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 24px; }
