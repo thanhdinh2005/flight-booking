@@ -4,22 +4,15 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import FlightResults from '../components/Flightresults';
-import { searchFlights, formatFlight, filterFlights } from '../services/flightAPI';
+import { searchFlights, filterSearchSection, normalizeSearchSection } from '../services/flightAPI';
 
 function mapFlightResult(result, maxPrice) {
-  let outbound = (result?.data?.outbound ?? []).flatMap(day =>
-    (day.flights ?? []).map(f => formatFlight(f))
-  );
-  let returnFlights = (result?.data?.return ?? []).flatMap(day =>
-    (day.flights ?? []).map(f => formatFlight(f))
-  );
+  const filters = maxPrice ? { maxPrice } : {};
 
-  if (maxPrice) {
-    outbound      = filterFlights(outbound,      { maxPrice });
-    returnFlights = filterFlights(returnFlights, { maxPrice });
-  }
-
-  return { outbound, return: returnFlights };
+  return {
+    outbound: filterSearchSection(normalizeSearchSection(result?.data?.outbound), filters),
+    return: filterSearchSection(normalizeSearchSection(result?.data?.return), filters),
+  };
 }
 
 export default function FlightsPage() {

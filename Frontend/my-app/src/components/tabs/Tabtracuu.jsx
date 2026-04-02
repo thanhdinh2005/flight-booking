@@ -143,82 +143,86 @@ const css = `
     padding: 22px 22px 18px;
   }
 
-  .ttc-chip-row {
+  /* Flight Header */
+  .ttc-flight-header {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .ttc-chip {
-    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 11px;
-    border-radius: 999px;
-    background: var(--ttc-soft);
-    border: 1px solid var(--ttc-border);
-    color: var(--ttc-muted);
-    font-size: 12px;
-    font-weight: 700;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
   }
 
-  .ttc-chip--status {
+  .ttc-flight-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .ttc-flight-no-large {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ttc-ink);
+  }
+
+  .ttc-status-badge {
+    display: inline-flex;
+    padding: 6px 12px;
+    border-radius: 999px;
     background: rgba(42, 181, 181, 0.12);
     color: var(--ttc-teal-dark);
-    border-color: rgba(42, 181, 181, 0.18);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
   }
 
-  .ttc-timeline {
+  /* Time Display */
+  .ttc-time-display {
     display: grid;
-    grid-template-columns: minmax(110px, auto) minmax(140px, 1fr) minmax(110px, auto);
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 16px;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(42, 181, 181, 0.04), rgba(23, 143, 145, 0.02));
+    border: 1px solid rgba(42, 181, 181, 0.12);
+    border-radius: 14px;
+    margin-bottom: 14px;
   }
 
-  .ttc-stop {
+  .ttc-time-section {
     display: grid;
     gap: 6px;
+    text-align: center;
+    align-items: center;
   }
 
-  .ttc-stop--right {
-    text-align: right;
-  }
-
-  .ttc-time {
-    font-size: 32px;
+  .ttc-time-value {
+    font-size: 28px;
+    font-weight: 800;
     line-height: 1;
-    font-weight: 800;
     color: var(--ttc-ink);
   }
 
-  .ttc-code {
-    font-size: 15px;
-    font-weight: 800;
-    color: var(--ttc-teal-dark);
-  }
-
-  .ttc-airport {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ttc-ink);
-  }
-
-  .ttc-city {
+  .ttc-time-label {
     font-size: 12px;
-    color: var(--ttc-muted);
+    font-weight: 700;
+    color: var(--ttc-teal-dark);
+    text-transform: uppercase;
   }
 
-  .ttc-middle {
+  .ttc-time-middle {
     display: grid;
-    gap: 10px;
+    gap: 8px;
     justify-items: center;
   }
 
-  .ttc-duration {
-    font-size: 13px;
+  .ttc-duration-badge {
+    font-size: 12px;
     font-weight: 800;
-    color: var(--ttc-ink);
+    color: var(--ttc-muted);
+    background: rgba(42, 181, 181, 0.08);
+    padding: 4px 10px;
+    border-radius: 8px;
   }
 
   .ttc-line {
@@ -235,46 +239,46 @@ const css = `
     right: 8px;
     top: 50%;
     transform: translateY(-58%);
-    font-size: 14px;
+    font-size: 12px;
     color: var(--ttc-teal-dark);
   }
 
-  .ttc-direct {
-    font-size: 11px;
-    font-weight: 800;
-    color: var(--ttc-muted);
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-
-  .ttc-meta {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 18px;
-  }
-
-  .ttc-meta__item {
-    padding: 12px 14px;
-    border-radius: 16px;
-    background: var(--ttc-soft);
-    border: 1px solid var(--ttc-border);
-  }
-
-  .ttc-meta__label {
+  .ttc-direct-badge {
     font-size: 10px;
     font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
     color: var(--ttc-muted);
-    margin-bottom: 6px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
   }
 
-  .ttc-meta__value {
-    font-size: 13px;
+  /* Details Info */
+  .ttc-details-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .ttc-detail-item {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--ttc-soft);
+    border: 1px solid var(--ttc-border);
+    border-radius: 12px;
+  }
+
+  .ttc-detail-label {
+    font-size: 10px;
     font-weight: 700;
+    color: var(--ttc-muted);
+    line-height: 1.2;
+  }
+
+  .ttc-detail-value {
+    font-size: 13px;
+    font-weight: 800;
     color: var(--ttc-ink);
-    line-height: 1.35;
   }
 
   .ttc-card__side {
@@ -453,6 +457,59 @@ const css = `
     flex-wrap: wrap;
   }
 
+  /* Modal Pricing Styles */
+  .ttc-modal__pricing {
+    background: linear-gradient(135deg, rgba(42, 181, 181, 0.06), rgba(23, 143, 145, 0.03));
+    border: 1px solid rgba(42, 181, 181, 0.15);
+    border-radius: 14px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+
+  .ttc-modal__pricing-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ttc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .ttc-modal__pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .ttc-modal__price-item {
+    background: #ffffff;
+    border: 1px solid rgba(42, 181, 181, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .ttc-modal__price-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ttc-ink);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .ttc-modal__price-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ttc-teal-dark);
+    margin-bottom: 6px;
+  }
+
+  .ttc-modal__seats {
+    font-size: 11px;
+    color: var(--ttc-muted);
+    font-weight: 600;
+  }
+
   .ttc-search-box {
     position: relative;
   }
@@ -503,6 +560,86 @@ const css = `
     color: var(--ttc-muted);
   }
 
+  /* Pricing Section */
+  .ttc-pricing {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ttc-border);
+  }
+
+  .ttc-pricing__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ttc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .ttc-pricing__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .ttc-price-box {
+    background: #ffffff;
+    border: 1px solid var(--ttc-border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .ttc-price-class {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ttc-ink);
+    margin-bottom: 6px;
+  }
+
+  .ttc-price-amount {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ttc-teal-dark);
+    margin-bottom: 6px;
+  }
+
+  .ttc-seats-info {
+    font-size: 11px;
+    color: var(--ttc-muted);
+    font-weight: 600;
+  }
+
+  .ttc-side__price {
+    background: linear-gradient(135deg, rgba(42, 181, 181, 0.08), rgba(23, 143, 145, 0.04));
+    border: 1px solid rgba(42, 181, 181, 0.2);
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+
+  .ttc-side__price-label {
+    font-size: 11px;
+    color: var(--ttc-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .ttc-side__price-amt {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ttc-teal-dark);
+    line-height: 1.2;
+  }
+
+  .ttc-side__price-sub {
+    font-size: 11px;
+    color: var(--ttc-muted);
+    margin-top: 2px;
+    font-weight: 600;
+  }
+
   @media (max-width: 980px) {
     .ttc-card__main {
       grid-template-columns: 1fr;
@@ -513,28 +650,66 @@ const css = `
       border-top: 1px solid var(--ttc-border);
     }
 
-    .ttc-meta {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .ttc-details-info {
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 
   @media (max-width: 720px) {
-    .ttc-timeline,
-    .ttc-modal__timeline {
-      grid-template-columns: 1fr;
-      text-align: left;
+    .ttc-time-display {
+      grid-template-columns: minmax(60px, auto) 1fr minmax(60px, auto);
+      gap: 12px;
+      padding: 12px;
     }
 
-    .ttc-stop--right {
-      text-align: left;
+    .ttc-time-value {
+      font-size: 22px;
+    }
+
+    .ttc-time-label {
+      font-size: 11px;
+    }
+
+    .ttc-duration-badge,
+    .ttc-direct-badge {
+      font-size: 11px;
+    }
+
+    .ttc-flight-no-large {
+      font-size: 18px;
+    }
+
+    .ttc-details-info {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .ttc-detail-item {
+      padding: 8px 10px;
+    }
+
+    .ttc-detail-label {
+      font-size: 9px;
+    }
+
+    .ttc-detail-value {
+      font-size: 12px;
     }
 
     .ttc-summary__title {
       font-size: 24px;
     }
 
-    .ttc-meta,
+    .ttc-modal__timeline {
+      grid-template-columns: 1fr;
+      text-align: left;
+    }
+
     .ttc-modal__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ttc-pricing__grid {
       grid-template-columns: 1fr;
     }
   }
@@ -582,12 +757,34 @@ function formatDateLabel(iso) {
 
 function formatTime(value) {
   if (!value) return '--:--'
+  // Handle time string format "HH:MM"
+  if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
+    return value
+  }
+  // Handle ISO datetime format
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '--:--'
   return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDuration(std, sta) {
+  if (!std || !sta) return 'Chưa rõ'
+  
+  // Handle time string format "HH:MM"
+  if (typeof std === 'string' && typeof sta === 'string' && /^\d{2}:\d{2}$/.test(std) && /^\d{2}:\d{2}$/.test(sta)) {
+    const [stdH, stdM] = std.split(':').map(Number)
+    const [staH, staM] = sta.split(':').map(Number)
+    let diffMins = (staH * 60 + staM) - (stdH * 60 + stdM)
+    
+    // If negative, assume arrival is next day
+    if (diffMins < 0) diffMins += 24 * 60
+    
+    const hours = Math.floor(diffMins / 60)
+    const mins = diffMins % 60
+    return `${hours}h ${mins.toString().padStart(2, '0')}m`
+  }
+  
+  // Handle ISO datetime format
   const start = new Date(std)
   const end = new Date(sta)
   const diff = end - start
@@ -606,7 +803,23 @@ function pickNumeric(...values) {
 }
 
 function resolveFlightPrices(flight) {
-  const economy = pickNumeric(
+  // First, try to extract from seats array (new API format)
+  let economy = 0;
+  let business = 0;
+  
+  if (flight?.seats && Array.isArray(flight.seats)) {
+    flight.seats.forEach((seat) => {
+      if (seat.class === 'ECONOMY') {
+        economy = pickNumeric(economy, seat.price);
+      } else if (seat.class === 'BUSINESS') {
+        business = pickNumeric(business, seat.price);
+      }
+    });
+  }
+
+  // Fallback to other price fields if not found in seats
+  economy = pickNumeric(
+    economy > 0 ? economy : undefined,
     flight?.prices?.ECONOMY,
     flight?.prices?.economy,
     flight?.fare?.economy,
@@ -623,7 +836,8 @@ function resolveFlightPrices(flight) {
     flight?.raw?.price,
   )
 
-  const business = pickNumeric(
+  business = pickNumeric(
+    business > 0 ? business : undefined,
     flight?.prices?.BUSINESS,
     flight?.prices?.business,
     flight?.fare?.business,
@@ -639,8 +853,12 @@ function resolveFlightPrices(flight) {
   }
 }
 
-function mapSearchFlight(groupDate, flight) {
+function mapSearchFlight(groupDate, flight, originInfo = {}, destinationInfo = {}) {
   const prices = resolveFlightPrices(flight)
+  
+  // Use API data if available, otherwise use provided info from search params
+  const origin = flight.origin || originInfo
+  const destination = flight.destination || destinationInfo
 
   return {
     id: flight.id,
@@ -652,13 +870,13 @@ function mapSearchFlight(groupDate, flight) {
     duration: formatDuration(flight.std, flight.sta),
     flightNumber: flight.flight_number || `VN${String(flight.id).padStart(3, '0')}`,
     status: flight.status || 'SCHEDULED',
-    originCode: flight.origin?.code || '',
-    originName: flight.origin?.name || '',
-    originCity: flight.origin?.city || '',
-    destinationCode: flight.destination?.code || '',
-    destinationName: flight.destination?.name || '',
-    destinationCity: flight.destination?.city || '',
-    aircraftModel: flight.aircraft?.model || 'Chưa rõ',
+    originCode: origin?.code || '',
+    originName: origin?.name || '',
+    originCity: origin?.city || '',
+    destinationCode: destination?.code || '',
+    destinationName: destination?.name || '',
+    destinationCity: destination?.city || '',
+    aircraftModel: flight.aircraft || 'Chưa rõ',
     registration: flight.aircraft?.registration || '—',
     airline: 'Vietnam Airlines',
     code: 'VN',
@@ -678,6 +896,7 @@ function mapSearchFlight(groupDate, flight) {
     exchange: 'Áp dụng theo quy định',
     logoColor: '#0f6cbd',
     logoText: '#ffffff',
+    seats: flight.seats || [],  // Store seats info
     raw: flight,
   }
 }
@@ -691,7 +910,7 @@ async function fetchAllAirports() {
   return Array.isArray(data) ? data : (data.data ?? [])
 }
 
-async function searchFlightSchedule({ origin, destination, departureDate, adults = 1 }) {
+async function searchFlightSchedule({ origin, destination, departureDate, originLabel = '', destinationLabel = '', adults = 1 }) {
   const params = new URLSearchParams({
     origin,
     destination,
@@ -708,9 +927,25 @@ async function searchFlightSchedule({ origin, destination, departureDate, adults
     throw new Error(data?.message || `HTTP ${res.status}`)
   }
 
-  const outboundGroups = data?.data?.outbound ?? []
+  // Create origin and destination info from labels
+  const originInfo = {
+    code: origin,
+    name: originLabel.split('–')[0]?.trim() || '',
+    city: originLabel.includes('–') ? originLabel.split('–')[1]?.trim() || '' : '',
+  }
+  
+  const destinationInfo = {
+    code: destination,
+    name: destinationLabel.split('–')[0]?.trim() || '',
+    city: destinationLabel.includes('–') ? destinationLabel.split('–')[1]?.trim() || '' : '',
+  }
+
+  // Extract outbound data - handle both old format (array) and new format (object with data property)
+  const outboundSection = data?.data?.outbound ?? []
+  const outboundGroups = Array.isArray(outboundSection) ? outboundSection : (outboundSection?.data ?? [])
+  
   const flights = outboundGroups.flatMap((group) =>
-    (group?.flights ?? []).map((flight) => mapSearchFlight(group?.date, flight))
+    (group?.flights ?? []).map((flight) => mapSearchFlight(group?.date, flight, originInfo, destinationInfo))
   )
 
   return flights
@@ -759,7 +994,6 @@ function DetailModal({ flight, onClose }) {
               ['Số hiệu chuyến', flight.flightNumber],
               ['Tình trạng', flight.status],
               ['Máy bay', flight.aircraftModel],
-              ['Đăng ký tàu bay', flight.registration],
               ['Điểm đi', `${flight.originCity} (${flight.originCode})`],
               ['Điểm đến', `${flight.destinationCity} (${flight.destinationCode})`],
               ['Khởi hành / đến', `${flight.depTime} - ${flight.arrTime}`],
@@ -770,6 +1004,41 @@ function DetailModal({ flight, onClose }) {
               </div>
             ))}
           </div>
+
+          {/* Pricing & Seats */}
+          {(flight.prices?.ECONOMY || flight.prices?.BUSINESS || flight.seats?.length > 0) && (
+            <div className="ttc-modal__pricing">
+              <div className="ttc-modal__pricing-title">Giá vé & Số ghế</div>
+              <div className="ttc-modal__pricing-grid">
+                <div className="ttc-modal__price-item">
+                  <div className="ttc-modal__price-label">💺 Phổ thông (Economy)</div>
+                  <div className="ttc-modal__price-value">
+                    {flight.prices?.ECONOMY 
+                      ? `${(flight.prices.ECONOMY).toLocaleString('vi-VN')}₫` 
+                      : 'N/A'}
+                  </div>
+                  {flight.seats?.find(s => s.class === 'ECONOMY') && (
+                    <div className="ttc-modal__seats">
+                      Còn {flight.seats.find(s => s.class === 'ECONOMY')?.available || 0} ghế
+                    </div>
+                  )}
+                </div>
+                <div className="ttc-modal__price-item">
+                  <div className="ttc-modal__price-label">👑 Thương gia (Business)</div>
+                  <div className="ttc-modal__price-value">
+                    {flight.prices?.BUSINESS 
+                      ? `${(flight.prices.BUSINESS).toLocaleString('vi-VN')}₫` 
+                      : 'N/A'}
+                  </div>
+                  {flight.seats?.find(s => s.class === 'BUSINESS') && (
+                    <div className="ttc-modal__seats">
+                      Còn {flight.seats.find(s => s.class === 'BUSINESS')?.available || 0} ghế
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="ttc-modal__actions">
             <button type="button" className="ttc-btn ttc-btn--ghost" onClick={onClose}>Đóng</button>
@@ -889,6 +1158,8 @@ export default function TabTraCuu({ initialDestination }) {
         origin: extractCode(from),
         destination: extractCode(to),
         departureDate: date,
+        originLabel: from,
+        destinationLabel: to,
       })
 
       if (!flights.length) {
@@ -1001,9 +1272,7 @@ export default function TabTraCuu({ initialDestination }) {
             <div className="ttc-summary">
               <div>
                 <div className="ttc-summary__title">Tra cứu lịch bay</div>
-                <div className="ttc-summary__sub">
-                  Hiển thị các chuyến bay phù hợp theo dữ liệu API `outbound` cho ngày bạn chọn.
-                </div>
+               
               </div>
               <div className="ttc-route-badge">
                 <span>{extractCode(from)}</span>
@@ -1040,50 +1309,77 @@ export default function TabTraCuu({ initialDestination }) {
                 <article key={flight.id} className="ttc-card">
                   <div className="ttc-card__main">
                     <div className="ttc-card__flight">
-                      <div className="ttc-chip-row">
-                        <span className="ttc-chip ttc-chip--status">{flight.status}</span>
-                        <span className="ttc-chip">{flight.flightNumber}</span>
-                        <span className="ttc-chip">{flight.aircraftModel}</span>
+                      {/* Header: Flight Number and Status */}
+                      <div className="ttc-flight-header">
+                        <div className="ttc-flight-info">
+                          <span className="ttc-flight-no-large">{flight.flightNumber}</span>
+                          <span className="ttc-status-badge">{flight.status}</span>
+                        </div>
                       </div>
 
-                      <div className="ttc-timeline">
-                        <div className="ttc-stop">
-                          <div className="ttc-time">{flight.depTime}</div>
-                          <div className="ttc-code">{flight.originCode}</div>
-                          <div className="ttc-airport">{flight.originName}</div>
-                          <div className="ttc-city">{flight.originCity}</div>
+                      {/* Main Time Display */}
+                      <div className="ttc-time-display">
+                        <div className="ttc-time-section">
+                          <div className="ttc-time-value">{flight.depTime}</div>
+                          <div className="ttc-time-label">{flight.originCode}</div>
                         </div>
-
-                        <div className="ttc-middle">
-                          <div className="ttc-duration">{flight.duration}</div>
+                        <div className="ttc-time-middle">
+                          <div className="ttc-duration-badge">{flight.duration}</div>
                           <div className="ttc-line" />
-                          <div className="ttc-direct">Bay thẳng</div>
+                          <div className="ttc-direct-badge">Bay thẳng</div>
                         </div>
-
-                        <div className="ttc-stop ttc-stop--right">
-                          <div className="ttc-time">{flight.arrTime}</div>
-                          <div className="ttc-code">{flight.destinationCode}</div>
-                          <div className="ttc-airport">{flight.destinationName}</div>
-                          <div className="ttc-city">{flight.destinationCity}</div>
+                        <div className="ttc-time-section">
+                          <div className="ttc-time-value">{flight.arrTime}</div>
+                          <div className="ttc-time-label">{flight.destinationCode}</div>
                         </div>
                       </div>
 
-                      <div className="ttc-meta">
-                        <div className="ttc-meta__item">
-                          <div className="ttc-meta__label">Ngày bay</div>
-                          <div className="ttc-meta__value">{formatDateLabel(flight.date)}</div>
+                      {/* Details Info */}
+                      <div className="ttc-details-info">
+                        <div className="ttc-detail-item">
+                          <span className="ttc-detail-label">📅 Ngày:</span>
+                          <span className="ttc-detail-value">{formatDateLabel(flight.date)}</span>
                         </div>
-                        <div className="ttc-meta__item">
-                          <div className="ttc-meta__label">Tàu bay</div>
-                          <div className="ttc-meta__value">{flight.aircraftModel}</div>
+                        <div className="ttc-detail-item">
+                          <span className="ttc-detail-label">✈️ Tàu bay:</span>
+                          <span className="ttc-detail-value">{flight.aircraftModel}</span>
                         </div>
-                        <div className="ttc-meta__item">
-                          <div className="ttc-meta__label">Đăng ký</div>
-                          <div className="ttc-meta__value">{flight.registration}</div>
+                        <div className="ttc-detail-item">
+                          <span className="ttc-detail-label">⏱️ Thời gian bay:</span>
+                          <span className="ttc-detail-value">{flight.duration}</span>
                         </div>
-                        <div className="ttc-meta__item">
-                          <div className="ttc-meta__label">Trạng thái</div>
-                          <div className="ttc-meta__value">{flight.status}</div>
+                      </div>
+
+                      {/* Pricing & Seats Info */}
+                      <div className="ttc-pricing">
+                        <div className="ttc-pricing__title">Giá vé</div>
+                        <div className="ttc-pricing__grid">
+                          <div className="ttc-price-box">
+                            <div className="ttc-price-class">💺 Phổ thông</div>
+                            <div className="ttc-price-amount">
+                              {flight.prices?.ECONOMY 
+                                ? `${(flight.prices.ECONOMY / 1000000).toFixed(1)}M` 
+                                : 'N/A'}
+                            </div>
+                            {flight.seats?.find(s => s.class === 'ECONOMY') && (
+                              <div className="ttc-seats-info">
+                                Còn {flight.seats.find(s => s.class === 'ECONOMY')?.available || 0} ghế
+                              </div>
+                            )}
+                          </div>
+                          <div className="ttc-price-box">
+                            <div className="ttc-price-class">👑 Thương gia</div>
+                            <div className="ttc-price-amount">
+                              {flight.prices?.BUSINESS 
+                                ? `${(flight.prices.BUSINESS / 1000000).toFixed(1)}M` 
+                                : 'N/A'}
+                            </div>
+                            {flight.seats?.find(s => s.class === 'BUSINESS') && (
+                              <div className="ttc-seats-info">
+                                Còn {flight.seats.find(s => s.class === 'BUSINESS')?.available || 0} ghế
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1093,6 +1389,16 @@ export default function TabTraCuu({ initialDestination }) {
                         <div className="ttc-date">{formatDateLabel(flight.date)}</div>
                         <div className="ttc-date-sub">Tuyến {flight.originCity} → {flight.destinationCity}</div>
                         <div className="ttc-flight-no">{flight.flightNumber}</div>
+                      </div>
+
+                      <div className="ttc-side__price">
+                        <div className="ttc-side__price-label">Từ</div>
+                        <div className="ttc-side__price-amt">
+                          {flight.prices?.ECONOMY 
+                            ? `${(flight.prices.ECONOMY).toLocaleString('vi-VN')}₫` 
+                            : 'N/A'}
+                        </div>
+                        <div className="ttc-side__price-sub">/người</div>
                       </div>
 
                       <div className="ttc-cta">
