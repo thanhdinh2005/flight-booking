@@ -96,7 +96,6 @@ Route::middleware(['auth.keycloak', 'role:ADMIN'])
         Route::get('/flight-instances/{id}', [FlightInstanceController::class, 'getById']);
         Route::put('/flight-instances/{flightInstanceId}', [FlightInstanceController::class, 'updateFlight']);
 
-
         // User Management API
         Route::get('/users', [UserController::class, 'getAllUser']);
         Route::post('/users', [UserController::class, 'createUser']);

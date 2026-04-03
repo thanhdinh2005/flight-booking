@@ -8,4 +8,5 @@ enum FlightStatus: string {
     case LANDED    = 'LANDED';
     case DELAYED   = 'DELAYED';
     case CANCELLED = 'CANCELLED';
+    case BOARDING = 'BOARDING';
 }
