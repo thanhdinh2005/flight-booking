@@ -32,7 +32,7 @@ class GetDashboardSummaryUseCase
             ->count();
 
         $totalFlights = FlightInstance::whereBetween('std', [$start, $end])
-            ->where('status', 'ARRIVED')
+            ->where('status', 'DEPARTED')
             ->count();
 
         return [

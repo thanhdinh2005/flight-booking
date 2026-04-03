@@ -30,7 +30,6 @@ class ReportController extends Controller
     public function getRouteChartData(Request $request)
     {
         try {
-            // 1. Xác định thời gian
             $start = $request->input('start_date') 
                 ? Carbon::parse($request->input('start_date'))->startOfDay() 
                 : Carbon::now()->startOfMonth();
@@ -39,7 +38,6 @@ class ReportController extends Controller
                 ? Carbon::parse($request->input('end_date'))->endOfDay() 
                 : Carbon::now()->endOfDay();
 
-            // 2. Query lấy TẤT CẢ routes và đếm vé (Dùng LEFT JOIN)
             $routeStats = Route::join('airports as origin', 'routes.origin_airport_id', '=', 'origin.id')
                 ->join('airports as dest', 'routes.destination_airport_id', '=', 'dest.id')
                 
@@ -55,17 +53,13 @@ class ReportController extends Controller
                     $join->on('flight_instances.id', '=', 'tickets.flight_instance_id')
                          ->where('tickets.status', TicketStatus::ACTIVE);
                 })
-                
-                // Group by theo ID của tuyến bay
                 ->groupBy('routes.id', 'origin.code', 'dest.code')
-                
-                // Select Tên tuyến và Đếm số vé
+
                 ->selectRaw("CONCAT(origin.code, ' ➝ ', dest.code) as route_name")
                 ->selectRaw("COUNT(tickets.id) as total_tickets")
                 ->orderBy('route_name')
                 ->get();
 
-            // 3. Tách mảng Labels (Trục X) và Data (Trục Y) cho Frontend
             $labels = [];
             $dataValues = [];
 
@@ -74,7 +68,6 @@ class ReportController extends Controller
                 $dataValues[] = (int) $stat->total_tickets;
             }
 
-            // 4. Trả về cấu trúc JSON chuẩn cho Chart
             return ApiResponse::success([
                 'chart_type' => 'bar',
                 'chart_title' => 'So sánh doanh số vé giữa các tuyến bay',

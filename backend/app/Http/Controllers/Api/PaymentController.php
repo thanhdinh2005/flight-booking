@@ -28,12 +28,9 @@ class PaymentController extends Controller
         $txnRefData = explode('_', $request->vnp_TxnRef);
         $bookingId = $txnRefData[0];
 
-<<<<<<< HEAD
-        if ($request->vnp_ResponseCode == '00') {
-            try {
-                // TRUYỀN ĐÚNG THỨ TỰ: 
-                // 1. ID, 2. Method, 3. TxnRef, 4. Amount, 5. TransactionNo, 6. All Data
-                $booking = $confirmPaymentUseCase->execute(
+            if ($request->vnp_ResponseCode == '00') {
+                try {
+                     $booking = $confirmPaymentUseCase->execute(
                     (int) $bookingId, 
                     'VNPAY', 
                     $request->vnp_TxnRef,                 // gateway_reference
@@ -41,22 +38,6 @@ class PaymentController extends Controller
                     $request->vnp_TransactionNo,          // gateway_transaction_id
                     $request->all()                       // gateway_response (Dùng để lấy vnp_PayDate sau này)
                 );
-                
-                return ApiResponse::success($booking, "Thanh toán thành công.");
-            } catch (\Exception $e) {
-                return ApiResponse::error($e->getMessage(), 400);
-            }
-        }
-        return ApiResponse::error("Giao dịch thất bại. Mã lỗi: " . $request->vnp_ResponseCode);
-=======
-            if ($request->vnp_ResponseCode == '00') {
-                try {
-                    $booking = $confirmPaymentUseCase->execute(
-                        (int) $bookingId, 
-                        'VNPAY', 
-                        $request->vnp_TransactionNo,
-                        (float) ($request->vnp_Amount / 100)
-                    );
 
                     $booking->load([
                         'tickets.passenger',
@@ -83,10 +64,8 @@ class PaymentController extends Controller
         return view('payment.error', [
             'message' => 'Sai chữ ký bảo mật. Giao dịch bị từ chối!'
         ]);
->>>>>>> 03719d73814324916421bcafb250e351c1e9c262
     }
-    return ApiResponse::error("Sai chữ ký bảo mật.");
-}
+
 
     public function vnpayIpn(Request $request, ConfirmPaymentUseCase $confirmPaymentUseCase)
     {
