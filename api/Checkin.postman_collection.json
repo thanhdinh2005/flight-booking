@@ -1,0 +1,167 @@
+{
+  "info": {
+    "_postman_id": "58857c5a-2f53-4fc6-a65e-f3ed7daa7523",
+    "name": "Checkin",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Verify Identity",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"ticket_id\": 2,\r\n    \"first_name\": \"HOA\",\r\n    \"last_name\": \"LE THI\",\r\n    \"id_number\": \"001122334455\",\r\n    \"date_of_birth\": \"1990-01-01\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/verify",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "verify"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Submit Check-in",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"ticket_id\": 2,\r\n    \"checkin_token\": \"pvCUkEZyPkMMHA0JXyIXttyCyK4prOWAC8cv7LoM\",\r\n    \"seat_number\": \"5B\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/submit",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "submit"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getSeatMap",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\" : \"admin1@admin.com\",\r\n    \"password\" : \"1234567\",\r\n    \"first_name\" : \"Thanh\",\r\n    \"last_name\" : \"Dinh1\",\r\n    \"phone_number\" : \"0986745611\",\r\n    \"role\" : \"ADMIN\"\r\n}"
+        },
+        "url": {
+          "raw": "http://backend.test/api/seat-map?ticket_id=2&checkin_token=pvCUkEZyPkMMHA0JXyIXttyCyK4prOWAC8cv7LoM",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "seat-map"
+          ],
+          "query": [
+            {
+              "key": "ticket_id",
+              "value": "2"
+            },
+            {
+              "key": "checkin_token",
+              "value": "pvCUkEZyPkMMHA0JXyIXttyCyK4prOWAC8cv7LoM"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getBoardingPass",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/checkin/boarding-pass/2",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "checkin",
+            "boarding-pass",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

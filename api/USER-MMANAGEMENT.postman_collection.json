@@ -1,0 +1,370 @@
+{
+  "info": {
+    "_postman_id": "22b2b447-22dd-4c28-bf73-609f2834ec29",
+    "name": "USER-MMANAGEMENT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Reactivate schedule (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/schedules/1/reactivate",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "schedules",
+            "1",
+            "reactivate"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Phase-out Schedule (admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/schedules/1/phase-out",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "schedules",
+            "1",
+            "phase-out"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Search User (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/users/search?email=admin@gmail.com",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "full_name",
+              "value": "1",
+              "disabled": true
+            },
+            {
+              "key": "email",
+              "value": "admin@gmail.com"
+            },
+            {
+              "key": "phone_number",
+              "value": "09",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "role",
+              "value": "",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "",
+              "description": "next page thì truyền vào page=2",
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "per_page",
+              "value": "",
+              "description": "số phần tử mỗi page",
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get all user (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/admin/users",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "per_page",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get user by Id (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/users/1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create User (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\" : \"admin1@admin.com\",\r\n    \"password\" : \"1234567\",\r\n    \"first_name\" : \"Thanh\",\r\n    \"last_name\" : \"Dinh1\",\r\n    \"phone_number\" : \"0986745611\",\r\n    \"role\" : \"ADMIN\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://backend.test/api/admin/users",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Disable user (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/admin/users/1/disable",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "1",
+            "disable"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Active User (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/admin/users/1/active",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "1",
+            "active"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "change role",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"role\" : \"ADMIN\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://backend.test/api/admin/users/change-role/1",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "users",
+            "change-role",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

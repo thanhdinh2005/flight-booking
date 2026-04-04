@@ -1,0 +1,501 @@
+{
+  "info": {
+    "_postman_id": "720b19f1-4881-4bc5-9231-d05f97a12cfe",
+    "name": "AUTH",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Login Request (Customer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "",
+              "if (jsonData.access_token) {",
+              "    pm.environment.set(\"token\", jsonData.access_token);",
+              "    pm.test(\"Access token saved to environment\", function () {",
+              "        pm.expect(jsonData.access_token).to.be.a(\"string\").and.not.empty;",
+              "    });",
+              "} else {",
+              "    pm.test(\"Access token present in response\", function () {",
+              "        pm.expect(jsonData).to.have.property(\"access_token\");",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "frontend-client",
+              "equals": true,
+              "uuid": "bb65a31b-c792-4f2f-aca1-55eb3b66a735",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "username",
+              "value": "customer@gmail.com",
+              "equals": true,
+              "uuid": "23f56bf3-ecde-404e-a34f-6013b9282288",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "password",
+              "value": "1234567",
+              "equals": true,
+              "uuid": "ad28d883-85e3-4dcc-b322-18dc37ea7808",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "grant_type",
+              "value": "password",
+              "equals": true,
+              "uuid": "5432a017-6b96-427f-9a46-00a8f32992c1",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{api_url}}:{{keycloak_port}}/realms/flight-booking-realm/protocol/openid-connect/token",
+          "host": [
+            "{{api_url}}"
+          ],
+          "port": "{{keycloak_port}}",
+          "path": [
+            "realms",
+            "flight-booking-realm",
+            "protocol",
+            "openid-connect",
+            "token"
+          ],
+          "query": [
+            {
+              "key": "client_id",
+              "value": "frontend-client",
+              "disabled": true
+            },
+            {
+              "key": "client_secret",
+              "value": "N24lNUbJry59fpAFJ2Mhsyer7WQ3C3sE",
+              "disabled": true
+            },
+            {
+              "key": "username",
+              "value": "admin",
+              "disabled": true
+            },
+            {
+              "key": "password",
+              "value": "admin123",
+              "disabled": true
+            },
+            {
+              "key": "grant_type",
+              "value": "password",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login With admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const jsonData = pm.response.json();\r",
+              "\r",
+              "if (jsonData.access_token) {\r",
+              "    pm.environment.set(\"token\", jsonData.access_token);\r",
+              "    pm.test(\"Access token saved to environment\", function () {\r",
+              "        pm.expect(jsonData.access_token).to.be.a(\"string\").and.not.empty;\r",
+              "    });\r",
+              "} else {\r",
+              "    pm.test(\"Access token present in response\", function () {\r",
+              "        pm.expect(jsonData).to.have.property(\"access_token\");\r",
+              "    });\r",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "frontend-client",
+              "equals": true,
+              "uuid": "bb65a31b-c792-4f2f-aca1-55eb3b66a735",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "username",
+              "value": "admin@gmail.com",
+              "equals": true,
+              "uuid": "23f56bf3-ecde-404e-a34f-6013b9282288",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "password",
+              "value": "1234567",
+              "equals": true,
+              "uuid": "ad28d883-85e3-4dcc-b322-18dc37ea7808",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "grant_type",
+              "value": "password",
+              "equals": true,
+              "uuid": "5432a017-6b96-427f-9a46-00a8f32992c1",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{api_url}}:{{keycloak_port}}/realms/flight-booking-realm/protocol/openid-connect/token",
+          "host": [
+            "{{api_url}}"
+          ],
+          "port": "{{keycloak_port}}",
+          "path": [
+            "realms",
+            "flight-booking-realm",
+            "protocol",
+            "openid-connect",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Register with keycloak",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJhZEY2TkFhakxtc0g3MXJLRGRTR1cxckphTF9hTnFyeVZFZVJSOGpaLW9NIn0.eyJleHAiOjE3Njc2ODE1MDUsImlhdCI6MTc2NzY3OTcwNSwianRpIjoiNjVlNGUyNDItNmNhOS00ZjI1LWFlYjktMzg1MGEzMmRkOTkyIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9ib29raW5nLXJlYWxtIiwiYXVkIjpbInJlYWxtLW1hbmFnZW1lbnQiLCJhY2NvdW50Il0sInN1YiI6IjkzMmMwOGI1LTM0MWItNDczYy1iN2Y5LTM1YzM4ZmNiNjIzYyIsInR5cCI6IkJlYXJlciIsImF6cCI6ImJhY2tlbmQtY2xpZW50IiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyIvKiJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGVmYXVsdC1yb2xlcy1ib29raW5nLXJlYWxtIiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7InJlYWxtLW1hbmFnZW1lbnQiOnsicm9sZXMiOlsiY3JlYXRlLWNsaWVudCIsIm1hbmFnZS11c2VycyIsInZpZXctdXNlcnMiLCJxdWVyeS1ncm91cHMiLCJxdWVyeS11c2VycyJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJlbWFpbCBwcm9maWxlIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJjbGllbnRIb3N0IjoiMTcyLjIwLjAuMSIsInByZWZlcnJlZF91c2VybmFtZSI6InNlcnZpY2UtYWNjb3VudC1iYWNrZW5kLWNsaWVudCIsImNsaWVudEFkZHJlc3MiOiIxNzIuMjAuMC4xIiwiY2xpZW50X2lkIjoiYmFja2VuZC1jbGllbnQifQ.SXmhA7olOnEFEyG9uykdiyjpNDf8kqEkQJP_CA1RJT_pOw46XhwoORJoJoX88H25xiRhTellYjsPkGSgToyj_TawzJUIy_Xz1KGTCDD8Zy2aVRC0phoK7zvw2fJl9rDV5ImdmMKHETVPHVTp-Va_9nllZe73v2SeDSw706jw-sYbZTo4qd69MPgn8E7oUDkQ3XkH3mx-wwxrielnrfKd7GApl0gFnk-OzkvC-kGD2OGb6mH8KnciEquEeCPrCAt7Ni-nYxn1lX7ghY9y17l7_g9AM6fX8xGofwJw9nBn3KlqRH5JZopSa8p05OtR47B_OLyz2I0HZee6g0E2w5cQvQ",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"enabled\": true,\r\n  \"email\": \"passenger2@test.com\",\r\n  \"firstName\": \"Passenger\",\r\n  \"lastName\": \"Two\",\r\n  \"credentials\": [\r\n    {\r\n      \"type\": \"password\",\r\n      \"value\": \"123456\",\r\n      \"temporary\": false\r\n    }\r\n  ]\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{api_url}}:{{keycloak_port}}/admin/realms/booking-realm/users",
+          "host": [
+            "{{api_url}}"
+          ],
+          "port": "{{keycloak_port}}",
+          "path": [
+            "admin",
+            "realms",
+            "booking-realm",
+            "users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get access Token for BE",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "backend-client",
+              "type": "text",
+              "uuid": "bb65a31b-c792-4f2f-aca1-55eb3b66a735"
+            },
+            {
+              "key": "client_secret",
+              "value": "eprBPEKTn0mmXgiMvGRwZSEFsMMbON0B",
+              "type": "text",
+              "uuid": "23f56bf3-ecde-404e-a34f-6013b9282288"
+            },
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text",
+              "uuid": "5432a017-6b96-427f-9a46-00a8f32992c1"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{api_url}}:{{keycloak_port}}/realms/booking-realm/protocol/openid-connect/token",
+          "host": [
+            "{{api_url}}"
+          ],
+          "port": "{{keycloak_port}}",
+          "path": [
+            "realms",
+            "booking-realm",
+            "protocol",
+            "openid-connect",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "get profile",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/me",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "update profile",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"full_name\" : \" 1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/me",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "register",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\" : \"admin11@admin.com\",\r\n    \"password\" : \"1234567\",\r\n    \"first_name\" : \"Thanh\",\r\n    \"last_name\" : \"Dinh\",\r\n    \"phone_number\" : \"0986745611\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/register",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

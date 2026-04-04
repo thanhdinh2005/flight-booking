@@ -1,0 +1,187 @@
+{
+  "info": {
+    "_postman_id": "2d286d79-5b3a-463d-a21b-28c5d96ba61f",
+    "name": "booking",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Create Booking",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"contact_email\": \"nguyenvana@example.com\",\r\n    \"contact_phone\": \"0987654321\",\r\n    \"itinerary\": [\r\n        {\r\n            \"flight_instance_id\": 2, \r\n            \"description\": \"Chiều đi: Hà Nội - TP.HCM\",\r\n            \"seat_class\": \"ECONOMY\"\r\n        }\r\n    ],\r\n    \"passengers\": [\r\n        {\r\n            \"first_name\": \"Văn A\",\r\n            \"last_name\": \"Nguyễn\",\r\n            \"date_of_birth\": \"1995-05-20\",\r\n            \"id_number\": \"001122334453\",\r\n            \"gender\": \"MALE\"\r\n        },\r\n        {\r\n            \"first_name\": \"Thị B\",\r\n            \"last_name\": \"Trần\",\r\n            \"date_of_birth\": \"1998-10-15\",\r\n            \"id_number\": \"001122334451\",\r\n            \"gender\": \"FEMALE\"\r\n        }\r\n    ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/createBooking",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "createBooking"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "updateAddon",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"ticket_id\": 1,\r\n    \"addon_id\": 2,\r\n    \"quantity\": 10\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/updateAddon",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "updateAddon"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Payment (customer)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/payments/vnpay/3",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "payments",
+            "vnpay",
+            "3"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getAllAddon",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/getAddon",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "getAddon"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "get ticket",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/tickets?page=1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "tickets"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

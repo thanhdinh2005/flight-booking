@@ -1,0 +1,227 @@
+{
+  "info": {
+    "_postman_id": "cb93c9ea-fd2f-4a5f-9762-97d89948e4f3",
+    "name": "Admin",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Get All Booking Request",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"route_id\": 3,\r\n  \"flight_number\": \"VN26\",\r\n  \"departure_time\": \"20:00:00\",\r\n  \"days_of_week\": [\r\n    1\r\n  ],\r\n  \"aircraft_id\": 2\r\n}"
+        },
+        "url": {
+          "raw": "http://backend.test/api/admin/booking-requests",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "booking-requests"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Booking Request ID",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/booking-requests/1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "booking-requests",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reject Booking Request",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"staff_note\": \"Yêu cầu bị từ chối do vé thuộc hạng Promo không áp dụng chính sách hoàn trả theo quy định của hãng.\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/admin/booking-requests/2/reject",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "booking-requests",
+            "2",
+            "reject"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Approve Booking Request",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"final_amount\": 120000,\r\n    \"staff_note\": \"laiiiiii.\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/admin/booking-requests/1/approve",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "booking-requests",
+            "1",
+            "approve"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "get route by id",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/admin/routes/1",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "routes",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "get all route",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://backend.test/api/admin/routes",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "routes"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

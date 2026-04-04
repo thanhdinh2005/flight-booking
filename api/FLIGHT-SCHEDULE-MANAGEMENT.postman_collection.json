@@ -1,0 +1,309 @@
+{
+  "info": {
+    "_postman_id": "983dfcda-9522-4bcd-88ad-182e2c54d176",
+    "name": "FLIGHT-SCHEDULE-MANAGEMENT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Create Manual Flight(Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"route_id\" : 4,\r\n    \"aircraft_id\" : 1,\r\n    \"flight_number\" : \"VN100\",\r\n    \"departure_date\" : \"2026-04-29\",\r\n    \"departure_time\" : \"10:00\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://backend.test/api/admin/flight-instances",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "flight-instances"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "update flight instance (admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"new_departure_time\" : \"2026-03-13 14:00:00\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/admin/flight-instances/2",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "flight-instances",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Filter Flight (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/flight-instances/filter?status=SCHEDULED\n&from_date=2026-03-10\n&to_date=2026-03-20&page=2",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "flight-instances",
+            "filter"
+          ],
+          "query": [
+            {
+              "key": "route_id",
+              "value": "2\n",
+              "disabled": true
+            },
+            {
+              "key": "status",
+              "value": "SCHEDULED\n"
+            },
+            {
+              "key": "from_date",
+              "value": "2026-03-10\n"
+            },
+            {
+              "key": "to_date",
+              "value": "2026-03-20"
+            },
+            {
+              "key": "page",
+              "value": "2"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Flight by Id (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/flight-instances/1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "flight-instances",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Flight Schedule (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"route_id\": 3,\r\n  \"flight_number\": \"VN26\",\r\n  \"departure_time\": \"20:00:00\",\r\n  \"days_of_week\": [\r\n    1\r\n  ],\r\n  \"aircraft_id\": 2\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://backend.test/api/admin/schedules",
+          "protocol": "https",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "schedules"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Schedules (Admin)",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\" : \"admin1@admin.com\",\r\n    \"password\" : \"1234567\",\r\n    \"first_name\" : \"Thanh\",\r\n    \"last_name\" : \"Dinh1\",\r\n    \"phone_number\" : \"0986745611\",\r\n    \"role\" : \"ADMIN\"\r\n}"
+        },
+        "url": {
+          "raw": "http://backend.test/api/admin/schedules?page=1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "schedules"
+          ],
+          "query": [
+            {
+              "key": "per_page",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "page",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Flights (Admin)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/flight-instances?page=2",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "flight-instances"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "2"
+            },
+            {
+              "key": "per_page",
+              "value": null,
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

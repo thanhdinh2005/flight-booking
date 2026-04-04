@@ -1,0 +1,184 @@
+{
+  "info": {
+    "_postman_id": "e7641b96-514b-4fd3-aa47-afb2aac88dd1",
+    "name": "STATISTIC",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "Report Admin",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/reports/export-pdf?start_date=2026-03-01&end_date=2026-03-31",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "reports",
+            "export-pdf"
+          ],
+          "query": [
+            {
+              "key": "start_date",
+              "value": "2026-03-01"
+            },
+            {
+              "key": "end_date",
+              "value": "2026-03-31"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Top route",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/top-route",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "top-route"
+          ],
+          "query": [
+            {
+              "key": "start_date",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "end_date",
+              "value": "2025-04-20",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Revenue chart admin",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/revenue-chart",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "revenue-chart"
+          ],
+          "query": [
+            {
+              "key": "start_date",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "end_date",
+              "value": "",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Dashboard Admin",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/admin/dashboard/summary",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "dashboard",
+            "summary"
+          ],
+          "query": [
+            {
+              "key": "start_date",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            },
+            {
+              "key": "end_date",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

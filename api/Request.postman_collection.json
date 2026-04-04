@@ -1,0 +1,296 @@
+{
+  "info": {
+    "_postman_id": "67a96d0d-edd5-401d-9b15-0c1f1374d92d",
+    "name": "Request",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44395310"
+  },
+  "item": [
+    {
+      "name": "getAllTicketRequest(customer)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"pnr\": \"T1AQZR\",\r\n    \"email\": \"customer@gmail.com\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/bookings/search-tickets",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "bookings",
+            "search-tickets"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getRequestTicketId(customer)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://backend.test/api/refund/preview/1",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "refund",
+            "preview",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CancelRefund",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "client_id",
+              "value": "frontend-client",
+              "equals": true,
+              "uuid": "bb65a31b-c792-4f2f-aca1-55eb3b66a735",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "username",
+              "value": "customer@gmail.com",
+              "equals": true,
+              "uuid": "23f56bf3-ecde-404e-a34f-6013b9282288",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "password",
+              "value": "1234567",
+              "equals": true,
+              "uuid": "ad28d883-85e3-4dcc-b322-18dc37ea7808",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            },
+            {
+              "key": "grant_type",
+              "value": "password",
+              "equals": true,
+              "uuid": "5432a017-6b96-427f-9a46-00a8f32992c1",
+              "typeDefinition": {
+                "type": "",
+                "format": "",
+                "required": false,
+                "deprecated": false,
+                "default": "",
+                "enum": [],
+                "pattern": "",
+                "minLength": "",
+                "maxLength": "",
+                "minItems": "",
+                "maxItems": "",
+                "minimum": "",
+                "maximum": "",
+                "uniqueItems": false
+              }
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://backend.test/api/refund/cancel/",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "refund",
+            "cancel",
+            ""
+          ],
+          "query": [
+            {
+              "key": "client_id",
+              "value": "frontend-client",
+              "disabled": true
+            },
+            {
+              "key": "client_secret",
+              "value": "N24lNUbJry59fpAFJ2Mhsyer7WQ3C3sE",
+              "disabled": true
+            },
+            {
+              "key": "username",
+              "value": "admin",
+              "disabled": true
+            },
+            {
+              "key": "password",
+              "value": "admin123",
+              "disabled": true
+            },
+            {
+              "key": "grant_type",
+              "value": "password",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "confirmRequestRefund(customer)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"ticket_id\": 4,\n    \"reason\": \"Tôi bận việc đột xuất không thể tham gia chuyến bay.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://backend.test/api/refund/confirm",
+          "protocol": "http",
+          "host": [
+            "backend",
+            "test"
+          ],
+          "path": [
+            "api",
+            "refund",
+            "confirm"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}
